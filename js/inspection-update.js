@@ -57,6 +57,8 @@ function mergeCatalogFields(existing, incoming) {
  * - PW removed from the new list: remove it only when it is still pending/unreviewed.
  * - Reviewed PW removed from the new list: retain it conservatively so field evidence is never
  *   discarded by a spreadsheet refresh.
+ * - Keep the inspection updatedAt token unchanged. saveInspection owns the timestamp update and
+ *   uses the incoming token to detect concurrent writes safely.
  */
 export function buildInspectionListUpdate(existingInspection, incomingDocuments) {
   if (!existingInspection || !Array.isArray(existingInspection.documents)) {
@@ -112,10 +114,8 @@ export function buildInspectionListUpdate(existingInspection, incomingDocuments)
     }
   }
 
-  const now = new Date().toISOString();
   const inspection = {
     ...clone(existingInspection),
-    updatedAt: now,
     documents: nextDocuments
   };
 
