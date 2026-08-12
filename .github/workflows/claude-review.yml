@@ -39,6 +39,7 @@ jobs:
             "CLAUDE.md"
             "AI-DEVELOPMENT-RULES.md"
             "docs/engineering/AI-REVIEW-CHECKLIST.md"
+            "docs/engineering/BRANCH-POLICY.md"
           )
 
           for file in "${required_files[@]}"; do
@@ -71,6 +72,7 @@ jobs:
             - CLAUDE.md
             - AI-DEVELOPMENT-RULES.md
             - docs/engineering/AI-REVIEW-CHECKLIST.md
+            - docs/engineering/BRANCH-POLICY.md
 
             Inspect the complete PR diff and relevant surrounding code. Verify the claimed root cause rather than reviewing only the visible symptom. Search for the same defective pattern in analogous components and flows.
 
