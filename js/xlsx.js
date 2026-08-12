@@ -253,7 +253,8 @@ function copyRows(inspection, options = {}) {
 }
 
 function selectedMetrics(inspection, options = {}) {
-  const selected = (inspection.documents || []).filter(document => shouldExportDocument(document, options));
+  const selected = uniqueBy((inspection.documents || []), document => document.id || document.code)
+    .filter(document => shouldExportDocument(document, options));
   return metrics(selected);
 }
 
@@ -512,7 +513,7 @@ export async function exportInspection(inspection, options = {}) {
   const ExcelJS = ensureExcelJS();
   if (!inspection?.documents?.length) throw new Error('Não há documentos para exportar.');
   const opts = normalizeExportOptions(options);
-  const selectedDocuments = (inspection.documents || []).filter(document => shouldExportDocument(document, opts));
+  const selectedDocuments = uniqueBy((inspection.documents || []), document => document.id || document.code).filter(document => shouldExportDocument(document, opts));
   if (!selectedDocuments.length) throw new Error('Nenhum documento atende aos filtros selecionados para exportação.');
 
   const workbook = new ExcelJS.Workbook();
