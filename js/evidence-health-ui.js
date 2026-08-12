@@ -8,6 +8,7 @@ const MIN_FREE_STORAGE_BYTES = 32 * 1024 * 1024;
 let observer = null;
 let refreshTimer = null;
 let lastSummary = null;
+let cachedAvailableStorage = null;
 
 function injectStyles() {
   if (document.querySelector('#evidence-health-styles')) return;
@@ -29,6 +30,13 @@ function formatBytes(bytes) {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function refreshStorageEstimate() {
+  if (!navigator.storage?.estimate) return;
+  const estimate = await navigator.storage.estimate().catch(() => null);
+  if (!estimate || !Number.isFinite(estimate.quota) || !Number.isFinite(estimate.usage)) return;
+  cachedAvailableStorage = Math.max(0, estimate.quota - estimate.usage);
 }
 
 async function inspectCopy(copy) {
@@ -195,24 +203,22 @@ function enhanceSettings(summary, root = document) {
   });
 }
 
-async function guardLargeCameraInput(event) {
+function guardLargeCameraInput(event) {
   const input = event.target;
   if (!(input instanceof HTMLInputElement) || input.id !== 'camera-input' || input.type !== 'file') return;
   const file = input.files?.[0];
-  if (!file || file.size < LARGE_SOURCE_BYTES || !navigator.storage?.estimate) return;
-
-  const estimate = await navigator.storage.estimate().catch(() => null);
-  if (!estimate || !Number.isFinite(estimate.quota) || !Number.isFinite(estimate.usage)) return;
-  const available = Math.max(0, estimate.quota - estimate.usage);
-  if (available >= MIN_FREE_STORAGE_BYTES) return;
+  if (!file || file.size < LARGE_SOURCE_BYTES) return;
+  refreshStorageEstimate();
+  if (cachedAvailableStorage == null || cachedAvailableStorage >= MIN_FREE_STORAGE_BYTES) return;
 
   event.stopImmediatePropagation();
   input.value = '';
-  showToast(`Espaço local insuficiente para processar esta foto com segurança. Há cerca de ${formatBytes(available)} livres; libere espaço no aparelho e tente novamente.`, 'error');
+  showToast(`Espaço local insuficiente para processar esta foto com segurança. Há cerca de ${formatBytes(cachedAvailableStorage)} livres; libere espaço no aparelho e tente novamente.`, 'error');
 }
 
 async function refresh() {
   try {
+    await refreshStorageEstimate();
     const summary = await collectEvidenceHealth();
     lastSummary = summary;
     enhanceVisibleCopyCards(summary);
@@ -230,6 +236,7 @@ function scheduleRefresh(delay = 80) {
 
 function start() {
   injectStyles();
+  refreshStorageEstimate();
   scheduleRefresh(0);
   const app = document.querySelector('#app');
   if (app && !observer) {
