@@ -1,5 +1,5 @@
 /* DocInspector visual system v1.0 — migration foundation
-   Stage 1: tokens + base controls only. Page-specific redesign follows in later commits. */
+   Stage 1: tokens + base controls. Stage 2: shell + navigation. */
 
 :root {
   --color-navy-950: #061426;
@@ -24,7 +24,6 @@
   --color-warning-bg: #fff5e3;
   --color-info: #2467a8;
   --color-info-bg: #edf5fc;
-
   --text-xs: 12px;
   --text-sm: 14px;
   --text-md: 16px;
@@ -32,7 +31,6 @@
   --text-xl: 22px;
   --text-2xl: 28px;
   --text-metric: 36px;
-
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -41,12 +39,10 @@
   --space-8: 32px;
   --space-12: 48px;
   --space-16: 64px;
-
   --radius-sm-v2: 8px;
   --radius-control-v2: 12px;
   --radius-card-v2: 16px;
   --radius-modal-v2: 20px;
-
   --shadow-card-v2: 0 4px 16px rgba(6, 20, 38, .06);
   --shadow-overlay-v2: 0 20px 60px rgba(6, 20, 38, .18);
   --sidebar-v2: 272px;
@@ -58,10 +54,7 @@
   --motion-standard-v2: 190ms;
 }
 
-html {
-  background: var(--color-bg);
-}
-
+html { background: var(--color-bg); }
 body {
   color: var(--color-text);
   background: var(--color-bg);
@@ -69,21 +62,9 @@ body {
   font-size: var(--text-md);
   line-height: 1.5;
 }
+button, input, select, textarea { font: inherit; }
+.subtitle, .field-help { color: var(--color-text-secondary); }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
-
-.subtitle,
-.field-help {
-  color: var(--color-text-secondary);
-}
-
-/* Foundation components. These intentionally normalize existing variants
-   without changing page composition in this stage. */
 .btn {
   min-height: var(--control-height-v2);
   padding: 0 var(--space-4);
@@ -92,36 +73,17 @@ textarea {
   font-weight: 600;
   line-height: 1.2;
   box-shadow: none;
-  transition:
-    transform var(--motion-fast-v2) ease,
-    border-color var(--motion-fast-v2) ease,
-    background-color var(--motion-fast-v2) ease,
-    box-shadow var(--motion-fast-v2) ease;
+  transition: transform var(--motion-fast-v2) ease, border-color var(--motion-fast-v2) ease, background-color var(--motion-fast-v2) ease, box-shadow var(--motion-fast-v2) ease;
 }
-
 .btn-primary {
   border-color: var(--color-navy-900);
   color: #fff;
   background: var(--color-navy-900);
   box-shadow: 0 4px 12px rgba(7, 26, 49, .14);
 }
-
-.btn-danger {
-  border-color: #e7bcc0;
-  color: var(--color-danger);
-  background: var(--color-surface);
-}
-
-.icon-button,
-.quantity-btn {
-  min-width: var(--touch-target-v2);
-  min-height: var(--touch-target-v2);
-  border-radius: var(--radius-control-v2);
-}
-
-input,
-select,
-textarea {
+.btn-danger { border-color: #e7bcc0; color: var(--color-danger); background: var(--color-surface); }
+.icon-button, .quantity-btn { min-width: var(--touch-target-v2); min-height: var(--touch-target-v2); border-radius: var(--radius-control-v2); }
+input, select, textarea {
   min-height: var(--control-height-v2);
   padding: 11px var(--space-3);
   border-color: var(--color-border-strong);
@@ -130,71 +92,157 @@ textarea {
   background: var(--color-surface);
   font-size: var(--text-md);
 }
+input::placeholder, textarea::placeholder { color: var(--color-text-tertiary); }
+input:focus, select:focus, textarea:focus { border-color: var(--color-navy-700); box-shadow: 0 0 0 3px rgba(23, 69, 116, .12); }
+.card, .dashboard-block { border-color: var(--color-border); border-radius: var(--radius-card-v2); background: var(--color-surface); box-shadow: var(--shadow-card-v2); }
+.modal { border-radius: var(--radius-modal-v2); box-shadow: var(--shadow-overlay-v2); }
+:focus-visible { outline: 3px solid rgba(243, 184, 63, .46); outline-offset: 2px; }
 
-input::placeholder,
-textarea::placeholder {
-  color: var(--color-text-tertiary);
+/* Stage 2 — shell + navigation */
+.app-shell {
+  grid-template-columns: var(--sidebar-v2) minmax(0, 1fr);
+  background: var(--color-bg);
 }
-
-input:focus,
-select:focus,
-textarea:focus {
-  border-color: var(--color-navy-700);
-  box-shadow: 0 0 0 3px rgba(23, 69, 116, .12);
+.sidebar {
+  padding: calc(var(--space-6) + env(safe-area-inset-top)) var(--space-4) var(--space-4);
+  color: #fff;
+  background: linear-gradient(180deg, var(--color-navy-900), var(--color-navy-950));
+  border-right: 0;
+  box-shadow: none;
 }
-
-.card,
-.dashboard-block {
+.sidebar::after { display: none; }
+.brand {
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+  padding: 0 var(--space-2) var(--space-4);
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.brand-mark {
+  width: 44px;
+  height: 44px;
+  flex-basis: 44px;
+  border-radius: var(--radius-control-v2);
+  box-shadow: none;
+}
+.brand-copy { font-size: var(--text-lg); font-weight: 700; letter-spacing: -.02em; }
+.brand-copy small { margin-top: 2px; color: #98a9bc; font-size: 10px; font-weight: 600; letter-spacing: .10em; }
+.nav { gap: var(--space-1); }
+.nav button {
+  min-height: 48px;
+  gap: var(--space-3);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-control-v2);
+  color: #becbd9;
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.nav button::before { display: none; }
+.nav button.active, .nav button[aria-current="page"] {
+  color: #fff;
+  background: rgba(255,255,255,.10);
+  box-shadow: none;
+}
+.nav-icon { width: 28px; height: 28px; border-radius: var(--radius-sm-v2); color: #aab9ca; }
+.nav button.active .nav-icon { color: var(--color-gold-400); background: rgba(255,200,93,.08); }
+.sidebar-footer { gap: var(--space-3); padding-top: var(--space-6); }
+.current-inspection {
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border-color: rgba(255,255,255,.08);
+  border-radius: var(--radius-control-v2);
+  background: rgba(255,255,255,.04);
+}
+.current-inspection strong { font-size: var(--text-sm); font-weight: 600; }
+.current-inspection small, .sidebar-system { font-size: var(--text-xs); }
+.sidebar-kicker { color: var(--color-gold-400); font-size: 10px; font-weight: 700; letter-spacing: .08em; }
+.sidebar-system { padding-inline: var(--space-2); color: #9bacbf; }
+.main {
+  width: min(100%, var(--content-max-v2));
+  max-width: var(--content-max-v2);
+  margin-inline: auto;
+  padding: var(--space-8) var(--space-8) var(--space-12);
+}
+.topbar {
+  min-height: 56px;
+  margin-bottom: var(--space-6);
+  gap: var(--space-4);
+}
+.topbar h1 { font-size: var(--text-2xl); line-height: 36px; font-weight: 700; letter-spacing: -.03em; }
+.topbar .subtitle { margin-top: var(--space-1); font-size: var(--text-sm); line-height: 20px; }
+.topbar-actions { gap: var(--space-2); }
+.sync-badge {
+  min-height: 40px;
+  padding: 0 var(--space-3);
   border-color: var(--color-border);
-  border-radius: var(--radius-card-v2);
+  border-radius: 999px;
+  color: var(--color-text-secondary);
   background: var(--color-surface);
-  box-shadow: var(--shadow-card-v2);
+  box-shadow: none;
+  font-size: var(--text-xs);
+  font-weight: 600;
 }
 
-.modal {
-  border-radius: var(--radius-modal-v2);
-  box-shadow: var(--shadow-overlay-v2);
-}
-
-:focus-visible {
-  outline: 3px solid rgba(243, 184, 63, .46);
-  outline-offset: 2px;
+@media (max-width: 1023px) {
+  .app-shell { display: block; }
+  .sidebar { display: none; }
+  .main {
+    width: 100%;
+    max-width: none;
+    padding: calc(var(--space-6) + env(safe-area-inset-top)) var(--space-6) calc(88px + env(safe-area-inset-bottom));
+  }
+  .mobile-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    min-height: calc(64px + env(safe-area-inset-bottom));
+    padding: 6px max(8px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(8px, env(safe-area-inset-left));
+    border-top: 1px solid rgba(255,255,255,.08);
+    background: rgba(6,20,38,.98);
+    box-shadow: 0 -8px 24px rgba(6,20,38,.16);
+    backdrop-filter: blur(14px);
+  }
+  .mobile-nav button {
+    min-width: 0;
+    min-height: 58px;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 3px;
+    padding: 4px;
+    border-radius: var(--radius-control-v2);
+    color: #9fb0c2;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .mobile-nav button.active, .mobile-nav button[aria-current="page"] { color: #fff; background: rgba(255,255,255,.08); }
+  .mobile-nav button.active::before { display: none; }
+  .mobile-nav .icon { width: 21px; height: 21px; }
 }
 
 @media (max-width: 767px) {
-  .btn {
-    min-height: var(--control-height-v2);
-  }
-
-  .btn-primary {
-    min-height: var(--control-height-primary-mobile-v2);
-  }
-
-  input,
-  select,
-  textarea {
-    font-size: 16px;
-  }
+  .main { padding: calc(var(--space-4) + env(safe-area-inset-top)) max(var(--space-4), env(safe-area-inset-right)) calc(84px + env(safe-area-inset-bottom)) max(var(--space-4), env(safe-area-inset-left)); }
+  .topbar { min-height: 48px; margin-bottom: var(--space-4); align-items: flex-start; }
+  .topbar h1 { font-size: 24px; line-height: 30px; }
+  .topbar-actions { gap: var(--space-2); }
+  .sync-badge { min-height: 36px; max-width: 150px; }
+  .sync-badge [data-sync-label] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .btn { min-height: var(--control-height-v2); }
+  .btn-primary { min-height: var(--control-height-primary-mobile-v2); }
+  input, select, textarea { font-size: 16px; }
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .btn:hover:not(:disabled) {
-    transform: translateY(-1px);
-    border-color: var(--color-border-strong);
-    box-shadow: 0 4px 12px rgba(6, 20, 38, .08);
-  }
-
-  .btn-primary:hover:not(:disabled) {
-    border-color: var(--color-navy-800);
-    background: var(--color-navy-800);
-    box-shadow: 0 6px 16px rgba(7, 26, 49, .18);
-  }
+  .nav button:hover { color: #fff; background: rgba(255,255,255,.06); transform: none; }
+  .btn:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--color-border-strong); box-shadow: 0 4px 12px rgba(6,20,38,.08); }
+  .btn-primary:hover:not(:disabled) { border-color: var(--color-navy-800); background: var(--color-navy-800); box-shadow: 0 6px 16px rgba(7,26,49,.18); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation-duration: .001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: .001ms !important;
