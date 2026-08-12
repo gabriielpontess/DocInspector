@@ -1,4 +1,4 @@
-const VERSION = '0.9.11';
+const VERSION = '0.9.12';
 const CORE_CACHE = `docinspector-core-${VERSION}`;
 const RUNTIME_CACHE = `docinspector-runtime-${VERSION}`;
 const XLSX_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
@@ -34,7 +34,8 @@ const APP_SHELL = [
   './js/sync.js',
   './js/ui.js',
   './js/xlsx.js',
-  './js/vision.js'
+  './js/vision.js',
+  './js/word.js'
 ];
 
 async function cacheExternalAssets() {

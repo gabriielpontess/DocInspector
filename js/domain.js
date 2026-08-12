@@ -287,6 +287,21 @@ export function addFieldCopy(document, data = {}) {
   return copy;
 }
 
+export function updateFieldCopy(document, copyId, data = {}) {
+  if (!document || !copyId) throw new Error('Cópia não encontrada.');
+  const copy = (document.fieldCopies || []).find(item => item.id === copyId);
+  if (!copy) throw new Error('Cópia não encontrada.');
+
+  const revision = normalizeRevision(data.foundRevision ?? copy.foundRevision);
+  if (!revision) throw new Error('Informe a revisão encontrada.');
+  copy.foundRevision = revision;
+  if (Object.hasOwn(data, 'markings')) copy.markings = sanitizeMarkings(data.markings);
+  if (Object.hasOwn(data, 'comment')) copy.comment = normalize(data.comment);
+  copy.updatedAt = new Date().toISOString();
+  recalculateDocument(document);
+  return copy;
+}
+
 export function removeFieldCopy(document, copyId, { tombstone = true } = {}) {
   if (!document || !copyId) return false;
   const index = (document.fieldCopies || []).findIndex(copy => copy.id === copyId);
@@ -341,7 +356,7 @@ export function metrics(documents = []) {
   const conforming = documents.filter(document => document.result === RESULT.CONFORMING).length;
   const nonconforming = documents.filter(document => document.result === RESULT.NONCONFORMING).length;
   const notFound = documents.filter(document => document.result === RESULT.NOT_FOUND).length;
-  const verified = conforming + nonconforming;
-  const pending = Math.max(0, total - verified - notFound);
+  const verified = conforming + nonconforming + notFound;
+  const pending = Math.max(0, total - verified);
   return { total, verified, conforming, nonconforming, notFound, pending };
 }
