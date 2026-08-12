@@ -1,10 +1,28 @@
 import { getEvidence, listInspections } from './db.js';
-import { getSyncConfig, getSyncStatus, syncNow } from './sync.js';
+import { getSyncConfig, syncNow } from './sync.js';
+import { showToast } from './ui.js';
 
 const LARGE_EVIDENCE_BYTES = 4 * 1024 * 1024;
+const LARGE_SOURCE_BYTES = 8 * 1024 * 1024;
+const MIN_FREE_STORAGE_BYTES = 32 * 1024 * 1024;
 let observer = null;
 let refreshTimer = null;
 let lastSummary = null;
+
+function injectStyles() {
+  if (document.querySelector('#evidence-health-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'evidence-health-styles';
+  style.textContent = `
+    .evidence-health-row{display:flex;flex-direction:column;gap:3px;margin-top:10px;padding:9px 11px;border:1px solid var(--line,#d9e2ef);border-radius:10px;background:rgba(255,255,255,.72)}
+    .evidence-health-row strong{font-size:.78rem}.evidence-health-row small{font-size:.72rem;line-height:1.35;color:var(--muted,#66758a)}
+    .evidence-health-ok{border-left:3px solid #2fa866}.evidence-health-pending{border-left:3px solid #f39a2b}.evidence-health-error{border-left:3px solid #e44a3a}
+    .evidence-health-panel{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:14px;padding:14px;border:1px solid var(--line,#d9e2ef);border-radius:12px;background:rgba(255,255,255,.72)}
+    .evidence-health-panel>div{display:flex;flex-direction:column;gap:4px;min-width:0}.evidence-health-panel>div>strong{font-size:.92rem}.evidence-health-panel>div>small{color:var(--muted,#66758a);line-height:1.4}
+    .evidence-health-panel.success{border-left:4px solid #2fa866}.evidence-health-panel.warning{border-left:4px solid #f39a2b}.evidence-health-panel.error{border-left:4px solid #e44a3a}
+  `;
+  document.head.appendChild(style);
+}
 
 function formatBytes(bytes) {
   const value = Number(bytes) || 0;
@@ -177,6 +195,22 @@ function enhanceSettings(summary, root = document) {
   });
 }
 
+async function guardLargeCameraInput(event) {
+  const input = event.target;
+  if (!(input instanceof HTMLInputElement) || input.id !== 'camera-input' || input.type !== 'file') return;
+  const file = input.files?.[0];
+  if (!file || file.size < LARGE_SOURCE_BYTES || !navigator.storage?.estimate) return;
+
+  const estimate = await navigator.storage.estimate().catch(() => null);
+  if (!estimate || !Number.isFinite(estimate.quota) || !Number.isFinite(estimate.usage)) return;
+  const available = Math.max(0, estimate.quota - estimate.usage);
+  if (available >= MIN_FREE_STORAGE_BYTES) return;
+
+  event.stopImmediatePropagation();
+  input.value = '';
+  showToast(`Espaço local insuficiente para processar esta foto com segurança. Há cerca de ${formatBytes(available)} livres; libere espaço no aparelho e tente novamente.`, 'error');
+}
+
 async function refresh() {
   try {
     const summary = await collectEvidenceHealth();
@@ -195,6 +229,7 @@ function scheduleRefresh(delay = 80) {
 }
 
 function start() {
+  injectStyles();
   scheduleRefresh(0);
   const app = document.querySelector('#app');
   if (app && !observer) {
@@ -204,6 +239,7 @@ function start() {
     });
     observer.observe(app, { childList: true, subtree: true });
   }
+  document.addEventListener('change', guardLargeCameraInput, { capture: true });
   window.addEventListener('sky17:sync-status', () => scheduleRefresh(50));
   window.addEventListener('sky17:sync-complete', () => scheduleRefresh(50));
   window.addEventListener('online', () => scheduleRefresh(50));
