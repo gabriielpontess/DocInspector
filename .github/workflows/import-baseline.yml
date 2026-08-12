@@ -2,7 +2,7 @@ name: Reconstruct v0.9.11 baseline
 
 on:
   push:
-    branches: [import-v0.9.11]
+    branches: [baseline-test]
 
 permissions:
   contents: write
