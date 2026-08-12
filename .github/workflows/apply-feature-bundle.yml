@@ -1,0 +1,696 @@
+name: Apply document workflow feature bundle
+
+on:
+  push:
+    branches: [feature/export-verification-documents-ux]
+    paths: ['.github/workflows/apply-feature-bundle.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.head_commit.message == 'chore: run document workflow feature implementation'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: feature/export-verification-documents-ux
+          fetch-depth: 0
+      - name: Apply reviewed implementation
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          def read(path):
+              return Path(path).read_text(encoding='utf-8')
+
+          def write(path, text):
+              Path(path).write_text(text, encoding='utf-8')
+
+          def replace_once(text, old, new, label):
+              if old not in text:
+                  raise SystemExit(f'Missing expected block: {label}')
+              return text.replace(old, new, 1)
+
+          def regex_once(text, pattern, replacement, label):
+              new, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+              if count != 1:
+                  raise SystemExit(f'Expected one match for {label}, found {count}')
+              return new
+
+          # ---------------- domain ----------------
+          path = 'js/domain.js'
+          text = read(path)
+          marker = "export function removeFieldCopy(document, copyId, { tombstone = true } = {}) {"
+          update_fn = r'''export function updateFieldCopy(document, copyId, data = {}) {
+            if (!document || !copyId) throw new Error('Cópia não encontrada.');
+            const copy = (document.fieldCopies || []).find(item => item.id === copyId);
+            if (!copy) throw new Error('Cópia não encontrada.');
+
+            const revision = normalizeRevision(data.foundRevision ?? copy.foundRevision);
+            if (!revision) throw new Error('Informe a revisão encontrada.');
+            copy.foundRevision = revision;
+            if (Object.hasOwn(data, 'markings')) copy.markings = sanitizeMarkings(data.markings);
+            if (Object.hasOwn(data, 'comment')) copy.comment = normalize(data.comment);
+            copy.updatedAt = new Date().toISOString();
+            recalculateDocument(document);
+            return copy;
+          }
+
+          '''
+          if 'export function updateFieldCopy' not in text:
+              text = replace_once(text, marker, update_fn + marker, 'insert updateFieldCopy')
+          text = replace_once(
+              text,
+              "  const verified = conforming + nonconforming;\n  const pending = Math.max(0, total - verified - notFound);",
+              "  const verified = conforming + nonconforming + notFound;\n  const pending = Math.max(0, total - verified);",
+              'metrics verified semantics'
+          )
+          write(path, text)
+
+          # ---------------- xlsx export data ----------------
+          path = 'js/xlsx.js'
+          text = read(path)
+          insert_marker = "function documentRows(inspection, options = {}) {"
+          unique_fn = r'''function uniqueBy(items, keyFor) {
+            const seen = new Set();
+            return items.filter((item, index) => {
+              const key = String(keyFor(item, index) ?? '');
+              if (!key || seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+          }
+
+          '''
+          if 'function uniqueBy(items, keyFor)' not in text:
+              text = replace_once(text, insert_marker, unique_fn + insert_marker, 'insert export dedupe helper')
+          text = replace_once(
+              text,
+              "  return (inspection.documents || [])\n    .filter(document => shouldExportDocument(document, opts))",
+              "  return uniqueBy((inspection.documents || []), document => document.id || document.code)\n    .filter(document => shouldExportDocument(document, opts))",
+              'dedupe document export rows'
+          )
+          text = replace_once(
+              text,
+              "  return (inspection.documents || [])\n    .filter(document => shouldExportDocument(document, opts))\n    .flatMap(document => (document.fieldCopies || []).map(copy => {",
+              "  return uniqueBy((inspection.documents || []), document => document.id || document.code)\n    .filter(document => shouldExportDocument(document, opts))\n    .flatMap(document => uniqueBy((document.fieldCopies || []), copy => copy.id || `${document.id}:${copy.sequence}:${copy.foundRevision}:${copy.capturedAt || ''}`).map(copy => {",
+              'dedupe copy export rows'
+          )
+          text = text.replace("'v0.9.8'", "'v0.9.11'")
+          write(path, text)
+
+          # ---------------- pdf pagination ----------------
+          path = 'js/report.js'
+          text = read(path)
+          truncate_end = "  return `${result}…`;\n}\n"
+          bounded = r'''
+
+          function boundedLines(doc, value, width, maxLines = 5) {
+            const lines = doc.splitTextToSize(String(value ?? ''), width);
+            if (lines.length <= maxLines) return lines;
+            const visible = lines.slice(0, maxLines);
+            let last = String(visible[maxLines - 1] || '');
+            while (last.length > 1 && doc.getTextWidth(`${last}…`) > width) last = last.slice(0, -1);
+            visible[maxLines - 1] = `${last}…`;
+            return visible;
+          }
+          '''
+          if 'function boundedLines' not in text:
+              text = replace_once(text, truncate_end, truncate_end + bounded, 'bounded PDF table lines')
+          text = replace_once(
+              text,
+              "    const lineSets = values.map((value, i) => doc.splitTextToSize(value, widths[i] - 3));",
+              "    const lineSets = values.map((value, i) => boundedLines(doc, value, widths[i] - 3, columns[i].maxLines || 5));",
+              'bounded PDF row height'
+          )
+          text = text.replace("{ key: 'Descrição', label: 'Descrição', width: 0.30 }", "{ key: 'Descrição', label: 'Descrição', width: 0.30, maxLines: 3 }")
+          text = text.replace("{ key: 'Descrição', label: 'Descrição', width: 0.22 }", "{ key: 'Descrição', label: 'Descrição', width: 0.22, maxLines: 3 }")
+          text = text.replace("{ key: 'Marcações', label: 'Marcações', width: 0.105 }", "{ key: 'Marcações', label: 'Marcações', width: 0.105, maxLines: 2 }")
+          text = text.replace("{ key: 'Comentário', label: 'Comentário', width: 0.185 }", "{ key: 'Comentário', label: 'Comentário', width: 0.185, maxLines: 4 }")
+          text = text.replace("'Versão do relatório: v0.9.8'", "'Versão do relatório: v0.9.11'")
+          first_copy_page = """    doc.addPage('a4', 'portrait');\n    const columns = ["""
+          first_copy_repl = """    doc.addPage('a4', 'portrait');
+              drawBrand(doc, 12, 10);
+              setText(doc, COLORS.muted);
+              doc.setFont('helvetica', 'normal');
+              doc.setFontSize(7);
+              doc.text(`${inspection.system || ''} - ${inspection.name || inspection.project || ''}`, 198, 16, { align: 'right' });
+              const columns = ["""
+          text = replace_once(text, first_copy_page, first_copy_repl, 'first copies page header')
+          write(path, text)
+
+          # ---------------- editable Word exporter ----------------
+          word = r'''function safeName(value) {
+            return String(value || 'Inspecao').replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 90) || 'Inspecao';
+          }
+
+          function htmlEscape(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
+          }
+
+          function rowsHtml(rows, columns) {
+            return rows.map(row => `<tr>${columns.map(column => `<td>${htmlEscape(row[column] ?? '')}</td>`).join('')}</tr>`).join('');
+          }
+
+          function downloadWord(html, filename) {
+            const blob = new Blob(['\ufeff', html], { type: 'application/msword;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = filename;
+            anchor.rel = 'noopener';
+            anchor.style.display = 'none';
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+          }
+
+          export function exportInspectionWord(inspection, data) {
+            if (!inspection?.documents?.length) throw new Error('Não há documentos para exportar.');
+            if (!data?.documents?.length) throw new Error('Nenhum documento atende aos filtros selecionados para exportação.');
+            const generatedAt = new Date().toLocaleString('pt-BR');
+            const documentColumns = ['Código PW', 'Descrição', 'Revisão esperada', 'Revisão encontrada', 'Resultado', 'Status'];
+            const copyColumns = ['Código PW', 'Cópia', 'Revisão encontrada', 'Resultado da cópia', 'Marcações', 'Comentário']
+              .filter(column => (column !== 'Marcações' || data.options.includeMarkings) && (column !== 'Comentário' || data.options.includeComments));
+            const metrics = data.metrics || {};
+            const html = `<!doctype html>
+          <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" lang="pt-BR">
+          <head><meta charset="utf-8"><title>DocInspector</title><style>
+          @page { size: A4 portrait; margin: 1.5cm; } body { font-family: Arial, sans-serif; color:#15253D; font-size:10pt; }
+          h1 { color:#0B2D54; font-size:20pt; margin:0; } h2 { color:#0B2D54; margin:18pt 0 8pt; font-size:13pt; }
+          .muted { color:#66758A; } .meta { width:100%; border-collapse:collapse; margin:12pt 0; } .meta td { width:50%; padding:7pt; border:1px solid #D9E2EF; }
+          .kpis { width:100%; border-collapse:collapse; margin:12pt 0; } .kpis td { padding:7pt; border:1px solid #D9E2EF; text-align:center; }
+          table.data { width:100%; border-collapse:collapse; table-layout:fixed; } table.data th { background:#0B2D54; color:white; padding:6pt; border:1px solid #0B2D54; font-size:8pt; }
+          table.data td { padding:5pt; border:1px solid #D9E2EF; vertical-align:top; overflow-wrap:anywhere; } tr { page-break-inside:avoid; }
+          .footer { margin-top:16pt; border-top:1px solid #D9E2EF; padding-top:6pt; color:#66758A; font-size:8pt; }
+          </style></head><body>
+          <h1>DOCINSPECTOR</h1><div class="muted">Relatório de inspeção documental · ${htmlEscape(generatedAt)}</div>
+          <h2>${htmlEscape(String(inspection.system || 'Sistema não informado').toUpperCase())}</h2><div class="muted">${htmlEscape(inspection.name || inspection.project || 'Inspeção')}</div>
+          <table class="meta"><tr><td><b>Responsável</b><br>${htmlEscape(inspection.responsible || '-')}</td><td><b>Local</b><br>${htmlEscape(inspection.location || '-')}</td></tr><tr><td><b>Projeto</b><br>${htmlEscape(inspection.project || '-')}</td><td><b>Nome da lista</b><br>${htmlEscape(inspection.name || inspection.project || '-')}</td></tr></table>
+          ${data.options.includeSummary ? `<table class="kpis"><tr><td><b>Total</b><br>${metrics.total || 0}</td><td><b>Verificados</b><br>${metrics.verified || 0}</td><td><b>Conformes</b><br>${metrics.conforming || 0}</td><td><b>Não conformes</b><br>${metrics.nonconforming || 0}</td><td><b>Não encontrados</b><br>${metrics.notFound || 0}</td><td><b>Pendentes</b><br>${metrics.pending || 0}</td></tr></table>` : ''}
+          ${data.options.includeDocuments ? `<h2>Lista de documentos</h2><table class="data"><thead><tr>${documentColumns.map(column => `<th>${htmlEscape(column)}</th>`).join('')}</tr></thead><tbody>${rowsHtml(data.documents, documentColumns)}</tbody></table>` : ''}
+          ${data.options.includeCopies && data.copies.length ? `<h2>Cópias de campo</h2><table class="data"><thead><tr>${copyColumns.map(column => `<th>${htmlEscape(column)}</th>`).join('')}</tr></thead><tbody>${rowsHtml(data.copies, copyColumns)}</tbody></table>` : ''}
+          <div class="footer">Arquivo editável gerado pelo DocInspector. Revise o conteúdo antes de distribuir uma versão alterada.</div>
+          </body></html>`;
+            downloadWord(html, `DocInspector-${safeName(`${inspection.system || inspection.project}-${inspection.name || inspection.project}`)}.doc`);
+          }
+          '''
+          write('js/word.js', word)
+
+          # ---------------- app UI + behavior ----------------
+          path = 'js/app.js'
+          text = read(path)
+          text = replace_once(text, "  removeFieldCopy,\n  validateInspection", "  removeFieldCopy,\n  updateFieldCopy,\n  validateInspection", 'domain import updateFieldCopy')
+          text = replace_once(text, "import { exportInspectionPdf } from './report.js';", "import { exportInspectionPdf } from './report.js';\nimport { exportInspectionWord } from './word.js';", 'Word import')
+
+          inspect_fn = r'''function inspectView() {
+            const hasDocuments = allDocuments().length > 0;
+            return `
+              ${topbar('Verificação em campo', 'Localize e verifique documentos de qualquer inspeção ou sistema')}
+              ${hasDocuments ? `
+              <div class="verify-layout global-verify-layout">
+                <section class="card locate-card">
+                  <div class="section-title"><div><span class="section-kicker">BUSCA GLOBAL</span><h2>Localizar documento</h2></div></div>
+                  <p class="subtitle">Pesquise por Código PW ou por qualquer trecho da descrição. Projeto e sistema aparecem nas sugestões para evitar selecionar a lista errada.</p>
+                  <div class="search-box global-search-box">
+                    <input id="pw-search" value="${escapeHtml(state.pwSearchQuery)}" placeholder="Ex.: DE-17... ou trecho da descrição" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="search" aria-label="Pesquisar por Código PW ou descrição em todas as inspeções" aria-controls="pw-suggestions" aria-autocomplete="list">
+                    <button class="icon-button search-clear-button" id="clear-pw-search" type="button" aria-label="Limpar busca" title="Limpar busca">${icon('close')}</button>
+                    <button class="btn btn-gold" id="find-pw" type="button">${icon('search')}<span>Localizar</span></button>
+                  </div>
+                  <div id="pw-suggestions" class="search-suggestions" aria-live="polite">${searchSuggestionsHtml(state.pwSearchQuery)}</div>
+                  <div class="scan-actions">
+                    <input id="camera-input" type="file" accept="image/*" capture="environment" hidden>
+                    <button class="btn btn-camera" id="scan-document" type="button">${icon('camera')}<span>Registrar por foto</span></button>
+                    <span class="field-help">A câmera consulta todas as listas. Se o mesmo PW existir em mais de uma inspeção, o registro não é escolhido automaticamente.</span>
+                  </div>
+                </section>
+                <section class="card doc-detail">${documentDetailView()}</section>
+              </div>` : `
+                <div class="card empty"><div><h2>Nenhum documento disponível</h2><p>Crie uma inspeção e importe uma planilha para iniciar a verificação.</p><button class="btn btn-primary" data-nav="home" type="button">Ir para início</button></div></div>`}`;
+          }
+          '''
+          text = regex_once(text, r'function inspectView\(\) \{.*?\n\}\n\nfunction normalizeSearchText', inspect_fn + '\nfunction normalizeSearchText', 'inspectView')
+
+          copies_fn = r'''function copiesHistory(document) {
+            const copies = document.fieldCopies || [];
+            if (!copies.length) return '<div class="copies-empty">Nenhuma cópia confirmada em campo.</div>';
+
+            return `<div class="copies-list">${copies.map(copy => `
+              <article class="copy-card">
+                <div class="copy-card-head">
+                  <div><strong>Cópia ${copy.sequence}</strong><small>${formatDate(copy.capturedAt)} · ${copy.source === 'camera' ? 'Foto' : copy.source === 'legacy' ? 'Registro anterior' : 'Manual'}</small></div>
+                  <div class="copy-card-actions">
+                    <span class="revision-chip">Rev. ${escapeHtml(copy.foundRevision)}</span>
+                    <button class="icon-button" data-copy-edit="${escapeHtml(copy.id)}" type="button" aria-label="Editar cópia ${copy.sequence}" title="Editar cópia">${icon('edit')}</button>
+                    <button class="icon-button copy-delete" data-copy-delete="${escapeHtml(copy.id)}" type="button" aria-label="Excluir cópia ${copy.sequence}">${icon('trash')}</button>
+                  </div>
+                </div>
+                ${copy.markings?.length ? `<div class="marking-tags">${copy.markings.map(marking => `<span class="marking-tag">${escapeHtml(marking)}</span>`).join('')}</div>` : '<small class="muted-copy">Sem marcações registradas.</small>'}
+                ${copy.comment ? `<p class="copy-comment">${escapeHtml(copy.comment)}</p>` : ''}
+                ${(copy.evidenceId || copy.evidencePath) ? `<button class="evidence-link" data-view-copy="${escapeHtml(copy.id)}" type="button">${icon('image')} ${copy.evidencePath ? 'Ver foto sincronizada' : 'Ver foto deste aparelho'}</button>` : ''}
+                ${copy.evidencePath ? '<span class="evidence-sync-badge">Foto sincronizada</span>' : copy.evidenceId ? '<span class="evidence-sync-badge local">Foto aguardando sincronização</span>' : copy.evidenceUnavailableAt ? '<span class="evidence-sync-badge unavailable">Foto original indisponível</span>' : ''}
+              </article>`).join('')}</div>`;
+          }
+          '''
+          text = regex_once(text, r'function copiesHistory\(document\) \{.*?\n\}\n\nfunction documentDetailView', copies_fn + '\nfunction documentDetailView', 'copiesHistory')
+
+          detail_fn = r'''function documentDetailView() {
+            const context = selectedContext();
+            const document = context?.document;
+            const inspection = context?.inspection;
+            if (!document || !inspection) {
+              return `<div class="empty"><div><h3>Localize um documento</h3><p>Os dados da lista de origem, revisão e cópias encontradas aparecerão aqui.</p></div></div>`;
+            }
+
+            const resultClass = document.result.replaceAll(' ', '-');
+            const copyCount = document.fieldCopies?.length || 0;
+            const markings = documentMarkings(document);
+            const hasNext = (inspection.documents || []).length > 1;
+            return `
+              <div>
+                <div class="doc-heading">
+                  <div><span class="doc-kicker">${escapeHtml(inspection.system)} · ${escapeHtml(inspection.project)}</span><h2>${escapeHtml(document.code)}</h2></div>
+                  <div class="doc-heading-actions">
+                    <div class="pill ${resultClass}">${escapeHtml(document.result)}</div>
+                    <button class="icon-button next-document-button" id="next-document" type="button" ${hasNext ? '' : 'disabled'} aria-label="Próximo documento da lista" title="Próximo documento">${icon('chevron')}</button>
+                  </div>
+                </div>
+                <p class="doc-description">${escapeHtml(document.description)}</p>
+                <div class="document-origin-strip">
+                  <div><span>Projeto</span><strong>${escapeHtml(inspection.project)}</strong></div>
+                  <div><span>Sistema</span><strong>${escapeHtml(inspection.system)}</strong></div>
+                  <div><span>Responsável</span><strong>${escapeHtml(inspection.responsible)}</strong></div>
+                </div>
+                <div class="document-summary-strip">
+                  <div><span>Revisão esperada</span><strong>${escapeHtml(document.expectedRevision) || '—'}</strong></div>
+                  <div><span>Cópias confirmadas</span><strong>${copyCount}</strong></div>
+                  <div><span>Marcações</span><strong>${markings.length ? markings.join(', ') : 'Nenhuma'}</strong></div>
+                </div>
+                <section class="new-copy-panel">
+                  <div class="section-title compact-title"><div><span class="section-kicker">NOVO REGISTRO</span><h3>Registrar revisão encontrada</h3></div></div>
+                  <div class="form-grid">
+                    <div class="field"><label for="doc-status">Status da lista</label><input id="doc-status" disabled value="${escapeHtml(document.status)}"></div>
+                    <div class="field"><label for="found-revision">Revisão encontrada</label><input id="found-revision" value="" placeholder="Ex.: A, B, C, 01" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done"></div>
+                    <div class="field full copy-quantity-field"><label for="copy-quantity">Quantidade de cópias desta revisão</label><div class="quantity-control"><button class="quantity-btn" data-copy-quantity-step="-1" type="button" aria-label="Diminuir quantidade">−</button><input id="copy-quantity" type="number" min="1" max="9999" step="1" value="1" inputmode="numeric"><button class="quantity-btn" data-copy-quantity-step="1" type="button" aria-label="Aumentar quantidade">+</button></div><small class="field-help">Registre em uma única ação quantas cópias físicas da mesma revisão foram encontradas.</small></div>
+                    <div class="field full"><label>Marcações observadas</label><div class="marking-grid">${markingOptions()}</div><small class="field-help">Selecione uma ou mais cores quando houver marcações no projeto.</small></div>
+                    <div class="field full"><label for="comment">Comentário (opcional)</label><textarea id="comment" rows="3" placeholder="Ex.: marcação amarela no quadro de revisão…"></textarea></div>
+                  </div>
+                  <div class="actions">${copyCount === 0 ? '<button class="btn" id="mark-not-found" type="button">Não encontrado em campo</button>' : ''}<button class="btn btn-primary" id="save-verification" type="button">Registrar cópias</button></div>
+                </section>
+                <section class="copies-history"><div class="section-title compact-title"><div><span class="section-kicker">HISTÓRICO</span><h3>Cópias deste documento</h3></div></div>${copiesHistory(document)}</section>
+              </div>`;
+          }
+          '''
+          text = regex_once(text, r'function documentDetailView\(\) \{.*?\n\}\n\nfunction docsView', detail_fn + '\nfunction docsView', 'documentDetailView')
+
+          docs_fn = r'''function documentsDashboardSource() {
+            const selectedInspection = state.docsFilters.inspectionId ? state.inspections.find(item => item.id === state.docsFilters.inspectionId) : null;
+            return selectedInspection ? (selectedInspection.documents || []) : allDocuments();
+          }
+
+          function refreshDocumentsDashboard() {
+            if (state.view !== 'docs') return;
+            const selectedInspection = state.docsFilters.inspectionId ? state.inspections.find(item => item.id === state.docsFilters.inspectionId) : null;
+            const title = document.querySelector('#documents-dashboard-title');
+            const subtitle = document.querySelector('#documents-dashboard-subtitle');
+            const content = document.querySelector('#documents-dashboard-content');
+            if (title) title.textContent = selectedInspection ? (selectedInspection.system || 'Sem sistema') : 'Todos os documentos';
+            if (subtitle) subtitle.textContent = selectedInspection ? (selectedInspection.name || selectedInspection.project) : 'Indicadores consolidados de todas as listas de inspeção.';
+            if (content) content.innerHTML = dashboard(documentsDashboardSource(), selectedInspection ? 'Resumo da inspeção selecionada' : 'Resumo de todas as inspeções');
+          }
+
+          function docsView() {
+            const contexts = allDocumentContexts();
+            const systems = [...new Set(state.inspections.map(item => item.system).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+            const statuses = [...new Set(contexts.map(({ document }) => document.status).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+            const selectedInspection = state.docsFilters.inspectionId ? state.inspections.find(item => item.id === state.docsFilters.inspectionId) : null;
+            const documents = getFilteredDocuments({ fromState: true });
+            const pages = Math.max(1, Math.ceil(documents.length / DOCS_PAGE_SIZE));
+            state.docsPage = Math.min(Math.max(1, state.docsPage), pages);
+            const start = (state.docsPage - 1) * DOCS_PAGE_SIZE;
+            const visible = documents.slice(start, start + DOCS_PAGE_SIZE);
+            const title = selectedInspection ? `Documentos - ${selectedInspection.name || selectedInspection.project}` : 'Documentos';
+            const subtitle = selectedInspection
+              ? `${formatDocumentCount(selectedInspection.documents?.length || 0)} nesta lista · ${escapeHtml(selectedInspection.system || 'Sem sistema')}`
+              : `${formatDocumentCount(contexts.length)} em ${formatInspectionCount(state.inspections.length)}`;
+
+            const exportAction = selectedInspection
+              ? `<button class="btn" id="export-selected-inspection" type="button">${icon('download')}<span>Exportar</span></button>`
+              : '';
+
+            return `
+              ${topbar(title, subtitle, exportAction)}
+              <section id="documents-dashboard" class="dashboard-block documents-dashboard">
+                <div class="section-title dashboard-title"><div><span class="section-kicker">INDICADORES</span><h2 id="documents-dashboard-title">${escapeHtml(selectedInspection ? (selectedInspection.system || 'Sem sistema') : 'Todos os documentos')}</h2><span id="documents-dashboard-subtitle" class="subtitle">${escapeHtml(selectedInspection ? (selectedInspection.name || selectedInspection.project) : 'Indicadores consolidados de todas as listas de inspeção.')}</span></div></div>
+                <div id="documents-dashboard-content">${dashboard(documentsDashboardSource(), selectedInspection ? 'Resumo da inspeção selecionada' : 'Resumo de todas as inspeções')}</div>
+              </section>
+              <div class="spacer small"></div>
+              <section class="card documents-catalog">
+                <div class="section-title"><div><span class="section-kicker">${selectedInspection ? 'LISTA SELECIONADA' : 'CATÁLOGO GLOBAL'}</span><h2>${selectedInspection ? escapeHtml(selectedInspection.system || 'Sem sistema') : 'Todos os documentos'}</h2></div><span class="subtitle">${selectedInspection ? escapeHtml(selectedInspection.name || selectedInspection.project) : 'Use Sistema ou Lista para visualizar uma área específica.'}</span></div>
+                <div class="toolbar documents-toolbar">
+                  <input id="filter-text" value="${escapeHtml(state.docsFilters.text)}" placeholder="Pesquisar Código PW ou descrição" aria-label="Pesquisar documentos" autocomplete="off">
+                  <select id="filter-inspection" aria-label="Filtrar por lista de inspeção"><option value="">Todas as listas</option>${state.inspections.map(item => `<option value="${escapeHtml(item.id)}" ${state.docsFilters.inspectionId === item.id ? 'selected' : ''}>${escapeHtml(item.system || 'Sem sistema')} · ${escapeHtml(item.name || item.project)}</option>`).join('')}</select>
+                  <select id="filter-system" aria-label="Filtrar por sistema"><option value="">Todos os sistemas</option>${systems.map(value => `<option value="${escapeHtml(value)}" ${state.docsFilters.system === value ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select>
+                  <select id="filter-result" aria-label="Filtrar por resultado"><option value="">Todos os resultados</option>${Object.values(RESULT).map(value => `<option value="${escapeHtml(value)}" ${state.docsFilters.result === value ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select>
+                  <select id="filter-status" aria-label="Filtrar por status"><option value="">Todos os status</option>${statuses.map(value => `<option value="${escapeHtml(value)}" ${state.docsFilters.status === value ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select>
+                  <select id="sort-docs" aria-label="Ordenar documentos"><option value="code" ${state.docsFilters.sort === 'code' ? 'selected' : ''}>Ordenar por código</option><option value="description" ${state.docsFilters.sort === 'description' ? 'selected' : ''}>Ordenar por descrição</option><option value="system" ${state.docsFilters.sort === 'system' ? 'selected' : ''}>Ordenar por sistema</option></select>
+                  <button class="btn btn-clear-filters" id="clear-doc-filters" type="button">${icon('close')}<span>Limpar filtros</span></button>
+                </div>
+                <div class="table-wrap compact-doc-table">
+                  <table><thead><tr><th>Código PW</th><th>Descrição</th><th aria-label="Ações">Ações</th></tr></thead><tbody id="docs-body">${rowsHtml(visible)}</tbody></table>
+                </div>
+                <div id="docs-pagination">${paginationHtml(documents.length, state.docsPage)}</div>
+              </section>`;
+          }
+
+          function rowsHtml(contexts) {
+            if (!contexts.length) return '<tr class="no-results"><td colspan="3">Nenhum documento encontrado com os filtros atuais.</td></tr>';
+            return contexts.map(({ document, inspection }) => `
+              <tr class="document-row-clickable" data-doc-row="${escapeHtml(document.id)}" data-inspection-row="${escapeHtml(inspection.id)}" tabindex="0" aria-label="Abrir detalhes de ${escapeHtml(document.code)}">
+                <td class="code-cell" data-label="Código PW"><strong>${escapeHtml(document.code)}</strong><small class="row-origin">${escapeHtml(inspection.system)}</small></td>
+                <td class="document-description-cell" data-label="Descrição"><span class="document-description-text">${escapeHtml(document.description || '—')}</span><small class="row-origin">${escapeHtml(inspection.project)}</small></td>
+                <td class="details-cell" data-label="Ações"><button class="btn btn-compact" data-doc-details="${escapeHtml(document.id)}" data-inspection-details="${escapeHtml(inspection.id)}" type="button">Mais detalhes</button></td>
+              </tr>`).join('');
+          }
+          '''
+          text = regex_once(text, r'function docsView\(\) \{.*?\n\}\n\nfunction rowsHtml\(contexts\) \{.*?\n\}\n\nfunction paginationHtml', docs_fn + '\nfunction paginationHtml', 'docsView and rowsHtml')
+
+          bind_inspection = r'''function bindCopyQuantityControls() {
+            const input = document.querySelector('#copy-quantity');
+            if (!input) return;
+            const normalize = () => {
+              const value = Math.min(9999, Math.max(1, Number.parseInt(input.value, 10) || 1));
+              input.value = String(value);
+              return value;
+            };
+            input.addEventListener('change', normalize);
+            document.querySelectorAll('[data-copy-quantity-step]').forEach(button => {
+              if (button.dataset.bound) return;
+              button.dataset.bound = '1';
+              button.addEventListener('click', () => {
+                const next = normalize() + Number(button.dataset.copyQuantityStep || 0);
+                input.value = String(Math.min(9999, Math.max(1, next)));
+              });
+            });
+          }
+
+          function goToNextDocument() {
+            const context = selectedContext();
+            if (!context) return;
+            const documents = context.inspection.documents || [];
+            if (documents.length < 2) return;
+            const index = documents.findIndex(item => item.id === context.document.id);
+            const next = documents[(index + 1 + documents.length) % documents.length];
+            selectDocumentContext({ inspection: context.inspection, document: next }, { renderView: false });
+            state.pwSearchQuery = next.code;
+            render();
+            requestAnimationFrame(() => document.querySelector('#found-revision')?.focus());
+          }
+
+          function bindInspectionActions({ preserveFocus = false } = {}) {
+            const searchInput = document.querySelector('#pw-search');
+            const searchButton = document.querySelector('#find-pw');
+
+            if (searchButton && !searchButton.dataset.bound) { searchButton.dataset.bound = '1'; searchButton.addEventListener('click', findDocument); }
+            if (searchInput && !searchInput.dataset.bound) {
+              searchInput.dataset.bound = '1';
+              searchInput.addEventListener('input', event => { state.pwSearchQuery = event.currentTarget.value; updateSearchSuggestions(); });
+              searchInput.addEventListener('keydown', event => { if (event.key === 'Enter') findDocument(); });
+            }
+            const clearSearch = document.querySelector('#clear-pw-search');
+            if (clearSearch && !clearSearch.dataset.bound) {
+              clearSearch.dataset.bound = '1';
+              clearSearch.addEventListener('click', () => {
+                state.pwSearchQuery = '';
+                if (searchInput) searchInput.value = '';
+                updateSearchSuggestions();
+                searchInput?.focus();
+              });
+            }
+            bindSearchSuggestionActions();
+            bindCopyQuantityControls();
+
+            const nextButton = document.querySelector('#next-document');
+            if (nextButton && !nextButton.dataset.bound) { nextButton.dataset.bound = '1'; nextButton.addEventListener('click', goToNextDocument); }
+            const scanButton = document.querySelector('#scan-document');
+            if (scanButton && !scanButton.dataset.bound) { scanButton.dataset.bound = '1'; scanButton.addEventListener('click', () => document.querySelector('#camera-input')?.click()); }
+            const camera = document.querySelector('#camera-input');
+            if (camera && !camera.dataset.bound) { camera.dataset.bound = '1'; camera.addEventListener('change', handleCameraCapture); }
+            document.querySelectorAll('[data-copy-edit]').forEach(button => { if (!button.dataset.bound) { button.dataset.bound='1'; button.addEventListener('click', () => editCopy(button.dataset.copyEdit)); } });
+            document.querySelectorAll('[data-copy-delete]').forEach(button => { if (!button.dataset.bound) { button.dataset.bound='1'; button.addEventListener('click', () => deleteCopy(button.dataset.copyDelete)); } });
+            document.querySelectorAll('[data-view-copy]').forEach(button => { if (!button.dataset.bound) { button.dataset.bound='1'; button.addEventListener('click', () => viewEvidence(button.dataset.viewCopy)); } });
+            const save = document.querySelector('#save-verification'); if (save && !save.dataset.bound) { save.dataset.bound='1'; save.addEventListener('click', saveVerification); }
+            const notFound = document.querySelector('#mark-not-found'); if (notFound && !notFound.dataset.bound) { notFound.dataset.bound='1'; notFound.addEventListener('click', saveNotFound); }
+
+            if (state.view === 'inspect' && !state.selectedDoc && !preserveFocus) requestAnimationFrame(() => searchInput?.focus());
+          }
+          '''
+          text = regex_once(text, r'function bindInspectionActions\(\{ preserveFocus = false \} = \{\}\) \{.*?\n\}\n\nfunction findDocument', bind_inspection + '\nfunction findDocument', 'bindInspectionActions')
+
+          edit_copy = r'''async function editCopy(copyId) {
+            const context = selectedContext();
+            const copy = context?.document?.fieldCopies?.find(item => item.id === copyId);
+            if (!context || !copy) return showToast('Cópia não encontrada.', 'error');
+            const modal = openModal(`
+              <div class="modal-head"><div><span class="section-kicker">HISTÓRICO</span><h2>Editar cópia ${copy.sequence}</h2></div><button class="icon-button" data-close type="button" aria-label="Fechar">${icon('close')}</button></div>
+              <p class="subtitle">A edição preserva a evidência fotográfica e recalcula automaticamente o resultado consolidado do documento.</p>
+              <div class="form-grid">
+                <div class="field full"><label for="edit-copy-revision">Revisão encontrada</label><input id="edit-copy-revision" value="${escapeHtml(copy.foundRevision)}" autocapitalize="characters" autocomplete="off" spellcheck="false"></div>
+                <div class="field full"><label>Marcações observadas</label><div class="marking-grid">${markingOptions(copy.markings || [])}</div></div>
+                <div class="field full"><label for="edit-copy-comment">Comentário</label><textarea id="edit-copy-comment" rows="3">${escapeHtml(copy.comment || '')}</textarea></div>
+              </div>
+              <div class="actions"><button class="btn" data-close type="button">Cancelar</button><button class="btn btn-primary" id="save-copy-edit" type="button">Salvar alterações</button></div>`, { label: `Editar cópia ${copy.sequence}` });
+            modal.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => modal.closeModal()));
+            modal.querySelector('#save-copy-edit')?.addEventListener('click', async event => {
+              const button = event.currentTarget;
+              const snapshot = structuredClone(context.document);
+              try {
+                setButtonBusy(button, true, 'Salvando…');
+                const markings = [...modal.querySelectorAll('input[name="marking"]:checked')].map(input => input.value);
+                updateFieldCopy(context.document, copyId, { foundRevision: modal.querySelector('#edit-copy-revision')?.value, markings, comment: modal.querySelector('#edit-copy-comment')?.value });
+                state.current = context.inspection;
+                state.selectedDoc = context.document;
+                await saveFieldChangeResilient(context.inspection, context.document.id);
+                await refreshInspectionList({ required: false });
+                syncNow({ announce: true }).catch(() => {});
+                modal.closeModal();
+                render();
+                showToast('Cópia atualizada e resultado recalculado.');
+              } catch (error) {
+                restoreDocumentSnapshot(snapshot);
+                showToast(error.message || 'Falha ao editar a cópia.', 'error');
+              } finally {
+                if (button?.isConnected) setButtonBusy(button, false);
+              }
+            });
+          }
+
+          '''
+          if 'async function editCopy(copyId)' not in text:
+              text = text.replace('async function viewEvidence(copyId) {', edit_copy + 'async function viewEvidence(copyId) {', 1)
+
+          save_fn = r'''async function saveVerification(event) {
+            const button = event?.currentTarget;
+            const snapshot = state.selectedDoc ? structuredClone(state.selectedDoc) : null;
+            try {
+              setButtonBusy(button, true, 'Salvando…');
+              const context = selectedContext();
+              if (!context) throw new Error('O documento selecionado não está mais disponível.');
+              state.current = context.inspection;
+              state.selectedInspectionId = context.inspection.id;
+              state.selectedDoc = context.document;
+              const markings = [...document.querySelectorAll('input[name="marking"]:checked')].map(input => input.value);
+              const revision = document.querySelector('#found-revision')?.value;
+              const comment = document.querySelector('#comment')?.value;
+              const quantity = Math.min(9999, Math.max(1, Number.parseInt(document.querySelector('#copy-quantity')?.value, 10) || 1));
+              for (let index = 0; index < quantity; index += 1) {
+                addFieldCopy(state.selectedDoc, { foundRevision: revision, markings, comment, source: 'manual' });
+              }
+
+              await saveFieldChangeResilient(state.current, state.selectedDoc.id);
+              await refreshInspectionList({ required: false });
+              syncNow({ announce: true }).catch(() => {});
+              showToast(`${quantity} ${quantity === 1 ? 'cópia registrada' : 'cópias registradas'}: ${state.selectedDoc.result}.`);
+              returnToSearch();
+            } catch (error) {
+              if (snapshot) restoreDocumentSnapshot(snapshot);
+              showToast(error.message || 'Falha ao salvar a verificação.', 'error');
+            } finally {
+              if (button?.isConnected) setButtonBusy(button, false);
+            }
+          }
+          '''
+          text = regex_once(text, r'async function saveVerification\(event\) \{.*?\n\}\n\nasync function saveNotFound', save_fn + '\nasync function saveNotFound', 'saveVerification quantity')
+
+          export_modal = r'''function exportInspectionModal(inspection) {
+            if (!inspection?.documents?.length) return showToast('Não há documentos para exportar.', 'error');
+            const data = metrics(inspection.documents || []);
+            const modal = openModal(`
+              <div class="modal-head"><div><span class="section-kicker">EXPORTAÇÃO</span><h2>Exportar relatório</h2></div><button class="icon-button" data-close type="button" aria-label="Fechar">${icon('close')}</button></div>
+              <div class="export-report-preview"><div><span class="section-kicker">SISTEMA</span><strong>${escapeHtml(inspection.system || 'Sem sistema')}</strong><small>${escapeHtml(inspection.name || inspection.project)}</small></div><div class="export-preview-stats"><span>${data.conforming} conformes</span><span>${data.nonconforming} não conformes</span><span>${data.notFound} não encontrados</span><span>${data.pending} pendentes</span></div></div>
+              <section class="export-result-panel"><div class="export-result-heading"><div><span class="section-kicker">SELEÇÃO DO RELATÓRIO</span><h3>Quais resultados deseja exportar?</h3><p>Selecione uma ou mais categorias. Nenhuma opção é marcada automaticamente.</p></div></div>
+                <div class="export-result-options" role="group" aria-label="Resultados que serão exportados">
+                  <label class="export-result-option conforming"><input type="checkbox" id="exp-conforming"><span class="export-check-indicator" aria-hidden="true"></span><span class="export-option-copy"><strong>Conformes</strong><small>${data.conforming} documentos</small></span></label>
+                  <label class="export-result-option nonconforming"><input type="checkbox" id="exp-nonconforming"><span class="export-check-indicator" aria-hidden="true"></span><span class="export-option-copy"><strong>Não conformes</strong><small>${data.nonconforming} documentos</small></span></label>
+                  <label class="export-result-option notfound"><input type="checkbox" id="exp-notfound"><span class="export-check-indicator" aria-hidden="true"></span><span class="export-option-copy"><strong>Não encontrados</strong><small>${data.notFound} documentos</small></span></label>
+                  <label class="export-result-option pending"><input type="checkbox" id="exp-pending"><span class="export-check-indicator" aria-hidden="true"></span><span class="export-option-copy"><strong>Pendentes</strong><small>${data.pending} documentos</small></span></label>
+                </div><p class="export-selection-note">PDF, XLSX e Word usam exatamente o mesmo conjunto selecionado, evitando divergência e repetição entre formatos.</p></section>
+              <div class="alert soft-alert export-format-note">PDF preserva o layout final, XLSX mantém análise tabular e Word (.doc) gera uma versão editável.</div>
+              <div class="actions export-actions"><button class="btn" data-close type="button">Cancelar</button><button class="btn" id="generate-word" type="button">Gerar Word</button><button class="btn" id="generate-pdf" type="button">Gerar PDF</button><button class="btn btn-primary" id="generate-xlsx" type="button">Gerar XLSX</button></div>`, { label: 'Exportar relatório da inspeção' });
+
+            modal.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => modal.closeModal()));
+            const selectedData = () => { const options = exportOptionsFromModal(modal); return { options, data: buildInspectionExportData(inspection, options) }; };
+            modal.querySelector('#generate-xlsx').addEventListener('click', async event => {
+              const button = event.currentTarget;
+              try { setButtonBusy(button, true, 'Gerando XLSX…'); const { options } = selectedData(); await exportInspection(inspection, options); showToast('Arquivo XLSX gerado.'); modal.closeModal(); }
+              catch (error) { showToast(error.message || 'Falha ao gerar XLSX.', 'error'); }
+              finally { if (button?.isConnected) setButtonBusy(button, false); }
+            });
+            modal.querySelector('#generate-pdf').addEventListener('click', event => {
+              const button = event.currentTarget;
+              try { setButtonBusy(button, true, 'Gerando PDF…'); const { data: exportData } = selectedData(); exportInspectionPdf(inspection, exportData); showToast('Arquivo PDF gerado.'); modal.closeModal(); }
+              catch (error) { showToast(error.message || 'Falha ao gerar PDF.', 'error'); }
+              finally { if (button?.isConnected) setButtonBusy(button, false); }
+            });
+            modal.querySelector('#generate-word').addEventListener('click', event => {
+              const button = event.currentTarget;
+              try { setButtonBusy(button, true, 'Gerando Word…'); const { data: exportData } = selectedData(); exportInspectionWord(inspection, exportData); showToast('Arquivo Word editável gerado.'); modal.closeModal(); }
+              catch (error) { showToast(error.message || 'Falha ao gerar Word.', 'error'); }
+              finally { if (button?.isConnected) setButtonBusy(button, false); }
+            });
+          }
+          '''
+          text = regex_once(text, r'function exportInspectionModal\(inspection\) \{.*?\n\}\n\nfunction exportOptionsFromModal', export_modal + '\nfunction exportOptionsFromModal', 'export modal')
+
+          list_bind_old = r'''  document.querySelector('#docs-body')?.addEventListener('click', event => {
+            const button = event.target.closest('[data-doc-details]');
+            if (button) openDocumentDetails(button.dataset.inspectionDetails, button.dataset.docDetails);
+          });'''
+          list_bind_new = r'''  const docsBody = document.querySelector('#docs-body');
+            docsBody?.addEventListener('click', event => {
+              const button = event.target.closest('[data-doc-details]');
+              if (button) { openDocumentDetails(button.dataset.inspectionDetails, button.dataset.docDetails); return; }
+              const row = event.target.closest('tr[data-doc-row]');
+              if (row) openDocumentDetails(row.dataset.inspectionRow, row.dataset.docRow);
+            });
+            docsBody?.addEventListener('keydown', event => {
+              if (!['Enter', ' '].includes(event.key) || event.target.closest('button')) return;
+              const row = event.target.closest('tr[data-doc-row]');
+              if (!row) return;
+              event.preventDefault();
+              openDocumentDetails(row.dataset.inspectionRow, row.dataset.docRow);
+            });'''
+          text = replace_once(text, list_bind_old, list_bind_new, 'clickable document row')
+          text = replace_once(text, "  if (body) body.innerHTML = rowsHtml(visible);\n  if (pagination) pagination.innerHTML = paginationHtml(contexts.length, state.docsPage);", "  if (body) body.innerHTML = rowsHtml(visible);\n  if (pagination) pagination.innerHTML = paginationHtml(contexts.length, state.docsPage);\n  refreshDocumentsDashboard();", 'refresh docs dashboard')
+          text = replace_once(text, "  document.querySelectorAll('[data-copy-delete]').forEach(button => button.addEventListener('click', () => deleteCopy(button.dataset.copyDelete)));", "  document.querySelectorAll('[data-copy-edit]').forEach(button => button.addEventListener('click', () => editCopy(button.dataset.copyEdit)));\n  document.querySelectorAll('[data-copy-delete]').forEach(button => button.addEventListener('click', () => deleteCopy(button.dataset.copyDelete)));", 'edit copy doc detail binding')
+          write(path, text)
+
+          # ---------------- service worker ----------------
+          path = 'sw.js'
+          text = read(path)
+          text = replace_once(text, "  './js/vision.js'\n];", "  './js/vision.js',\n  './js/word.js'\n];", 'cache Word exporter')
+          write(path, text)
+
+          # ---------------- CSS additions ----------------
+          path = 'styles.css'
+          text = read(path)
+          additions = r'''
+
+          /* Document workflow refinement */
+          .documents-dashboard { padding: 20px; border: 1px solid rgba(204,213,224,.86); border-radius: var(--radius-lg); background: rgba(255,255,255,.94); box-shadow: var(--shadow-sm); }
+          .documents-dashboard .dashboard-title { margin-bottom: 14px; }
+          .doc-heading-actions { display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+          .next-document-button { border:1px solid var(--line-strong); background:#fff; }
+          .next-document-button .icon { transform: rotate(-90deg); }
+          .copy-quantity-field .quantity-control { max-width: 260px; }
+          .search-clear-button { flex:0 0 50px; width:50px; min-height:58px; border:1px solid var(--line-strong); border-radius:12px; background:#fff; color:var(--muted); }
+          .copy-card-actions { align-items:center; }
+          .compact-doc-table table { table-layout:fixed; min-width:720px; }
+          .compact-doc-table th:first-child, .compact-doc-table td.code-cell { width:22%; }
+          .compact-doc-table th:last-child, .compact-doc-table td.details-cell { width:132px; text-align:right; }
+          .document-description-cell { min-width:0; }
+          .document-description-text { display:-webkit-box; overflow:hidden; -webkit-box-orient:vertical; -webkit-line-clamp:3; line-clamp:3; line-height:1.42; overflow-wrap:anywhere; }
+          .document-row-clickable { cursor:pointer; }
+          .document-row-clickable:focus-visible { outline:3px solid rgba(201,162,39,.38); outline-offset:-3px; }
+          .document-row-clickable td { transition:background-color 150ms var(--ease); }
+
+          @media (max-width: 860px) {
+            .global-search-box .search-clear-button { width:100%; min-height:48px; }
+            .doc-heading-actions { width:100%; justify-content:space-between; }
+            .compact-doc-table table { min-width:0; table-layout:auto; }
+            .compact-doc-table tbody tr[data-doc-row] td.details-cell { width:auto; text-align:left; }
+            .document-description-text { -webkit-line-clamp:3; line-clamp:3; }
+          }
+          '''
+          if '/* Document workflow refinement */' not in text:
+              text += additions
+          write(path, text)
+
+          # ---------------- regression tests ----------------
+          path = 'tests/domain.test.mjs'
+          text = read(path)
+          text = replace_once(text, "  removeFieldCopy,\n  RESULT,", "  removeFieldCopy,\n  updateFieldCopy,\n  RESULT,", 'domain test import')
+          text = replace_once(text, "assert.deepEqual(m, { total: 2, verified: 0, conforming: 0, nonconforming: 0, notFound: 1, pending: 1 });", "assert.deepEqual(m, { total: 2, verified: 1, conforming: 0, nonconforming: 0, notFound: 1, pending: 1 });", 'verified metric expectation')
+          insert_test = """
+          const editable = hydrateDocument({ code:'EDIT', expectedRevision:'A', fieldCopies:[] });
+          const editableCopy = addFieldCopy(editable, { foundRevision:'B', comment:'antes' });
+          assert.equal(editable.result, RESULT.NONCONFORMING);
+          updateFieldCopy(editable, editableCopy.id, { foundRevision:'A', comment:'depois' });
+          assert.equal(editable.result, RESULT.CONFORMING);
+          assert.equal(editable.fieldCopies[0].comment, 'depois');
+          """
+          text = text.replace("console.log('domain.test.mjs: OK');", insert_test + "\nconsole.log('domain.test.mjs: OK');")
+          write(path, text)
+
+          feature_test = r'''import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import { buildInspectionExportData } from '../js/xlsx.js';
+          import { hydrateDocument, RESULT } from '../js/domain.js';
+
+          const inspection = {
+            id: 'inspection-1', name: 'Teste', project: 'P', system: 'S', responsible: 'R', location: 'L',
+            documents: [
+              hydrateDocument({ id:'d1', code:'PW-1', description:'NC', expectedRevision:'A', fieldCopies:[{ id:'c1', foundRevision:'B', sequence:1, confirmed:true }] }),
+              hydrateDocument({ id:'d2', code:'PW-2', description:'NF', expectedRevision:'A', result:RESULT.NOT_FOUND, fieldCopies:[] }),
+              hydrateDocument({ id:'d3', code:'PW-3', description:'Pendente', expectedRevision:'A', result:RESULT.PENDING, fieldCopies:[] })
+            ]
+          };
+          const data = buildInspectionExportData(inspection, { includeConforming:false, includeNonconforming:true, includeNotFound:true, includePending:false, includeCopies:true });
+          assert.deepEqual(data.documents.map(row => row['Código PW']), ['PW-1','PW-2']);
+          assert.equal(new Set(data.documents.map(row => row['Código PW'])).size, data.documents.length);
+          assert.equal(data.copies.length, 1);
+          assert.equal(data.metrics.verified, 2);
+          assert.equal(data.metrics.pending, 0);
+
+          const app = fs.readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
+          const report = fs.readFileSync(new URL('../js/report.js', import.meta.url), 'utf8');
+          const word = fs.readFileSync(new URL('../js/word.js', import.meta.url), 'utf8');
+          assert.match(app, /id="copy-quantity"/);
+          assert.match(app, /data-copy-edit=/);
+          assert.match(app, /id="next-document"/);
+          assert.match(app, /id="clear-pw-search"/);
+          assert.match(app, /Registrar por foto/);
+          assert.match(app, /documents-dashboard/);
+          assert.doesNotMatch(app.match(/function inspectView\(\)[\s\S]*?function normalizeSearchText/)?.[0] || '', /global-dashboard/);
+          assert.match(report, /boundedLines/);
+          assert.match(report, /maxLines: 4/);
+          assert.match(word, /application\/msword/);
+          console.log('feature-export-verification-documents.test.mjs: OK');
+          '''
+          write('tests/feature-export-verification-documents.test.mjs', feature_test)
+
+          # Remove bootstrap workflow from resulting feature commit.
+          Path('.github/workflows/apply-feature-bundle.yml').unlink()
+          PY
+
+          npm run check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat: refine exports verification and document catalog'
+          git push origin HEAD:feature/export-verification-documents-ux
