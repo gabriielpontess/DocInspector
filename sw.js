@@ -1,4 +1,4 @@
-const VERSION = '0.9.16';
+const VERSION = '0.9.17';
 const CORE_CACHE = `docinspector-core-${VERSION}`;
 const RUNTIME_CACHE = `docinspector-runtime-${VERSION}`;
 const XLSX_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
@@ -34,6 +34,7 @@ const APP_SHELL = [
   './js/inspection-update-ui.js',
   './js/field-recovery-ui.js',
   './js/evidence-health-ui.js',
+  './js/marking-policy-ui.js',
   './js/pwa.js',
   './js/report.js',
   './js/sync.js',
@@ -77,9 +78,7 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('message', event => {
-  if (event.data?.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
   if (event.data?.type === 'CACHE_EXTERNAL') {
     event.waitUntil(cacheExternalAssets().then(result => {
       event.ports?.[0]?.postMessage(result);
@@ -90,7 +89,6 @@ self.addEventListener('message', event => {
 self.addEventListener('fetch', event => {
   const request = event.request;
   if (request.method !== 'GET') return;
-
   const url = new URL(request.url);
 
   if (request.mode === 'navigate') {
@@ -113,7 +111,6 @@ self.addEventListener('fetch', event => {
     event.respondWith((async () => {
       const cached = await caches.match(request);
       if (cached) return cached;
-
       try {
         const response = await fetch(request);
         if (response.ok || response.type === 'opaque') {
@@ -141,7 +138,6 @@ self.addEventListener('fetch', event => {
         return response;
       })
       .catch(() => null);
-
     return cached || await networkPromise || Response.error();
   })());
 });
