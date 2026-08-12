@@ -29,7 +29,7 @@ jobs:
           lines = [line[10:] if line.startswith('          ') else line for line in block.splitlines()]
           script = '\n'.join(lines) + '\n'
           old = "text = replace_once(text, list_bind_old, list_bind_new, 'clickable document row')"
-          new = "text = regex_once(text, r\\\"  document\\\\.querySelector\\\\('#docs-body'\\\\)\\\\?\\\\.addEventListener\\\\('click', event => \\\\{.*?\\\\n  \\\\}\\\\);\\\", list_bind_new, 'clickable document row')"
+          new = '''text = regex_once(text, r"  document\\.querySelector\\('#docs-body'\\)\\?\\.addEventListener\\('click', event => \\{.*?\\n  \\}\\);", list_bind_new, 'clickable document row')'''
           if old not in script:
               raise SystemExit('Could not patch clickable-row matcher in implementation script')
           script = script.replace(old, new, 1)
