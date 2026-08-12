@@ -20,6 +20,7 @@ for (const [target, [expectedHash, expectedSize]] of Object.entries(files)) {
   const key = target.replaceAll('/', '__').replaceAll('.', '_');
   const parts = (await readdir('.import_gz')).filter(name => name.startsWith(`${key}.`) && name.endsWith('.b64')).sort();
   if (!parts.length) throw new Error(`Fragmentos ausentes para ${target}`);
+  console.log(`BEGIN ${target} (${parts.length} fragmentos)`);
   const encoded = (await Promise.all(parts.map(name => readFile(`.import_gz/${name}`, 'utf8')))).join('').replace(/\s+/g, '');
   const data = gunzipSync(Buffer.from(encoded, 'base64'));
   const hash = createHash('sha256').update(data).digest('hex');
