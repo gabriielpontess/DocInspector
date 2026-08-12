@@ -1,0 +1,29 @@
+name: Relatar defeito
+description: Registrar uma falha com contexto suficiente para investigar causa raiz.
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema observado
+      description: O que aconteceu e o que era esperado?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Como reproduzir
+      description: Passos, aparelho, navegador, estado online/offline e sidebar aberta/recolhida quando relevante.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidências
+      description: Capturas, mensagens, códigos PW e contexto sem dados sensíveis.
+  - type: textarea
+    id: scope
+    attributes:
+      label: Possíveis áreas semelhantes
+      description: Outros componentes/fluxos onde a mesma classe de problema pode existir.

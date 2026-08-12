@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+const app = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
+const css = await readFile(new URL('../styles.css', import.meta.url), 'utf8');
+assert.match(app, /data-open-inspection/, 'O card inteiro da inspeção deve ser clicável');
+assert.match(app, /state\.docsFilters\.inspectionId = inspection\.id;[\s\S]*?state\.docsFilters\.system = inspection\.system \|\| '';/, 'Abrir inspeção deve aplicar Lista e Sistema');
+assert.match(app, /id="export-selected-inspection"/, 'A lista selecionada deve expor Exportar no cabeçalho');
+assert.match(app, /id="clear-doc-filters"/, 'A aba Documentos deve expor Limpar filtros');
+assert.match(app, /state\.docsFilters = \{ text: '', system: '', inspectionId: '', result: '', status: '', sort: 'code' \}/, 'Limpar filtros deve restaurar o estado padrão');
+assert.match(css, /\.documents-toolbar\s*\{[\s\S]*?grid-template-columns:[\s\S]*?max-content;/, 'Toolbar desktop deve acomodar controles na mesma linha');
+console.log('v092-document-navigation.test.mjs: OK');

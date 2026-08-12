@@ -1,0 +1,17 @@
+{
+  "name": "docinspector",
+  "version": "0.9.11",
+  "private": true,
+  "description": "DocInspector PWA - baseline field pilot",
+  "scripts": {
+    "test": "node scripts/run-tests.mjs",
+    "check:syntax": "node scripts/check-syntax.mjs",
+    "check:sql": "node scripts/check-sql.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "check": "npm run check:syntax && npm run check:sql && npm run check:secrets && npm test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "type": "module"
+}

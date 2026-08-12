@@ -1,0 +1,117 @@
+rray.isArray(source) ? source : (source?.documents || []);
+  const data = metrics(documents);
+  const cards = [
+    ['Total de documentos', data.total, 'gold', 'total'],
+    ['Verificados', data.verified, 'verified', 'verified'],
+    ['Conformes', data.conforming, 'green', 'conforming'],
+    ['Não conformes', data.nonconforming, 'red', 'nonconforming'],
+    ['Não encontrados', data.notFound, 'amber', 'notfound'],
+    ['Pendentes', data.pending, 'pending', 'pending']
+  ];
+
+  return `
+    <div class="grid cards" aria-label="${escapeHtml(ariaLabel)}">
+      ${cards.map(([label, value, className, iconName]) => `
+        <div class="card metric ${className}">
+          <div class="metric-head"><span>${label}</span><span class="metric-icon" aria-hidden="true">${icon(iconName)}</span></div>
+          <strong>${value}</strong>
+        </div>`).join('')}
+    </div>`;
+}
+
+function requireCurrent() {
+  return `
+    <div class="card empty">
+      <div>
+        <h2>Nenhuma inspeção aberta</h2>
+        <p>Abra ou crie uma inspeção na tela inicial.</p>
+        <button class="btn btn-primary" data-nav="home" type="button">Ir para início</button>
+      </div>
+    </div>`;
+}
+
+function inspectView() {
+  const hasDocuments = allDocuments().length > 0;
+  return `
+    ${topbar('Verificação em campo', 'Localize e verifique documentos de qualquer inspeção ou sistema')}
+    <section id="global-dashboard" class="dashboard-block global-dashboard">
+      <div class="section-title dashboard-title">
+        <div><span class="section-kicker">VISÃO CONSOLIDADA</span><h2>Todos os documentos</h2><span class="subtitle">Indicadores consolidados de todas as listas de inspeção.</span></div>
+      </div>
+      ${dashboard(allDocuments(), 'Resumo de todas as inspeções')}
+    </section>
+    <div class="spacer small"></div>
+    ${hasDocuments ? `
+    <div class="verify-layout global-verify-layout">
+      <section class="card locate-card">
+        <div class="section-title"><div><span class="section-kicker">BUSCA GLOBAL</span><h2>Localizar documento</h2></div></div>
+        <p class="subtitle">Pesquise por Código PW ou por qualquer trecho da descrição. Projeto e sistema aparecem nas sugestões para evitar selecionar a lista errada.</p>
+        <div class="search-box global-search-box">
+          <input id="pw-search" value="${escapeHtml(state.pwSearchQuery)}" placeholder="Ex.: DE-17... ou trecho da descrição" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="search" aria-label="Pesquisar por Código PW ou descrição em todas as inspeções" aria-controls="pw-suggestions" aria-autocomplete="list">
+          <button class="btn btn-gold" id="find-pw" type="button">${icon('search')}<span>Localizar</span></button>
+        </div>
+        <div id="pw-suggestions" class="search-suggestions" aria-live="polite">${searchSuggestionsHtml(state.pwSearchQuery)}</div>
+        <div class="scan-actions">
+          <input id="camera-input" type="file" accept="image/*" capture="environment" hidden>
+          <button class="btn btn-camera" id="scan-document" type="button">${icon('camera')}<span>Fotografar e identificar</span></button>
+          <span class="field-help">A câmera consulta todas as listas. Se o mesmo PW existir em mais de uma inspeção, o registro não é escolhido automaticamente.</span>
+        </div>
+      </section>
+      <section class="card doc-detail">${documentDetailView()}</section>
+    </div>` : `
+      <div class="card empty"><div><h2>Nenhum documento disponível</h2><p>Crie uma inspeção e importe uma planilha para iniciar a verificação.</p><button class="btn btn-primary" data-nav="home" type="button">Ir para início</button></div></div>`}`;
+}
+
+function normalizeSearchText(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toUpperCase();
+}
+
+function documentSearchMatches(query, limit = 10) {
+  const raw = String(query ?? '').trim();
+  if (raw.length < 2) return [];
+
+  const term = normalizeSearchText(raw);
+  const codeTerm = normalizeCode(raw);
+  const ranked = [];
+
+  for (const context of allDocumentContexts()) {
+    const { document, inspection } = context;
+    const code = normalizeCode(document.code);
+    const description = normalizeSearchText(document.description);
+    const project = normalizeSearchText(inspection.project);
+    const system = normalizeSearchText(inspection.system);
+    let score = 0;
+
+    if (code === codeTerm) score = 120;
+    else if (code.startsWith(codeTerm)) score = 90;
+    else if (code.includes(codeTerm)) score = 75;
+    else if (description.startsWith(term)) score = 60;
+    else if (description.includes(term)) score = 50;
+    else if (system.includes(term) || project.includes(term)) score = 20;
+
+    if (score) ranked.push({ context, score });
+  }
+
+  return ranked
+    .sort((a, b) => b.score - a.score || a.context.document.code.localeCompare(b.context.document.code, 'pt-BR'))
+    .slice(0, limit)
+    .map(item => item.context);
+}
+
+function searchSuggestionsHtml(query) {
+  const raw = String(query ?? '').trim();
+  if (!raw) return '<span class="search-hint">Pesquise por parte do Código PW ou por palavras da descrição.</span>';
+  if (raw.length < 2) return '<span class="search-hint">Digite pelo menos 2 caracteres para ver sugestões.</span>';
+
+  const matches = documentSearchMatches(raw);
+  if (!matches.length) return '<div class="search-no-results">Nenhum documento correspondente encontrado em nenhuma inspeção.</div>';
+
+  return `<div class="search-suggestion-list" role="listbox" aria-label="Documentos sugeridos">${matches.map(({ document, inspection }) => `
+    <button class="search-suggestion" data-search-doc="${escapeHtml(document.id)}" data-search-inspection="${escapeHtml(inspection.id)}" type="button" role="option">
+      <span class="search-suggestion-code">${escapeHtml(document.code)}</span>
+      <span class="search-suggestion-description">${escapeHtml(document.description || 'Sem descrição')}</span>
+      <s

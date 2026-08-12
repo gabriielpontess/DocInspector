@@ -1,0 +1,182 @@
+import {
+  deleteEvidence,
+  deleteInspectionBundle,
+  getEvidence,
+  getInspection,
+  listEvidence,
+  listInspections,
+  replaceAllInspections,
+  saveEvidence,
+  saveInspection,
+  saveInspectionWithEvidenceDeletion
+} from './db.js';
+import {
+  addFieldCopy,
+  createId,
+  createInspection,
+  documentMarkings,
+  MARKING,
+  RESULT,
+  markNotFound,
+  metrics,
+  normalizeCode,
+  removeFieldCopy,
+  validateInspection
+} from './domain.js';
+import { buildInspectionExportData, exportInspection, mapRows, readWorkbook, suggestMapping } from './xlsx.js';
+import { exportInspectionPdf } from './report.js';
+import { codesEquivalent, detectMarkingColors, prepareEvidenceImage, prepareOcrRuntime, recognizeEngineeringDrawing } from './vision.js';
+import { escapeHtml, formatDate, icon, openModal, setButtonBusy, showToast } from './ui.js';
+import { getInstallState, getStorageReadiness, prepareOfflineDependencies, registerPWA, requestInstall } from './pwa.js';
+import {
+  bindSyncLifecycle,
+  connectWithCode,
+  createSyncWorkspace,
+  disconnectSync,
+  getConnectionCode,
+  getSyncConfig,
+  getSyncStatus,
+  mergeInspection,
+  startSync,
+  syncNow,
+  testSupabaseConnection,
+  testConfiguredSyncConnection,
+  downloadRemoteEvidence
+} from './sync.js';
+
+const APP_VERSION = '0.9.11';
+const DOCS_PAGE_SIZE = 50;
+const app = document.querySelector('#app');
+const state = {
+  inspections: [],
+  current: null,
+  view: 'home',
+  previousView: null,
+  selectedDoc: null,
+  selectedInspectionId: null,
+  importRows: null,
+  headers: null,
+  docsPage: 1,
+  scanning: false,
+  pwSearchQuery: '',
+  docsFilters: {
+    text: '',
+    system: '',
+    inspectionId: '',
+    result: '',
+    status: '',
+    sort: 'code'
+  },
+  sidebarCollapsed: localStorage.getItem('docinspector-sidebar-collapsed') === '1',
+  fieldReadiness: {
+    status: 'idle',
+    checks: [],
+    message: 'Ainda não executado neste aparelho.'
+  }
+};
+
+async function boot() {
+  state.inspections = await listInspections();
+  const lastInspectionId = localStorage.getItem('sky17-current');
+
+  if (lastInspectionId) {
+    state.current = await getInspection(lastInspectionId) || null;
+    if (!state.current) localStorage.removeItem('sky17-current');
+  }
+
+  bindSyncLifecycle();
+  bindViewportAwareness();
+  await startSync().catch(() => {});
+  if (getSyncConfig() && navigator.onLine) {
+    syncNow({ announce: false }).catch(() => {});
+  }
+
+  render();
+  await registerPWA(() => showToast('Não foi possível ativar o modo offline.', 'error'));
+
+  window.addEventListener('sky17:install-available', () => {
+    if (state.view === 'settings' && state.fieldReadiness.status !== 'running') render();
+  });
+  window.addEventListener('sky17:installed', () => {
+    if (state.view === 'settings' && state.fieldReadiness.status !== 'running') render();
+  });
+  window.addEventListener('sky17:sync-status', () => updateSyncBadge());
+  window.addEventListener('sky17:sync-complete', refreshAfterSync);
+}
+
+function render() {
+  const views = {
+    home: homeView,
+    inspect: inspectView,
+    docs: docsView,
+    'doc-detail': documentPageView,
+    settings: settingsView
+  };
+
+  const view = views[state.view] || homeView;
+  app.innerHTML = shell(view());
+  bindCurrentView();
+}
+
+function shell(content) {
+  const systems = new Set(state.inspections.map(item => item.system).filter(Boolean));
+  return `
+    <div class="app-shell ${state.sidebarCollapsed ? 'sidebar-collapsed' : ''}">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"><img src="assets/icon.svg" alt=""></div>
+          <div class="brand-copy">
+            <div><span class="brand-doc">Doc</span><span class="brand-inspector">Inspector</span></div>
+            <small>INSPEÇÕES TÉCNICAS · v${APP_VERSION}</small>
+          </div>
+          <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-label="${state.sidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}" title="${state.sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}"><span class="sidebar-toggle-glyph" aria-hidden="true"><span class="sidebar-toggle-panel"></span></span></button>
+        </div>
+        <nav class="nav" aria-label="Navegação principal">
+          ${navButton('home', 'Início')}
+          ${navButton('inspect', 'Verificar')}
+          ${navButton('docs', 'Documentos')}
+          ${navButton('settings', 'Dados e backup')}
+        </nav>
+        <div class="sidebar-footer">
+          <div class="current-inspection">
+            <span class="sidebar-kicker">BASE LOCAL</span>
+            <strong>${formatInspectionCount(state.inspections.length)}</strong>
+            <small>${systems.size} ${systems.size === 1 ? 'sistema' : 'sistemas'} · ${formatDocumentCount(allDocuments().length)}</small>
+          </div>
+          <div class="sidebar-system">
+            ${icon('shield')}
+            <span>Dados locais protegidos<br><small>Offline-first</small></span>
+          </div>
+        </div>
+      </aside>
+      <main class="main">${content}</main>
+      <nav class="mobile-nav" aria-label="Navegação móvel">
+        ${navButton('home', 'Início')}
+        ${navButton('inspect', 'Verificar')}
+        ${navButton('docs', 'Documentos')}
+        ${navButton('settings', 'Dados')}
+      </nav>
+    </div>`;
+}
+
+function navButton(view, label) {
+  const active = state.view === view ? 'active' : '';
+  const current = state.view === view ? 'aria-current="page"' : '';
+  return `
+    <button data-nav="${view}" class="${active}" type="button" ${current}>
+      <span class="nav-icon">${icon(view)}</span>
+      <span>${label}</span>
+    </button>`;
+}
+
+function topbar(title, subtitle, action = '') {
+  const backButton = state.view !== 'home'
+    ? `<button class="page-back-button" id="page-back" type="button" aria-label="Voltar à página anterior" title="Voltar">
+        ${icon('chevron', 'icon page-back-icon')}
+      </button>`
+    : '';
+
+  return `
+    <header class="topbar">
+      <div class="topbar-leading">
+  

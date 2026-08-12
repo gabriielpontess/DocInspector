@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+const app = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
+const css = await readFile(new URL('../styles.css', import.meta.url), 'utf8');
+const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+assert.match(app, /function\s+allDocumentContexts\s*\(/, 'Catálogo global precisa reunir documentos de todas as inspeções');
+assert.match(app, /filter-system/, 'A aba Documentos precisa possuir filtro por Sistema');
+assert.match(app, /data-doc-details/, 'A tabela precisa abrir a página de detalhes explicitamente');
+assert.match(app, /function\s+documentPageView\s*\(/, 'Página de detalhes precisa existir');
+assert.match(app, /test-current-sync/, 'Configuração conectada precisa expor Testar conexão');
+assert.match(app, /sidebar-toggle/, 'Sidebar precisa possuir controle de recolhimento');
+assert.match(app, /captureLiveUiState\(\)/, 'Campos de pesquisa precisam ser capturados antes de atualizações assíncronas');
+assert.match(app, /if \(state\.view === 'inspect'\)[\s\S]*?updateSearchSuggestions\(\)/, 'Sincronização na tela Verificar deve atualizar conteúdo sem reconstruir o campo de busca');
+assert.match(css, /sidebar-collapsed/, 'CSS da sidebar recolhida precisa existir');
+assert.match(html, /maximum-scale=1,user-scalable=no/, 'Viewport móvel precisa bloquear zoom conforme requisito do produto');
+console.log('global-ui.test.mjs: OK');

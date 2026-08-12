@@ -1,0 +1,71 @@
+la no quadro de revisão…"></textarea></div>
+        </div>
+        <div class="actions">${copyCount === 0 ? '<button class="btn" id="mark-not-found" type="button">Não encontrado em campo</button>' : ''}<button class="btn btn-primary" id="save-verification" type="button">Confirmar nova cópia</button></div>
+      </section>
+      <section class="copies-history"><div class="section-title compact-title"><div><span class="section-kicker">HISTÓRICO</span><h3>Cópias deste documento</h3></div></div>${copiesHistory(document)}</section>
+    </div>`;
+}
+
+function docsView() {
+  const contexts = allDocumentContexts();
+  const systems = [...new Set(state.inspections.map(item => item.system).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const statuses = [...new Set(contexts.map(({ document }) => document.status).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const selectedInspection = state.docsFilters.inspectionId ? state.inspections.find(item => item.id === state.docsFilters.inspectionId) : null;
+  const documents = getFilteredDocuments({ fromState: true });
+  const pages = Math.max(1, Math.ceil(documents.length / DOCS_PAGE_SIZE));
+  state.docsPage = Math.min(Math.max(1, state.docsPage), pages);
+  const start = (state.docsPage - 1) * DOCS_PAGE_SIZE;
+  const visible = documents.slice(start, start + DOCS_PAGE_SIZE);
+  const title = selectedInspection ? `Documentos - ${selectedInspection.name || selectedInspection.project}` : 'Documentos';
+  const subtitle = selectedInspection
+    ? `${formatDocumentCount(selectedInspection.documents?.length || 0)} nesta lista · ${escapeHtml(selectedInspection.system || 'Sem sistema')}`
+    : `${formatDocumentCount(contexts.length)} em ${formatInspectionCount(state.inspections.length)}`;
+
+  const exportAction = selectedInspection
+    ? `<button class="btn" id="export-selected-inspection" type="button">${icon('download')}<span>Exportar</span></button>`
+    : '';
+
+  return `
+    ${topbar(title, subtitle, exportAction)}
+    <section class="card documents-catalog">
+      <div class="section-title"><div><span class="section-kicker">${selectedInspection ? 'LISTA SELECIONADA' : 'CATÁLOGO GLOBAL'}</span><h2>${selectedInspection ? escapeHtml(selectedInspection.system || 'Sem sistema') : 'Todos os documentos'}</h2></div><span class="subtitle">${selectedInspection ? escapeHtml(selectedInspection.name || selectedInspection.project) : 'Use Sistema ou Lista para visualizar uma área específica.'}</span></div>
+      <div class="toolbar documents-toolbar">
+        <input id="filter-text" value="${escapeHtml(state.docsFilters.text)}" placeholder="Pesquisar Código PW ou descrição" aria-label="Pesquisar documentos" autocomplete="off">
+        <select id="filter-inspection" aria-label="Filtrar por lista de inspeção">
+          <option value="">Todas as listas</option>
+          ${state.inspections.map(item => `<option value="${escapeHtml(item.id)}" ${state.docsFilters.inspectionId === item.id ? 'selected' : ''}>${escapeHtml(item.system || 'Sem sistema')} · ${escapeHtml(item.name || item.project)}</option>`).join('')}
+        </select>
+        <select id="filter-system" aria-label="Filtrar por sistema"><option value="">Todos os sistemas</option>${systems.map(value => `<option value="${escapeHtml(value)}" ${state.docsFilters.system === value ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select>
+        <select id="filter-result" aria-label="Filtrar por resultado"><option value="">Todos os resultados</option>${Object.values(RESULT).map(value => `<option value="${escapeHtml(value)}" ${state.docsFilters.result === value ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select>
+        <select id="filter-status" aria-label="Filtrar por status"><option value="">Todos os status</option>${statuses.map(value => `<option value="${escapeHtml(value)}" ${state.docsFilters.status === value ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select>
+        <select id="sort-docs" aria-label="Ordenar documentos">
+          <option value="code" ${state.docsFilters.sort === 'code' ? 'selected' : ''}>Ordenar por código</option>
+          <option value="description" ${state.docsFilters.sort === 'description' ? 'selected' : ''}>Ordenar por descrição</option>
+          <option value="system" ${state.docsFilters.sort === 'system' ? 'selected' : ''}>Ordenar por sistema</option>
+        </select>
+        <button class="btn btn-clear-filters" id="clear-doc-filters" type="button">${icon('close')}<span>Limpar filtros</span></button>
+      </div>
+      <div class="table-wrap compact-doc-table">
+        <table>
+          <thead><tr><th>Código PW</th><th>Descrição</th></tr></thead>
+          <tbody id="docs-body">${rowsHtml(visible)}</tbody>
+        </table>
+      </div>
+      <div id="docs-pagination">${paginationHtml(documents.length, state.docsPage)}</div>
+    </section>`;
+}
+
+function rowsHtml(contexts) {
+  if (!contexts.length) return '<tr class="no-results"><td colspan="2">Nenhum documento encontrado com os filtros atuais.</td></tr>';
+  return contexts.map(({ document, inspection }) => `
+    <tr data-doc-row="${escapeHtml(document.id)}" data-inspection-row="${escapeHtml(inspection.id)}">
+      <td data-label="Código PW"><strong>${escapeHtml(document.code)}</strong><small class="row-origin">${escapeHtml(inspection.system)}</small></td>
+      <td data-label="Descrição"><div class="description-cell"><div>${escapeHtml(document.description || '—')}<small class="row-origin">${escapeHtml(inspection.project)}</small></div><button class="btn btn-compact" data-doc-details="${escapeHtml(document.id)}" data-inspection-details="${escapeHtml(inspection.id)}" type="button">Mais detalhes</button></div></td>
+    </tr>`).join('');
+}
+
+function paginationHtml(total, page) {
+  const pages = Math.max(1, Math.ceil(total / DOCS_PAGE_SIZE));
+  const current = Math.min(Math.max(1, page), pages);
+  if (total <= DOCS_PAGE_SIZE) {
+    return `<div class="pagination-summar

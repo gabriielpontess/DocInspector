@@ -1,0 +1,32 @@
+<!doctype html><html><head><meta charset='utf-8'><link rel='stylesheet' href='../styles.css'><style>body{margin:0}.fixture-sidebar{min-height:100vh}.fixture-main{min-width:0}.fixture-block{margin-bottom:16px}</style></head><body>
+<div class='app-shell fixture-shell'>
+  <aside class='sidebar fixture-sidebar'><div class='brand'><div class='brand-mark'></div><div class='brand-copy'>DocInspector</div></div></aside>
+  <main class='main fixture-main'>
+    <header class='topbar fixture-block'><div class='topbar-leading'><button class='page-back-button'>‹</button><div><h1>Documentos - Verificação documental muito extensa</h1><div class='subtitle'>90 documentos nesta lista</div></div></div><div class='topbar-actions'><button class='sync-badge'>Sincronizado</button><button class='btn'>Exportar</button></div></header>
+    <section class='card documents-catalog fixture-block'>
+      <div class='section-title'><div><span>LISTA SELECIONADA</span><h2>3º E 4º TRILHO</h2></div><span class='subtitle'>Verificação documentos</span></div>
+      <div class='toolbar documents-toolbar' id='filters'>
+        <input id='filter-text' value='Pesquisa longa de documento'>
+        <select><option>3º E 4º TRILHO · Verificação documentos</option></select>
+        <select><option>3º E 4º TRILHO</option></select>
+        <select><option>Todos os resultados</option></select>
+        <select><option>Todos os status</option></select>
+        <select><option>Ordenar por código</option></select>
+        <button class='btn btn-clear-filters'>Limpar filtros</button>
+      </div>
+      <div class='table-wrap'><table><tbody><tr><td><div class='description-cell'><div>Descrição técnica extremamente longa para validar contenção e quebra dentro do painel sem ampliar a página</div><button class='btn'>Mais detalhes</button></div></td></tr></tbody></table></div>
+    </section>
+    <article class='card inspection-item fixture-block'><div class='inspection-summary'><div><h3>Sistema de engenharia com nome extenso</h3><div class='subtitle'>Responsável · Local muito extenso</div></div></div><div class='inspection-actions'><button class='btn'>Ver documentos</button><button class='btn'>Editar</button><button class='btn'>Exportar</button><button class='btn'>Excluir</button></div></article>
+    <section class='card fixture-block'><div class='search-box'><input value='DE-17.00.00.00-6P5-1301'><button class='btn'>Localizar documento</button></div></section>
+  </main>
+</div>
+<script>
+if(location.hash==='#collapsed') document.querySelector('.fixture-shell').classList.add('sidebar-collapsed');
+requestAnimationFrame(()=>requestAnimationFrame(()=>{
+ const names=['.fixture-shell','.fixture-main','#filters','.documents-catalog','.topbar','.inspection-item','.search-box','.description-cell'];
+ const over=names.filter(sel=>{const el=document.querySelector(sel);return el && el.scrollWidth>el.clientWidth+1});
+ document.body.dataset.overflow=over.join(',')||'none';
+ document.body.dataset.docOverflow=document.documentElement.scrollWidth>window.innerWidth+1?'yes':'no';
+ document.title=`overflow:${document.body.dataset.overflow};doc:${document.body.dataset.docOverflow}`;
+}));
+</script></body></html>

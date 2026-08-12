@@ -1,0 +1,37 @@
+name: Reconstruct v0.9.11 baseline
+
+on:
+  push:
+    branches: [import-v0.9.11]
+
+permissions:
+  contents: write
+
+jobs:
+  reconstruct:
+    if: ${{ !contains(github.event.head_commit.message, 'reconstruct verified DocInspector') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout staged tree
+        uses: actions/checkout@v4
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reconstruct exact source files
+        run: node scripts/reconstruct-baseline.mjs
+      - name: Quality gate
+        run: npm run check
+      - name: Remove transport-only files
+        run: |
+          rm -rf .import .import_gz .import_tests
+          rm scripts/reconstruct-baseline.mjs
+          rm .github/workflows/import-baseline.yml
+      - name: Commit verified baseline
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: reconstruct verified DocInspector v0.9.11 baseline"
+          git push

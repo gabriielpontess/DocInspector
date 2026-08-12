@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const sync = fs.readFileSync(new URL('../js/sync.js', import.meta.url), 'utf8');
+const app = fs.readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
+assert.match(sync, /\.list\(folder, \{ limit: 20, search: `\$\{copy\.id\}\.``? \}/);
+assert.match(sync, /copy\.evidenceRecoveredAt = recoveredAt/);
+assert.match(sync, /if \(listError\) \{/);
+assert.match(sync, /copy\.evidenceOriginalId = copy\.evidenceOriginalId \|\| copy\.evidenceId/);
+assert.match(sync, /copy\.evidenceId = null/);
+assert.match(app, /Foto original indisponível/);
+assert.match(app, /unavailable: unavailable\.length/);
+console.log('evidence reconciliation regression: ok');

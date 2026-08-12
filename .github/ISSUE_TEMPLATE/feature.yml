@@ -1,0 +1,23 @@
+name: Propor melhoria
+description: Registrar uma evolução antes da implementação.
+title: "[FEATURE] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: Necessidade
+      description: Qual problema operacional a melhoria resolve?
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Comportamento desejado
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Riscos a considerar
+      description: Dados, sincronização, offline, OCR, responsividade, Supabase e compatibilidade.

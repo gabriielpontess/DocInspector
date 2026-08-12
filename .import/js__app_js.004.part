@@ -1,0 +1,92 @@
+pan class="search-suggestion-origin">${escapeHtml(inspection.system)} · ${escapeHtml(inspection.project)}</span>
+      <span class="search-suggestion-meta">Rev. ${escapeHtml(document.expectedRevision || '—')} · ${escapeHtml(document.status || 'Sem status')}</span>
+    </button>`).join('')}</div>`;
+}
+
+function updateSearchSuggestions() {
+  const container = document.querySelector('#pw-suggestions');
+  if (!container) return;
+  container.innerHTML = searchSuggestionsHtml(state.pwSearchQuery);
+  bindSearchSuggestionActions(container);
+}
+
+function selectSearchDocument(documentId, inspectionId) {
+  const context = documentContext(inspectionId, documentId);
+  if (!context) return;
+  state.pwSearchQuery = context.document.code;
+  selectDocumentContext(context, { renderView: false });
+  render();
+  requestAnimationFrame(() => globalThis.document.querySelector('#found-revision')?.focus());
+}
+
+function bindSearchSuggestionActions(root = document) {
+  root.querySelectorAll('[data-search-doc]').forEach(button => {
+    button.addEventListener('click', () => selectSearchDocument(button.dataset.searchDoc, button.dataset.searchInspection));
+  });
+}
+
+function markingOptions(selected = []) {
+  const selectedSet = new Set(selected);
+  return Object.values(MARKING).map(marking => `
+    <label class="marking-option marking-${marking.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')}">
+      <input type="checkbox" name="marking" value="${escapeHtml(marking)}" ${selectedSet.has(marking) ? 'checked' : ''}>
+      <span class="marking-dot" aria-hidden="true"></span>
+      <span>${escapeHtml(marking)}</span>
+    </label>`).join('');
+}
+
+function copiesHistory(document) {
+  const copies = document.fieldCopies || [];
+  if (!copies.length) return '<div class="copies-empty">Nenhuma cópia confirmada em campo.</div>';
+
+  return `<div class="copies-list">${copies.map(copy => `
+    <article class="copy-card">
+      <div class="copy-card-head">
+        <div><strong>Cópia ${copy.sequence}</strong><small>${formatDate(copy.capturedAt)} · ${copy.source === 'camera' ? 'Foto' : copy.source === 'legacy' ? 'Registro anterior' : 'Manual'}</small></div>
+        <div class="copy-card-actions">
+          <span class="revision-chip">Rev. ${escapeHtml(copy.foundRevision)}</span>
+          <button class="icon-button copy-delete" data-copy-delete="${escapeHtml(copy.id)}" type="button" aria-label="Excluir cópia ${copy.sequence}">${icon('trash')}</button>
+        </div>
+      </div>
+      ${copy.markings?.length ? `<div class="marking-tags">${copy.markings.map(marking => `<span class="marking-tag">${escapeHtml(marking)}</span>`).join('')}</div>` : '<small class="muted-copy">Sem marcações registradas.</small>'}
+      ${copy.comment ? `<p class="copy-comment">${escapeHtml(copy.comment)}</p>` : ''}
+      ${(copy.evidenceId || copy.evidencePath) ? `<button class="evidence-link" data-view-copy="${escapeHtml(copy.id)}" type="button">${icon('image')} ${copy.evidencePath ? 'Ver foto sincronizada' : 'Ver foto deste aparelho'}</button>` : ''}
+      ${copy.evidencePath ? '<span class="evidence-sync-badge">Foto sincronizada</span>' : copy.evidenceId ? '<span class="evidence-sync-badge local">Foto aguardando sincronização</span>' : copy.evidenceUnavailableAt ? '<span class="evidence-sync-badge unavailable">Foto original indisponível</span>' : ''}
+    </article>`).join('')}</div>`;
+}
+
+function documentDetailView() {
+  const context = selectedContext();
+  const document = context?.document;
+  const inspection = context?.inspection;
+  if (!document || !inspection) {
+    return `<div class="empty"><div><h3>Localize um documento</h3><p>Os dados da lista de origem, revisão e cópias encontradas aparecerão aqui.</p></div></div>`;
+  }
+
+  const resultClass = document.result.replaceAll(' ', '-');
+  const copyCount = document.fieldCopies?.length || 0;
+  const markings = documentMarkings(document);
+  return `
+    <div>
+      <div class="doc-heading">
+        <div><span class="doc-kicker">${escapeHtml(inspection.system)} · ${escapeHtml(inspection.project)}</span><h2>${escapeHtml(document.code)}</h2></div>
+        <div class="pill ${resultClass}">${escapeHtml(document.result)}</div>
+      </div>
+      <p class="doc-description">${escapeHtml(document.description)}</p>
+      <div class="document-origin-strip">
+        <div><span>Projeto</span><strong>${escapeHtml(inspection.project)}</strong></div>
+        <div><span>Sistema</span><strong>${escapeHtml(inspection.system)}</strong></div>
+        <div><span>Responsável</span><strong>${escapeHtml(inspection.responsible)}</strong></div>
+      </div>
+      <div class="document-summary-strip">
+        <div><span>Revisão esperada</span><strong>${escapeHtml(document.expectedRevision) || '—'}</strong></div>
+        <div><span>Cópias confirmadas</span><strong>${copyCount}</strong></div>
+        <div><span>Marcações</span><strong>${markings.length ? markings.join(', ') : 'Nenhuma'}</strong></div>
+      </div>
+      <section class="new-copy-panel">
+        <div class="section-title compact-title"><div><span class="section-kicker">NOVA CÓPIA</span><h3>Confirmar cópia ${copyCount + 1}</h3></div></div>
+        <div class="form-grid">
+          <div class="field"><label for="doc-status">Status da lista</label><input id="doc-status" disabled value="${escapeHtml(document.status)}"></div>
+          <div class="field"><label for="found-revision">Revisão encontrada nesta cópia</label><input id="found-revision" value="" placeholder="Ex.: A, B, C, 01" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done"></div>
+          <div class="field full"><label>Marcações observadas nesta cópia</label><div class="marking-grid">${markingOptions()}</div><small class="field-help">Selecione uma ou mais cores quando houver marcações no projeto.</small></div>
+          <div class="field full"><label for="comment">Comentário desta cópia (opcional)</label><textarea id="comment" rows="3" placeholder="Ex.: marcação amare

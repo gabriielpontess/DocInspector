@@ -1,0 +1,15 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8');
+assert.match(app,/fieldReadiness:\s*\{/);
+assert.match(app,/function fieldReadinessHtml\(\)/);
+assert.match(app,/function paintFieldReadiness\(\)/);
+assert.match(app,/function refreshSettingsStatusInPlace\(\)/);
+assert.match(app,/if \(state\.view === 'settings'\) \{\s*refreshSettingsStatusInPlace\(\);\s*return;/s);
+const start=app.indexOf('async function runFieldReadinessCheck');
+const end=app.indexOf('async function sha256Hex',start);
+const readiness=app.slice(start,end);
+assert.match(readiness,/state\.fieldReadiness = \{ status: 'running'/);
+assert.match(readiness,/paintFieldReadiness\(\)/);
+assert.doesNotMatch(readiness,/const target = document\.querySelector\('#field-readiness-result'\)/);
+console.log('v0.9.10 async UI state tests OK');
