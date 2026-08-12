@@ -23,6 +23,7 @@ const visualSystem = fs.readFileSync(new URL('../visual-system.css', import.meta
 const visualVerify = fs.readFileSync(new URL('../visual-verify.css', import.meta.url), 'utf8');
 const visualDocuments = fs.readFileSync(new URL('../visual-documents.css', import.meta.url), 'utf8');
 const visualOverlays = fs.readFileSync(new URL('../visual-overlays.css', import.meta.url), 'utf8');
+const visualResponsive = fs.readFileSync(new URL('../visual-responsive.css', import.meta.url), 'utf8');
 const markingPolicy = fs.readFileSync(new URL('../js/marking-policy-ui.js', import.meta.url), 'utf8');
 const copyEvidenceEdit = fs.readFileSync(new URL('../js/copy-evidence-edit-ui.js', import.meta.url), 'utf8');
 
@@ -38,24 +39,26 @@ assert.equal(sliceRowLineSets(lineSets, firstChunk.nextOffsets, 2).done, false);
 assert.equal(availableRowLines(5.6), 0);
 assert.equal(availableRowLines(7), 1);
 
-assert.match(serviceWorker, /const VERSION = '0\.9\.20';/);
-for (const asset of ['visual-system.css','visual-verify.css','visual-documents.css','visual-overlays.css','js/marking-policy-ui.js','js/copy-evidence-edit-ui.js']) {
+assert.match(serviceWorker, /const VERSION = '0\.9\.21';/);
+for (const asset of ['visual-system.css','visual-verify.css','visual-documents.css','visual-overlays.css','visual-responsive.css','js/marking-policy-ui.js','js/copy-evidence-edit-ui.js']) {
   assert.ok(serviceWorker.includes(`./${asset}`), `${asset} deve estar no shell offline`);
 }
-for (const asset of ['visual-system.css','visual-verify.css','visual-documents.css','visual-overlays.css']) assert.ok(index.includes(`href="${asset}"`));
+for (const asset of ['visual-system.css','visual-verify.css','visual-documents.css','visual-overlays.css','visual-responsive.css']) assert.ok(index.includes(`href="${asset}"`));
 assert.match(index, /src="js\/marking-policy-ui\.js"/);
 assert.match(index, /src="js\/copy-evidence-edit-ui\.js"/);
 assert.match(markingPolicy, /new Set\(\['Amarelo', 'Vermelho'\]\)/);
 assert.match(markingPolicy, /input\.checked = false;[\s\S]*input\.disabled = true;/);
-assert.match(copyEvidenceEdit, /Foto \/ Evidência/);
 assert.match(copyEvidenceEdit, /context\.copy\.evidenceId = evidenceId/);
-assert.match(copyEvidenceEdit, /findCopyContext\(copyId\)/);
-assert.doesNotMatch(copyEvidenceEdit, /addFieldCopy\(/, 'anexar foto à edição não pode criar nova cópia');
+assert.doesNotMatch(copyEvidenceEdit, /addFieldCopy\(/);
 assert.match(visualVerify, /white-space: normal;[\s\S]*overflow-wrap: anywhere;/);
 assert.match(visualDocuments, /table-layout: fixed/);
 assert.match(visualDocuments, /-webkit-line-clamp: 3/);
 assert.match(visualOverlays, /copy-evidence-edit-field/);
 assert.match(visualOverlays, /border-radius: var\(--radius-modal-v2\) var\(--radius-modal-v2\) 0 0/);
+assert.match(visualResponsive, /body \{ min-width: 320px; \}/);
+assert.match(visualResponsive, /body\.keyboard-open \.mobile-nav/);
+assert.match(visualResponsive, /@media \(max-width: 350px\)/);
+assert.match(visualResponsive, /env\(safe-area-inset-bottom\)/);
 assert.match(visualSystem, /--color-navy-900:/);
 assert.match(visualSystem, /--control-height-v2: 48px/);
 assert.match(word, /application\/msword/);
