@@ -34,7 +34,8 @@ const APP_SHELL = [
   './js/sync.js',
   './js/ui.js',
   './js/xlsx.js',
-  './js/vision.js'
+  './js/vision.js',
+  './js/word.js'
 ];
 
 async function cacheExternalAssets() {

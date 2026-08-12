@@ -59,6 +59,17 @@ function truncate(doc, value, width) {
   return `${result}…`;
 }
 
+
+function boundedLines(doc, value, width, maxLines = 5) {
+  const lines = doc.splitTextToSize(String(value ?? ''), width);
+  if (lines.length <= maxLines) return lines;
+  const visible = lines.slice(0, maxLines);
+  let last = String(visible[maxLines - 1] || '');
+  while (last.length > 1 && doc.getTextWidth(`${last}…`) > width) last = last.slice(0, -1);
+  visible[maxLines - 1] = `${last}…`;
+  return visible;
+}
+
 function drawBrand(doc, x, y) {
   setFill(doc, COLORS.navy);
   doc.roundedRect(x, y, 13, 13, 2.6, 2.6, 'F');
@@ -266,7 +277,7 @@ function drawTable(doc, {
 
   rows.forEach((row, rowIndex) => {
     const values = columns.map(col => String(row[col.key] ?? ''));
-    const lineSets = values.map((value, i) => doc.splitTextToSize(value, widths[i] - 3));
+    const lineSets = values.map((value, i) => boundedLines(doc, value, widths[i] - 3, columns[i].maxLines || 5));
     const maxLines = Math.max(...lineSets.map(lines => lines.length), 1);
     const rowH = Math.max(7, maxLines * 3.4 + 2.2);
     if (y + rowH > pageHeight - 16) newPage();
@@ -320,7 +331,7 @@ export function exportInspectionPdf(inspection, data) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.2);
   doc.text(`Exportado em ${generatedAt}`, 196, 17, { align: 'right' });
-  doc.text('Versão do relatório: v0.9.8', 196, 22, { align: 'right' });
+  doc.text('Versão do relatório: v0.9.11', 196, 22, { align: 'right' });
 
   setText(doc, COLORS.navy);
   doc.setFont('helvetica', 'bold');
@@ -341,7 +352,7 @@ export function exportInspectionPdf(inspection, data) {
   if (data.options.includeDocuments) {
     const columns = [
       { key: 'Código PW', label: 'Código PW', width: 0.18 },
-      { key: 'Descrição', label: 'Descrição', width: 0.30 },
+      { key: 'Descrição', label: 'Descrição', width: 0.30, maxLines: 3 },
       { key: 'Revisão esperada', label: 'Rev. esperada', width: 0.12 },
       { key: 'Revisão encontrada', label: 'Rev. encontrada', width: 0.13 },
       { key: 'Resultado', label: 'Resultado', width: 0.15 },
@@ -360,15 +371,20 @@ export function exportInspectionPdf(inspection, data) {
     // Mantém todo o relatório em A4 retrato. A tabela de cópias usa
     // proporções compactas e quebra de texto para evitar páginas mistas.
     doc.addPage('a4', 'portrait');
+    drawBrand(doc, 12, 10);
+    setText(doc, COLORS.muted);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text(`${inspection.system || ''} - ${inspection.name || inspection.project || ''}`, 198, 16, { align: 'right' });
     const columns = [
       { key: 'Código PW', label: 'Código PW', width: 0.17 },
-      { key: 'Descrição', label: 'Descrição', width: 0.22 },
+      { key: 'Descrição', label: 'Descrição', width: 0.22, maxLines: 3 },
       { key: 'Cópia', label: 'Cópia', width: 0.055 },
       { key: 'Revisão encontrada', label: 'Rev.', width: 0.065 },
       { key: 'Resultado da cópia', label: 'Resultado', width: 0.12 },
       { key: 'Origem', label: 'Origem', width: 0.08 },
-      { key: 'Marcações', label: 'Marcações', width: 0.105 },
-      { key: 'Comentário', label: 'Comentário', width: 0.185 }
+      { key: 'Marcações', label: 'Marcações', width: 0.105, maxLines: 2 },
+      { key: 'Comentário', label: 'Comentário', width: 0.185, maxLines: 4 }
     ].filter(col => (col.key !== 'Marcações' || data.options.includeMarkings) && (col.key !== 'Comentário' || data.options.includeComments));
     const total = columns.reduce((sum, col) => sum + col.width, 0);
     columns.forEach(col => { col.width /= total; });

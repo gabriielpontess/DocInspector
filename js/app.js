@@ -21,10 +21,12 @@ import {
   metrics,
   normalizeCode,
   removeFieldCopy,
+  updateFieldCopy,
   validateInspection
 } from './domain.js';
 import { buildInspectionExportData, exportInspection, mapRows, readWorkbook, suggestMapping } from './xlsx.js';
 import { exportInspectionPdf } from './report.js';
+import { exportInspectionWord } from './word.js';
 import { codesEquivalent, detectMarkingColors, prepareEvidenceImage, prepareOcrRuntime, recognizeEngineeringDrawing } from './vision.js';
 import { escapeHtml, formatDate, icon, openModal, setButtonBusy, showToast } from './ui.js';
 import { getInstallState, getStorageReadiness, prepareOfflineDependencies, registerPWA, requestInstall } from './pwa.js';
@@ -489,13 +491,6 @@ function inspectView() {
   const hasDocuments = allDocuments().length > 0;
   return `
     ${topbar('Verificação em campo', 'Localize e verifique documentos de qualquer inspeção ou sistema')}
-    <section id="global-dashboard" class="dashboard-block global-dashboard">
-      <div class="section-title dashboard-title">
-        <div><span class="section-kicker">VISÃO CONSOLIDADA</span><h2>Todos os documentos</h2><span class="subtitle">Indicadores consolidados de todas as listas de inspeção.</span></div>
-      </div>
-      ${dashboard(allDocuments(), 'Resumo de todas as inspeções')}
-    </section>
-    <div class="spacer small"></div>
     ${hasDocuments ? `
     <div class="verify-layout global-verify-layout">
       <section class="card locate-card">
@@ -503,12 +498,13 @@ function inspectView() {
         <p class="subtitle">Pesquise por Código PW ou por qualquer trecho da descrição. Projeto e sistema aparecem nas sugestões para evitar selecionar a lista errada.</p>
         <div class="search-box global-search-box">
           <input id="pw-search" value="${escapeHtml(state.pwSearchQuery)}" placeholder="Ex.: DE-17... ou trecho da descrição" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="search" aria-label="Pesquisar por Código PW ou descrição em todas as inspeções" aria-controls="pw-suggestions" aria-autocomplete="list">
+          <button class="icon-button search-clear-button" id="clear-pw-search" type="button" aria-label="Limpar busca" title="Limpar busca">${icon('close')}</button>
           <button class="btn btn-gold" id="find-pw" type="button">${icon('search')}<span>Localizar</span></button>
         </div>
         <div id="pw-suggestions" class="search-suggestions" aria-live="polite">${searchSuggestionsHtml(state.pwSearchQuery)}</div>
         <div class="scan-actions">
           <input id="camera-input" type="file" accept="image/*" capture="environment" hidden>
-          <button class="btn btn-camera" id="scan-document" type="button">${icon('camera')}<span>Fotografar e identificar</span></button>
+          <button class="btn btn-camera" id="scan-document" type="button">${icon('camera')}<span>Registrar por foto</span></button>
           <span class="field-help">A câmera consulta todas as listas. Se o mesmo PW existir em mais de uma inspeção, o registro não é escolhido automaticamente.</span>
         </div>
       </section>
@@ -616,6 +612,7 @@ function copiesHistory(document) {
         <div><strong>Cópia ${copy.sequence}</strong><small>${formatDate(copy.capturedAt)} · ${copy.source === 'camera' ? 'Foto' : copy.source === 'legacy' ? 'Registro anterior' : 'Manual'}</small></div>
         <div class="copy-card-actions">
           <span class="revision-chip">Rev. ${escapeHtml(copy.foundRevision)}</span>
+          <button class="icon-button" data-copy-edit="${escapeHtml(copy.id)}" type="button" aria-label="Editar cópia ${copy.sequence}" title="Editar cópia">${icon('edit')}</button>
           <button class="icon-button copy-delete" data-copy-delete="${escapeHtml(copy.id)}" type="button" aria-label="Excluir cópia ${copy.sequence}">${icon('trash')}</button>
         </div>
       </div>
@@ -637,11 +634,15 @@ function documentDetailView() {
   const resultClass = document.result.replaceAll(' ', '-');
   const copyCount = document.fieldCopies?.length || 0;
   const markings = documentMarkings(document);
+  const hasNext = (inspection.documents || []).length > 1;
   return `
     <div>
       <div class="doc-heading">
         <div><span class="doc-kicker">${escapeHtml(inspection.system)} · ${escapeHtml(inspection.project)}</span><h2>${escapeHtml(document.code)}</h2></div>
-        <div class="pill ${resultClass}">${escapeHtml(document.result)}</div>
+        <div class="doc-heading-actions">
+          <div class="pill ${resultClass}">${escapeHtml(document.result)}</div>
+          <button class="icon-button next-document-button" id="next-document" type="button" ${hasNext ? '' : 'disabled'} aria-label="Próximo documento da lista" title="Próximo documento">${icon('chevron')}</button>
+        </div>
       </div>
       <p class="doc-description">${escapeHtml(document.description)}</p>
       <div class="document-origin-strip">
@@ -655,17 +656,34 @@ function documentDetailView() {
         <div><span>Marcações</span><strong>${markings.length ? markings.join(', ') : 'Nenhuma'}</strong></div>
       </div>
       <section class="new-copy-panel">
-        <div class="section-title compact-title"><div><span class="section-kicker">NOVA CÓPIA</span><h3>Confirmar cópia ${copyCount + 1}</h3></div></div>
+        <div class="section-title compact-title"><div><span class="section-kicker">NOVO REGISTRO</span><h3>Registrar revisão encontrada</h3></div></div>
         <div class="form-grid">
           <div class="field"><label for="doc-status">Status da lista</label><input id="doc-status" disabled value="${escapeHtml(document.status)}"></div>
-          <div class="field"><label for="found-revision">Revisão encontrada nesta cópia</label><input id="found-revision" value="" placeholder="Ex.: A, B, C, 01" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done"></div>
-          <div class="field full"><label>Marcações observadas nesta cópia</label><div class="marking-grid">${markingOptions()}</div><small class="field-help">Selecione uma ou mais cores quando houver marcações no projeto.</small></div>
-          <div class="field full"><label for="comment">Comentário desta cópia (opcional)</label><textarea id="comment" rows="3" placeholder="Ex.: marcação amarela no quadro de revisão…"></textarea></div>
+          <div class="field"><label for="found-revision">Revisão encontrada</label><input id="found-revision" value="" placeholder="Ex.: A, B, C, 01" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done"></div>
+          <div class="field full copy-quantity-field"><label for="copy-quantity">Quantidade de cópias desta revisão</label><div class="quantity-control"><button class="quantity-btn" data-copy-quantity-step="-1" type="button" aria-label="Diminuir quantidade">−</button><input id="copy-quantity" type="number" min="1" max="9999" step="1" value="1" inputmode="numeric"><button class="quantity-btn" data-copy-quantity-step="1" type="button" aria-label="Aumentar quantidade">+</button></div><small class="field-help">Registre em uma única ação quantas cópias físicas da mesma revisão foram encontradas.</small></div>
+          <div class="field full"><label>Marcações observadas</label><div class="marking-grid">${markingOptions()}</div><small class="field-help">Selecione uma ou mais cores quando houver marcações no projeto.</small></div>
+          <div class="field full"><label for="comment">Comentário (opcional)</label><textarea id="comment" rows="3" placeholder="Ex.: marcação amarela no quadro de revisão…"></textarea></div>
         </div>
-        <div class="actions">${copyCount === 0 ? '<button class="btn" id="mark-not-found" type="button">Não encontrado em campo</button>' : ''}<button class="btn btn-primary" id="save-verification" type="button">Confirmar nova cópia</button></div>
+        <div class="actions">${copyCount === 0 ? '<button class="btn" id="mark-not-found" type="button">Não encontrado em campo</button>' : ''}<button class="btn btn-primary" id="save-verification" type="button">Registrar cópias</button></div>
       </section>
       <section class="copies-history"><div class="section-title compact-title"><div><span class="section-kicker">HISTÓRICO</span><h3>Cópias deste documento</h3></div></div>${copiesHistory(document)}</section>
     </div>`;
+}
+
+function documentsDashboardSource() {
+  const selectedInspection = state.docsFilters.inspectionId ? state.inspections.find(item => item.id === state.docsFilters.inspectionId) : null;
+  return selectedInspection ? (selectedInspection.documents || []) : allDocuments();
+}
+
+function refreshDocumentsDashboard() {
+  if (state.view !== 'docs') return;
+  const selectedInspection = state.docsFilters.inspectionId ? state.inspections.find(item => item.id === state.docsFilters.inspectionId) : null;
+  const title = document.querySelector('#documents-dashboard-title');
+  const subtitle = document.querySelector('#documents-dashboard-subtitle');
+  const content = document.querySelector('#documents-dashboard-content');
+  if (title) title.textContent = selectedInspection ? (selectedInspection.system || 'Sem sistema') : 'Todos os documentos';
+  if (subtitle) subtitle.textContent = selectedInspection ? (selectedInspection.name || selectedInspection.project) : 'Indicadores consolidados de todas as listas de inspeção.';
+  if (content) content.innerHTML = dashboard(documentsDashboardSource(), selectedInspection ? 'Resumo da inspeção selecionada' : 'Resumo de todas as inspeções');
 }
 
 function docsView() {
@@ -689,40 +707,36 @@ function docsView() {
 
   return `
     ${topbar(title, subtitle, exportAction)}
+    <section id="documents-dashboard" class="dashboard-block documents-dashboard">
+      <div class="section-title dashboard-title"><div><span class="section-kicker">INDICADORES</span><h2 id="documents-dashboard-title">${escapeHtml(selectedInspection ? (selectedInspection.system || 'Sem sistema') : 'Todos os documentos')}</h2><span id="documents-dashboard-subtitle" class="subtitle">${escapeHtml(selectedInspection ? (selectedInspection.name || selectedInspection.project) : 'Indicadores consolidados de todas as listas de inspeção.')}</span></div></div>
+      <div id="documents-dashboard-content">${dashboard(documentsDashboardSource(), selectedInspection ? 'Resumo da inspeção selecionada' : 'Resumo de todas as inspeções')}</div>
+    </section>
+    <div class="spacer small"></div>
     <section class="card documents-catalog">
       <div class="section-title"><div><span class="section-kicker">${selectedInspection ? 'LISTA SELECIONADA' : 'CATÁLOGO GLOBAL'}</span><h2>${selectedInspection ? escapeHtml(selectedInspection.system || 'Sem sistema') : 'Todos os documentos'}</h2></div><span class="subtitle">${selectedInspection ? escapeHtml(selectedInspection.name || selectedInspection.project) : 'Use Sistema ou Lista para visualizar uma área específica.'}</span></div>
       <div class="toolbar documents-toolbar">
         <input id="filter-text" value="${escapeHtml(state.docsFilters.text)}" placeholder="Pesquisar Código PW ou descrição" aria-label="Pesquisar documentos" autocomplete="off">
-        <select id="filter-inspection" aria-label="Filtrar por lista de inspeção">
-          <option value="">Todas as listas</option>
-          ${state.inspections.map(item => `<option value="${escapeHtml(item.id)}" ${state.docsFilters.inspectionId === item.id ? 'selected' : ''}>${escapeHtml(item.system || 'Sem sistema')} · ${escapeHtml(item.name || item.project)}</option>`).join('')}
-        </select>
+        <select id="filter-inspection" aria-label="Filtrar por lista de inspeção"><option value="">Todas as listas</option>${state.inspections.map(item => `<option value="${escapeHtml(item.id)}" ${state.docsFilters.inspectionId === item.id ? 'selected' : ''}>${escapeHtml(item.system || 'Sem sistema')} · ${escapeHtml(item.name || item.project)}</option>`).join('')}</select>
         <select id="filter-system" aria-label="Filtrar por sistema"><option value="">Todos os sistemas</option>${systems.map(value => `<option value="${escapeHtml(value)}" ${state.docsFilters.system === value ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select>
         <select id="filter-result" aria-label="Filtrar por resultado"><option value="">Todos os resultados</option>${Object.values(RESULT).map(value => `<option value="${escapeHtml(value)}" ${state.docsFilters.result === value ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select>
         <select id="filter-status" aria-label="Filtrar por status"><option value="">Todos os status</option>${statuses.map(value => `<option value="${escapeHtml(value)}" ${state.docsFilters.status === value ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select>
-        <select id="sort-docs" aria-label="Ordenar documentos">
-          <option value="code" ${state.docsFilters.sort === 'code' ? 'selected' : ''}>Ordenar por código</option>
-          <option value="description" ${state.docsFilters.sort === 'description' ? 'selected' : ''}>Ordenar por descrição</option>
-          <option value="system" ${state.docsFilters.sort === 'system' ? 'selected' : ''}>Ordenar por sistema</option>
-        </select>
+        <select id="sort-docs" aria-label="Ordenar documentos"><option value="code" ${state.docsFilters.sort === 'code' ? 'selected' : ''}>Ordenar por código</option><option value="description" ${state.docsFilters.sort === 'description' ? 'selected' : ''}>Ordenar por descrição</option><option value="system" ${state.docsFilters.sort === 'system' ? 'selected' : ''}>Ordenar por sistema</option></select>
         <button class="btn btn-clear-filters" id="clear-doc-filters" type="button">${icon('close')}<span>Limpar filtros</span></button>
       </div>
       <div class="table-wrap compact-doc-table">
-        <table>
-          <thead><tr><th>Código PW</th><th>Descrição</th></tr></thead>
-          <tbody id="docs-body">${rowsHtml(visible)}</tbody>
-        </table>
+        <table><thead><tr><th>Código PW</th><th>Descrição</th><th aria-label="Ações">Ações</th></tr></thead><tbody id="docs-body">${rowsHtml(visible)}</tbody></table>
       </div>
       <div id="docs-pagination">${paginationHtml(documents.length, state.docsPage)}</div>
     </section>`;
 }
 
 function rowsHtml(contexts) {
-  if (!contexts.length) return '<tr class="no-results"><td colspan="2">Nenhum documento encontrado com os filtros atuais.</td></tr>';
+  if (!contexts.length) return '<tr class="no-results"><td colspan="3">Nenhum documento encontrado com os filtros atuais.</td></tr>';
   return contexts.map(({ document, inspection }) => `
-    <tr data-doc-row="${escapeHtml(document.id)}" data-inspection-row="${escapeHtml(inspection.id)}">
-      <td data-label="Código PW"><strong>${escapeHtml(document.code)}</strong><small class="row-origin">${escapeHtml(inspection.system)}</small></td>
-      <td data-label="Descrição"><div class="description-cell"><div>${escapeHtml(document.description || '—')}<small class="row-origin">${escapeHtml(inspection.project)}</small></div><button class="btn btn-compact" data-doc-details="${escapeHtml(document.id)}" data-inspection-details="${escapeHtml(inspection.id)}" type="button">Mais detalhes</button></div></td>
+    <tr class="document-row-clickable" data-doc-row="${escapeHtml(document.id)}" data-inspection-row="${escapeHtml(inspection.id)}" tabindex="0" aria-label="Abrir detalhes de ${escapeHtml(document.code)}">
+      <td class="code-cell" data-label="Código PW"><strong>${escapeHtml(document.code)}</strong><small class="row-origin">${escapeHtml(inspection.system)}</small></td>
+      <td class="document-description-cell" data-label="Descrição"><span class="document-description-text">${escapeHtml(document.description || '—')}</span><small class="row-origin">${escapeHtml(inspection.project)}</small></td>
+      <td class="details-cell" data-label="Ações"><button class="btn btn-compact" data-doc-details="${escapeHtml(document.id)}" data-inspection-details="${escapeHtml(inspection.id)}" type="button">Mais detalhes</button></td>
     </tr>`).join('');
 }
 
@@ -1074,28 +1088,68 @@ async function removeInspection(id) {
   }
 }
 
+function bindCopyQuantityControls() {
+  const input = document.querySelector('#copy-quantity');
+  if (!input) return;
+  const normalize = () => {
+    const value = Math.min(9999, Math.max(1, Number.parseInt(input.value, 10) || 1));
+    input.value = String(value);
+    return value;
+  };
+  input.addEventListener('change', normalize);
+  document.querySelectorAll('[data-copy-quantity-step]').forEach(button => {
+    if (button.dataset.bound) return;
+    button.dataset.bound = '1';
+    button.addEventListener('click', () => {
+      const next = normalize() + Number(button.dataset.copyQuantityStep || 0);
+      input.value = String(Math.min(9999, Math.max(1, next)));
+    });
+  });
+}
+
+function goToNextDocument() {
+  const context = selectedContext();
+  if (!context) return;
+  const documents = context.inspection.documents || [];
+  if (documents.length < 2) return;
+  const index = documents.findIndex(item => item.id === context.document.id);
+  const next = documents[(index + 1 + documents.length) % documents.length];
+  selectDocumentContext({ inspection: context.inspection, document: next }, { renderView: false });
+  state.pwSearchQuery = next.code;
+  render();
+  requestAnimationFrame(() => document.querySelector('#found-revision')?.focus());
+}
+
 function bindInspectionActions({ preserveFocus = false } = {}) {
   const searchInput = document.querySelector('#pw-search');
   const searchButton = document.querySelector('#find-pw');
 
-  if (searchButton && !searchButton.dataset.bound) {
-    searchButton.dataset.bound = '1';
-    searchButton.addEventListener('click', findDocument);
-  }
+  if (searchButton && !searchButton.dataset.bound) { searchButton.dataset.bound = '1'; searchButton.addEventListener('click', findDocument); }
   if (searchInput && !searchInput.dataset.bound) {
     searchInput.dataset.bound = '1';
-    searchInput.addEventListener('input', event => {
-      state.pwSearchQuery = event.currentTarget.value;
-      updateSearchSuggestions();
-    });
+    searchInput.addEventListener('input', event => { state.pwSearchQuery = event.currentTarget.value; updateSearchSuggestions(); });
     searchInput.addEventListener('keydown', event => { if (event.key === 'Enter') findDocument(); });
   }
+  const clearSearch = document.querySelector('#clear-pw-search');
+  if (clearSearch && !clearSearch.dataset.bound) {
+    clearSearch.dataset.bound = '1';
+    clearSearch.addEventListener('click', () => {
+      state.pwSearchQuery = '';
+      if (searchInput) searchInput.value = '';
+      updateSearchSuggestions();
+      searchInput?.focus();
+    });
+  }
   bindSearchSuggestionActions();
+  bindCopyQuantityControls();
 
+  const nextButton = document.querySelector('#next-document');
+  if (nextButton && !nextButton.dataset.bound) { nextButton.dataset.bound = '1'; nextButton.addEventListener('click', goToNextDocument); }
   const scanButton = document.querySelector('#scan-document');
   if (scanButton && !scanButton.dataset.bound) { scanButton.dataset.bound = '1'; scanButton.addEventListener('click', () => document.querySelector('#camera-input')?.click()); }
   const camera = document.querySelector('#camera-input');
   if (camera && !camera.dataset.bound) { camera.dataset.bound = '1'; camera.addEventListener('change', handleCameraCapture); }
+  document.querySelectorAll('[data-copy-edit]').forEach(button => { if (!button.dataset.bound) { button.dataset.bound='1'; button.addEventListener('click', () => editCopy(button.dataset.copyEdit)); } });
   document.querySelectorAll('[data-copy-delete]').forEach(button => { if (!button.dataset.bound) { button.dataset.bound='1'; button.addEventListener('click', () => deleteCopy(button.dataset.copyDelete)); } });
   document.querySelectorAll('[data-view-copy]').forEach(button => { if (!button.dataset.bound) { button.dataset.bound='1'; button.addEventListener('click', () => viewEvidence(button.dataset.viewCopy)); } });
   const save = document.querySelector('#save-verification'); if (save && !save.dataset.bound) { save.dataset.bound='1'; save.addEventListener('click', saveVerification); }
@@ -1221,6 +1275,44 @@ async function deleteCopy(copyId) {
     }
     showToast(error.message || 'Falha ao remover a cópia.', 'error');
   }
+}
+
+async function editCopy(copyId) {
+  const context = selectedContext();
+  const copy = context?.document?.fieldCopies?.find(item => item.id === copyId);
+  if (!context || !copy) return showToast('Cópia não encontrada.', 'error');
+  const modal = openModal(`
+    <div class="modal-head"><div><span class="section-kicker">HISTÓRICO</span><h2>Editar cópia ${copy.sequence}</h2></div><button class="icon-button" data-close type="button" aria-label="Fechar">${icon('close')}</button></div>
+    <p class="subtitle">A edição preserva a evidência fotográfica e recalcula automaticamente o resultado consolidado do documento.</p>
+    <div class="form-grid">
+      <div class="field full"><label for="edit-copy-revision">Revisão encontrada</label><input id="edit-copy-revision" value="${escapeHtml(copy.foundRevision)}" autocapitalize="characters" autocomplete="off" spellcheck="false"></div>
+      <div class="field full"><label>Marcações observadas</label><div class="marking-grid">${markingOptions(copy.markings || [])}</div></div>
+      <div class="field full"><label for="edit-copy-comment">Comentário</label><textarea id="edit-copy-comment" rows="3">${escapeHtml(copy.comment || '')}</textarea></div>
+    </div>
+    <div class="actions"><button class="btn" data-close type="button">Cancelar</button><button class="btn btn-primary" id="save-copy-edit" type="button">Salvar alterações</button></div>`, { label: `Editar cópia ${copy.sequence}` });
+  modal.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => modal.closeModal()));
+  modal.querySelector('#save-copy-edit')?.addEventListener('click', async event => {
+    const button = event.currentTarget;
+    const snapshot = structuredClone(context.document);
+    try {
+      setButtonBusy(button, true, 'Salvando…');
+      const markings = [...modal.querySelectorAll('input[name="marking"]:checked')].map(input => input.value);
+      updateFieldCopy(context.document, copyId, { foundRevision: modal.querySelector('#edit-copy-revision')?.value, markings, comment: modal.querySelector('#edit-copy-comment')?.value });
+      state.current = context.inspection;
+      state.selectedDoc = context.document;
+      await saveFieldChangeResilient(context.inspection, context.document.id);
+      await refreshInspectionList({ required: false });
+      syncNow({ announce: true }).catch(() => {});
+      modal.closeModal();
+      render();
+      showToast('Cópia atualizada e resultado recalculado.');
+    } catch (error) {
+      restoreDocumentSnapshot(snapshot);
+      showToast(error.message || 'Falha ao editar a cópia.', 'error');
+    } finally {
+      if (button?.isConnected) setButtonBusy(button, false);
+    }
+  });
 }
 
 async function viewEvidence(copyId) {
@@ -1414,17 +1506,17 @@ async function saveVerification(event) {
     state.selectedInspectionId = context.inspection.id;
     state.selectedDoc = context.document;
     const markings = [...document.querySelectorAll('input[name="marking"]:checked')].map(input => input.value);
-    addFieldCopy(state.selectedDoc, {
-      foundRevision: document.querySelector('#found-revision')?.value,
-      markings,
-      comment: document.querySelector('#comment')?.value,
-      source: 'manual'
-    });
+    const revision = document.querySelector('#found-revision')?.value;
+    const comment = document.querySelector('#comment')?.value;
+    const quantity = Math.min(9999, Math.max(1, Number.parseInt(document.querySelector('#copy-quantity')?.value, 10) || 1));
+    for (let index = 0; index < quantity; index += 1) {
+      addFieldCopy(state.selectedDoc, { foundRevision: revision, markings, comment, source: 'manual' });
+    }
 
     await saveFieldChangeResilient(state.current, state.selectedDoc.id);
     await refreshInspectionList({ required: false });
     syncNow({ announce: true }).catch(() => {});
-    showToast(`Cópia ${state.selectedDoc.copyCount} confirmada: ${state.selectedDoc.result}.`);
+    showToast(`${quantity} ${quantity === 1 ? 'cópia registrada' : 'cópias registradas'}: ${state.selectedDoc.result}.`);
     returnToSearch();
   } catch (error) {
     if (snapshot) restoreDocumentSnapshot(snapshot);
@@ -1483,90 +1575,37 @@ function exportInspectionModal(inspection) {
   if (!inspection?.documents?.length) return showToast('Não há documentos para exportar.', 'error');
   const data = metrics(inspection.documents || []);
   const modal = openModal(`
-    <div class="modal-head">
-      <div><span class="section-kicker">EXPORTAÇÃO</span><h2>Exportar relatório</h2></div>
-      <button class="icon-button" data-close type="button" aria-label="Fechar">${icon('close')}</button>
-    </div>
-    <div class="export-report-preview">
-      <div>
-        <span class="section-kicker">SISTEMA</span>
-        <strong>${escapeHtml(inspection.system || 'Sem sistema')}</strong>
-        <small>${escapeHtml(inspection.name || inspection.project)}</small>
-      </div>
-      <div class="export-preview-stats">
-        <span>${data.conforming} conformes</span>
-        <span>${data.nonconforming} não conformes</span>
-        <span>${data.pending} pendentes</span>
-      </div>
-    </div>
-    <section class="export-result-panel">
-      <div class="export-result-heading">
-        <div>
-          <span class="section-kicker">SELEÇÃO DO RELATÓRIO</span>
-          <h3>Quais resultados deseja exportar?</h3>
-          <p>Selecione uma ou mais categorias. Nenhuma opção é marcada automaticamente.</p>
-        </div>
-      </div>
+    <div class="modal-head"><div><span class="section-kicker">EXPORTAÇÃO</span><h2>Exportar relatório</h2></div><button class="icon-button" data-close type="button" aria-label="Fechar">${icon('close')}</button></div>
+    <div class="export-report-preview"><div><span class="section-kicker">SISTEMA</span><strong>${escapeHtml(inspection.system || 'Sem sistema')}</strong><small>${escapeHtml(inspection.name || inspection.project)}</small></div><div class="export-preview-stats"><span>${data.conforming} conformes</span><span>${data.nonconforming} não conformes</span><span>${data.notFound} não encontrados</span><span>${data.pending} pendentes</span></div></div>
+    <section class="export-result-panel"><div class="export-result-heading"><div><span class="section-kicker">SELEÇÃO DO RELATÓRIO</span><h3>Quais resultados deseja exportar?</h3><p>Selecione uma ou mais categorias. Nenhuma opção é marcada automaticamente.</p></div></div>
       <div class="export-result-options" role="group" aria-label="Resultados que serão exportados">
-        <label class="export-result-option conforming">
-          <input type="checkbox" id="exp-conforming">
-          <span class="export-check-indicator" aria-hidden="true"></span>
-          <span class="export-option-copy"><strong>Conformes</strong><small>${data.conforming} documentos</small></span>
-        </label>
-        <label class="export-result-option nonconforming">
-          <input type="checkbox" id="exp-nonconforming">
-          <span class="export-check-indicator" aria-hidden="true"></span>
-          <span class="export-option-copy"><strong>Não conformes</strong><small>${data.nonconforming} documentos</small></span>
-        </label>
-        <label class="export-result-option notfound">
-          <input type="checkbox" id="exp-notfound">
-          <span class="export-check-indicator" aria-hidden="true"></span>
-          <span class="export-option-copy"><strong>Não encontrados</strong><small>${data.notFound} documentos</small></span>
-        </label>
-        <label class="export-result-option pending">
-          <input type="checkbox" id="exp-pending">
-          <span class="export-check-indicator" aria-hidden="true"></span>
-          <span class="export-option-copy"><strong>Pendentes</strong><small>${data.pending} documentos</small></span>
-        </label>
-      </div>
-      <p class="export-selection-note">O relatório mantém automaticamente o resumo executivo, a lista de documentos e, quando existentes, as informações das cópias de campo.</p>
-    </section>
-    <div class="alert soft-alert export-format-note">Escolha os resultados acima e depois gere o arquivo em PDF ou XLSX.</div>
-    <div class="actions export-actions">
-      <button class="btn" data-close type="button">Cancelar</button>
-      <button class="btn" id="generate-pdf" type="button">Gerar PDF</button>
-      <button class="btn btn-primary" id="generate-xlsx" type="button">Gerar XLSX</button>
-    </div>`, { label: 'Exportar relatório da inspeção' });
+        <label class="export-result-option conforming"><input type="checkbox" id="exp-conforming"><span class="export-check-indicator" aria-hidden="true"></span><span class="export-option-copy"><strong>Conformes</strong><small>${data.conforming} documentos</small></span></label>
+        <label class="export-result-option nonconforming"><input type="checkbox" id="exp-nonconforming"><span class="export-check-indicator" aria-hidden="true"></span><span class="export-option-copy"><strong>Não conformes</strong><small>${data.nonconforming} documentos</small></span></label>
+        <label class="export-result-option notfound"><input type="checkbox" id="exp-notfound"><span class="export-check-indicator" aria-hidden="true"></span><span class="export-option-copy"><strong>Não encontrados</strong><small>${data.notFound} documentos</small></span></label>
+        <label class="export-result-option pending"><input type="checkbox" id="exp-pending"><span class="export-check-indicator" aria-hidden="true"></span><span class="export-option-copy"><strong>Pendentes</strong><small>${data.pending} documentos</small></span></label>
+      </div><p class="export-selection-note">PDF, XLSX e Word usam exatamente o mesmo conjunto selecionado, evitando divergência e repetição entre formatos.</p></section>
+    <div class="alert soft-alert export-format-note">PDF preserva o layout final, XLSX mantém análise tabular e Word (.doc) gera uma versão editável.</div>
+    <div class="actions export-actions"><button class="btn" data-close type="button">Cancelar</button><button class="btn" id="generate-word" type="button">Gerar Word</button><button class="btn" id="generate-pdf" type="button">Gerar PDF</button><button class="btn btn-primary" id="generate-xlsx" type="button">Gerar XLSX</button></div>`, { label: 'Exportar relatório da inspeção' });
 
   modal.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => modal.closeModal()));
+  const selectedData = () => { const options = exportOptionsFromModal(modal); return { options, data: buildInspectionExportData(inspection, options) }; };
   modal.querySelector('#generate-xlsx').addEventListener('click', async event => {
     const button = event.currentTarget;
-    try {
-      setButtonBusy(button, true, 'Gerando XLSX…');
-      const options = exportOptionsFromModal(modal);
-      await exportInspection(inspection, options);
-      showToast('Arquivo XLSX gerado no novo padrão.');
-      modal.closeModal();
-    } catch (error) {
-      showToast(error.message || 'Falha ao gerar XLSX.', 'error');
-    } finally {
-      if (button?.isConnected) setButtonBusy(button, false);
-    }
+    try { setButtonBusy(button, true, 'Gerando XLSX…'); const { options } = selectedData(); await exportInspection(inspection, options); showToast('Arquivo XLSX gerado.'); modal.closeModal(); }
+    catch (error) { showToast(error.message || 'Falha ao gerar XLSX.', 'error'); }
+    finally { if (button?.isConnected) setButtonBusy(button, false); }
   });
   modal.querySelector('#generate-pdf').addEventListener('click', event => {
     const button = event.currentTarget;
-    try {
-      setButtonBusy(button, true, 'Gerando PDF…');
-      const options = exportOptionsFromModal(modal);
-      const data = buildInspectionExportData(inspection, options);
-      exportInspectionPdf(inspection, data);
-      showToast('Arquivo PDF gerado no novo padrão.');
-      modal.closeModal();
-    } catch (error) {
-      showToast(error.message || 'Falha ao gerar PDF.', 'error');
-    } finally {
-      if (button?.isConnected) setButtonBusy(button, false);
-    }
+    try { setButtonBusy(button, true, 'Gerando PDF…'); const { data: exportData } = selectedData(); exportInspectionPdf(inspection, exportData); showToast('Arquivo PDF gerado.'); modal.closeModal(); }
+    catch (error) { showToast(error.message || 'Falha ao gerar PDF.', 'error'); }
+    finally { if (button?.isConnected) setButtonBusy(button, false); }
+  });
+  modal.querySelector('#generate-word').addEventListener('click', event => {
+    const button = event.currentTarget;
+    try { setButtonBusy(button, true, 'Gerando Word…'); const { data: exportData } = selectedData(); exportInspectionWord(inspection, exportData); showToast('Arquivo Word editável gerado.'); modal.closeModal(); }
+    catch (error) { showToast(error.message || 'Falha ao gerar Word.', 'error'); }
+    finally { if (button?.isConnected) setButtonBusy(button, false); }
   });
 }
 
@@ -1614,9 +1653,19 @@ function bindDocumentListActions() {
     const element = document.querySelector(selector);
     element?.addEventListener(eventName, () => { state.docsFilters[key] = element.value; if (key === 'inspectionId' && element.value) state.docsFilters.system = ''; if (key === 'system' && element.value) state.docsFilters.inspectionId = ''; state.docsPage = 1; refreshRows(); });
   });
-  document.querySelector('#docs-body')?.addEventListener('click', event => {
+  const docsBody = document.querySelector('#docs-body');
+  docsBody?.addEventListener('click', event => {
     const button = event.target.closest('[data-doc-details]');
-    if (button) openDocumentDetails(button.dataset.inspectionDetails, button.dataset.docDetails);
+    if (button) { openDocumentDetails(button.dataset.inspectionDetails, button.dataset.docDetails); return; }
+    const row = event.target.closest('tr[data-doc-row]');
+    if (row) openDocumentDetails(row.dataset.inspectionRow, row.dataset.docRow);
+  });
+  docsBody?.addEventListener('keydown', event => {
+    if (!['Enter', ' '].includes(event.key) || event.target.closest('button')) return;
+    const row = event.target.closest('tr[data-doc-row]');
+    if (!row) return;
+    event.preventDefault();
+    openDocumentDetails(row.dataset.inspectionRow, row.dataset.docRow);
   });
   document.querySelector('#docs-pagination')?.addEventListener('click', event => {
     if (event.target.closest('#docs-prev')) state.docsPage -= 1;
@@ -1661,6 +1710,7 @@ function refreshRows() {
   const pagination = document.querySelector('#docs-pagination');
   if (body) body.innerHTML = rowsHtml(visible);
   if (pagination) pagination.innerHTML = paginationHtml(contexts.length, state.docsPage);
+  refreshDocumentsDashboard();
 }
 
 function openDocumentFromList(documentId, inspectionId) {
@@ -1687,6 +1737,7 @@ function bindDocumentPageActions() {
     render();
     requestAnimationFrame(() => document.querySelector('#found-revision')?.focus());
   });
+  document.querySelectorAll('[data-copy-edit]').forEach(button => button.addEventListener('click', () => editCopy(button.dataset.copyEdit)));
   document.querySelectorAll('[data-copy-delete]').forEach(button => button.addEventListener('click', () => deleteCopy(button.dataset.copyDelete)));
   document.querySelectorAll('[data-view-copy]').forEach(button => button.addEventListener('click', () => viewEvidence(button.dataset.viewCopy)));
 }

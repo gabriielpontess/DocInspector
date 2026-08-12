@@ -7,6 +7,7 @@ import {
   metrics,
   recalculateDocument,
   removeFieldCopy,
+  updateFieldCopy,
   RESULT,
   validateInspection
 } from '../js/domain.js';
@@ -48,5 +49,13 @@ assert.equal(validateInspection(inspection).documents.length, 1);
 assert.throws(() => validateInspection({ ...inspection, documents: [...inspection.documents, { code: '' }] }), /perda silenciosa/);
 
 const m = metrics([hydrateDocument({ code:'A', expectedRevision:'1', result: RESULT.PENDING }), hydrateDocument({ code:'B', expectedRevision:'1', result: RESULT.NOT_FOUND })]);
-assert.deepEqual(m, { total: 2, verified: 0, conforming: 0, nonconforming: 0, notFound: 1, pending: 1 });
+assert.deepEqual(m, { total: 2, verified: 1, conforming: 0, nonconforming: 0, notFound: 1, pending: 1 });
+
+const editable = hydrateDocument({ code:'EDIT', expectedRevision:'A', fieldCopies:[] });
+const editableCopy = addFieldCopy(editable, { foundRevision:'B', comment:'antes' });
+assert.equal(editable.result, RESULT.NONCONFORMING);
+updateFieldCopy(editable, editableCopy.id, { foundRevision:'A', comment:'depois' });
+assert.equal(editable.result, RESULT.CONFORMING);
+assert.equal(editable.fieldCopies[0].comment, 'depois');
+
 console.log('domain.test.mjs: OK');
