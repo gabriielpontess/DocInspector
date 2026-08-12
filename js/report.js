@@ -20,7 +20,6 @@ function ensureJsPDF() {
   return ctor;
 }
 
-
 function downloadPdfBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
@@ -59,13 +58,17 @@ function truncate(doc, value, width) {
   return `${result}…`;
 }
 
-
 export function sliceRowLineSets(lineSets, offsets, maxLines) {
   const safeMax = Math.max(1, Number(maxLines) || 1);
   const chunkSets = lineSets.map((lines, index) => lines.slice(offsets[index], offsets[index] + safeMax));
   const nextOffsets = offsets.map((offset, index) => offset + chunkSets[index].length);
   const done = lineSets.every((lines, index) => nextOffsets[index] >= lines.length);
   return { chunkSets, nextOffsets, done };
+}
+
+export function availableRowLines(availableHeight) {
+  if (Number(availableHeight) < 7) return 0;
+  return Math.max(0, Math.floor((Number(availableHeight) - 2.2) / 3.4));
 }
 
 function drawBrand(doc, x, y) {
@@ -281,7 +284,7 @@ function drawTable(doc, {
 
     while (!done) {
       const availableHeight = pageHeight - 16 - y;
-      const availableLines = Math.floor((availableHeight - 2.2) / 3.4);
+      const availableLines = availableRowLines(availableHeight);
       if (availableLines < 1) {
         newPage();
         continue;
