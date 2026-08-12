@@ -20,7 +20,6 @@ function ensureJsPDF() {
   return ctor;
 }
 
-
 function downloadPdfBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
@@ -57,6 +56,19 @@ function truncate(doc, value, width) {
   let result = text;
   while (result.length > 3 && doc.getTextWidth(`${result}…`) > width) result = result.slice(0, -1);
   return `${result}…`;
+}
+
+export function sliceRowLineSets(lineSets, offsets, maxLines) {
+  const safeMax = Math.max(1, Number(maxLines) || 1);
+  const chunkSets = lineSets.map((lines, index) => lines.slice(offsets[index], offsets[index] + safeMax));
+  const nextOffsets = offsets.map((offset, index) => offset + chunkSets[index].length);
+  const done = lineSets.every((lines, index) => nextOffsets[index] >= lines.length);
+  return { chunkSets, nextOffsets, done };
+}
+
+export function availableRowLines(availableHeight) {
+  if (Number(availableHeight) < 7) return 0;
+  return Math.max(0, Math.floor((Number(availableHeight) - 2.2) / 3.4));
 }
 
 function drawBrand(doc, x, y) {
@@ -267,25 +279,40 @@ function drawTable(doc, {
   rows.forEach((row, rowIndex) => {
     const values = columns.map(col => String(row[col.key] ?? ''));
     const lineSets = values.map((value, i) => doc.splitTextToSize(value, widths[i] - 3));
-    const maxLines = Math.max(...lineSets.map(lines => lines.length), 1);
-    const rowH = Math.max(7, maxLines * 3.4 + 2.2);
-    if (y + rowH > pageHeight - 16) newPage();
+    let offsets = lineSets.map(() => 0);
+    let done = false;
 
-    setFill(doc, rowIndex % 2 ? '#F8FAFC' : COLORS.white);
-    doc.rect(left, y, usable, rowH, 'F');
-    setDraw(doc, '#E4EAF2');
-    doc.setLineWidth(0.2);
-    let x = left;
-    columns.forEach((col, i) => {
-      doc.rect(x, y, widths[i], rowH, 'S');
-      if (col.key === 'Resultado' || col.key === 'Resultado da cópia') setText(doc, resultColor(values[i]));
-      else setText(doc, COLORS.ink);
-      doc.setFont('helvetica', col.key === 'Código PW' ? 'bold' : 'normal');
-      doc.setFontSize(fontSize);
-      doc.text(lineSets[i], x + 1.5, y + 4.5);
-      x += widths[i];
-    });
-    y += rowH;
+    while (!done) {
+      const availableHeight = pageHeight - 16 - y;
+      const availableLines = availableRowLines(availableHeight);
+      if (availableLines < 1) {
+        newPage();
+        continue;
+      }
+
+      const chunk = sliceRowLineSets(lineSets, offsets, availableLines);
+      const maxChunkLines = Math.max(...chunk.chunkSets.map(lines => lines.length), 1);
+      const rowH = Math.max(7, maxChunkLines * 3.4 + 2.2);
+
+      setFill(doc, rowIndex % 2 ? '#F8FAFC' : COLORS.white);
+      doc.rect(left, y, usable, rowH, 'F');
+      setDraw(doc, '#E4EAF2');
+      doc.setLineWidth(0.2);
+      let x = left;
+      columns.forEach((col, i) => {
+        doc.rect(x, y, widths[i], rowH, 'S');
+        if (col.key === 'Resultado' || col.key === 'Resultado da cópia') setText(doc, resultColor(values[i]));
+        else setText(doc, COLORS.ink);
+        doc.setFont('helvetica', col.key === 'Código PW' ? 'bold' : 'normal');
+        doc.setFontSize(fontSize);
+        if (chunk.chunkSets[i].length) doc.text(chunk.chunkSets[i], x + 1.5, y + 4.5);
+        x += widths[i];
+      });
+      y += rowH;
+      offsets = chunk.nextOffsets;
+      done = chunk.done;
+      if (!done) newPage();
+    }
   });
 
   return y;
@@ -320,7 +347,7 @@ export function exportInspectionPdf(inspection, data) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.2);
   doc.text(`Exportado em ${generatedAt}`, 196, 17, { align: 'right' });
-  doc.text('Versão do relatório: v0.9.8', 196, 22, { align: 'right' });
+  doc.text('Versão do relatório: v0.9.12', 196, 22, { align: 'right' });
 
   setText(doc, COLORS.navy);
   doc.setFont('helvetica', 'bold');
@@ -360,6 +387,11 @@ export function exportInspectionPdf(inspection, data) {
     // Mantém todo o relatório em A4 retrato. A tabela de cópias usa
     // proporções compactas e quebra de texto para evitar páginas mistas.
     doc.addPage('a4', 'portrait');
+    drawBrand(doc, 12, 10);
+    setText(doc, COLORS.muted);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text(`${inspection.system || ''} - ${inspection.name || inspection.project || ''}`, 198, 16, { align: 'right' });
     const columns = [
       { key: 'Código PW', label: 'Código PW', width: 0.17 },
       { key: 'Descrição', label: 'Descrição', width: 0.22 },

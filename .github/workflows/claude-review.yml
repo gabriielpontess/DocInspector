@@ -1,0 +1,103 @@
+name: Claude Adversarial Review
+
+on:
+  pull_request:
+    types: [labeled]
+    branches: [develop, main]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: read
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: claude-review
+    if: >-
+      github.event.label.name == 'claude-review' &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Validate review instructions
+        shell: bash
+        run: |
+          set -euo pipefail
+          required_files=(
+            "CLAUDE.md"
+            "AI-DEVELOPMENT-RULES.md"
+            "docs/engineering/AI-REVIEW-CHECKLIST.md"
+            "docs/engineering/BRANCH-POLICY.md"
+          )
+
+          for file in "${required_files[@]}"; do
+            if [[ ! -f "$file" ]]; then
+              echo "::error file=$file::Required Claude review instruction file is missing."
+              exit 1
+            fi
+          done
+
+          echo "All Claude review instruction files are present."
+
+      - name: Claude adversarial review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          track_progress: true
+          additional_permissions: |
+            actions: read
+          prompt: |
+            REPOSITORY: ${{ github.repository }}
+            PULL REQUEST: #${{ github.event.pull_request.number }}
+            BASE BRANCH: ${{ github.event.pull_request.base.ref }}
+            HEAD BRANCH: ${{ github.event.pull_request.head.ref }}
+
+            Act only as an independent adversarial code reviewer for DocInspector.
+            Do not edit files, do not commit, do not push, and do not merge this pull request.
+
+            Before reviewing, read and follow:
+            - CLAUDE.md
+            - AI-DEVELOPMENT-RULES.md
+            - docs/engineering/AI-REVIEW-CHECKLIST.md
+            - docs/engineering/BRANCH-POLICY.md
+
+            Inspect the complete PR diff and relevant surrounding code. Verify the claimed root cause rather than reviewing only the visible symptom. Search for the same defective pattern in analogous components and flows.
+
+            Use only the tools explicitly available to this review. Do not attempt npm, node, git, shell, or other Bash commands outside the allowlist, and do not request approval for blocked tools. For test status, use the GitHub CI tools injected by the action and treat successful CI as evidence while still independently inspecting the code.
+
+            Prioritize, in this order:
+            1. data loss, IndexedDB integrity and migration risks;
+            2. Supabase synchronization, conflict resolution and photographic evidence lifecycle;
+            3. offline/PWA/service-worker regressions;
+            4. OCR/PW identification and false-positive risks;
+            5. PDF/XLSX export correctness and pagination/orientation;
+            6. responsive layout across mobile, tablet, notebook and desktop, including sidebar open/collapsed states;
+            7. security, secret exposure and unsafe client-side privilege assumptions;
+            8. accessibility, error states, race conditions and regression-test coverage.
+
+            Use GitHub comments only. For concrete code defects, prefer inline comments. Post one concise top-level summary containing:
+            - verdict: PASS, PASS WITH OBSERVATIONS, or CHANGES REQUIRED;
+            - blocking findings, if any;
+            - non-blocking observations;
+            - missing tests or validation;
+            - residual risks.
+
+            Do not approve merely because CI passes. If evidence is insufficient, say so explicitly.
+          claude_args: >-
+            --model sonnet
+            --max-turns 40
+            --allowedTools "Read,Glob,Grep,mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*)"

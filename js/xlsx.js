@@ -188,9 +188,19 @@ export function shouldExportDocument(document, options = {}) {
   return true;
 }
 
+function uniqueBy(items, keyFor) {
+  const seen = new Set();
+  return items.filter((item, index) => {
+    const key = String(keyFor(item, index) ?? '');
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function documentRows(inspection, options = {}) {
   const opts = normalizeExportOptions(options);
-  return (inspection.documents || [])
+  return uniqueBy((inspection.documents || []), document => document.id || document.code)
     .filter(document => shouldExportDocument(document, opts))
     .map(document => {
       const row = {
@@ -217,9 +227,9 @@ function documentRows(inspection, options = {}) {
 function copyRows(inspection, options = {}) {
   const opts = normalizeExportOptions(options);
   if (!opts.includeCopies) return [];
-  return (inspection.documents || [])
+  return uniqueBy((inspection.documents || []), document => document.id || document.code)
     .filter(document => shouldExportDocument(document, opts))
-    .flatMap(document => (document.fieldCopies || []).map(copy => {
+    .flatMap(document => uniqueBy((document.fieldCopies || []), copy => copy.id || `${document.id}:${copy.sequence}:${copy.foundRevision}:${copy.capturedAt || ''}`).map(copy => {
       const row = {
         'Sistema': inspection.system,
         'Nome da lista': inspection.name || inspection.project,
@@ -243,7 +253,8 @@ function copyRows(inspection, options = {}) {
 }
 
 function selectedMetrics(inspection, options = {}) {
-  const selected = (inspection.documents || []).filter(document => shouldExportDocument(document, options));
+  const selected = uniqueBy((inspection.documents || []), document => document.id || document.code)
+    .filter(document => shouldExportDocument(document, options));
   return metrics(selected);
 }
 
@@ -352,7 +363,7 @@ function styleWorkbookHeader(sheet, inspection, generatedAt, endColumn = 8) {
   sheet.getCell(1, endColumn - 1).value = 'Gerado em';
   sheet.getCell(1, endColumn).value = generatedAt;
   sheet.getCell(2, endColumn - 1).value = 'Versão';
-  sheet.getCell(2, endColumn).value = 'v0.9.8';
+  sheet.getCell(2, endColumn).value = 'v0.9.11';
   for (const cell of [sheet.getCell(1, endColumn - 1), sheet.getCell(1, endColumn), sheet.getCell(2, endColumn - 1), sheet.getCell(2, endColumn)]) {
     cell.font = { name: 'Arial', size: 9, color: { argb: EXPORT_COLORS.white } };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: EXPORT_COLORS.navy } };
@@ -502,7 +513,7 @@ export async function exportInspection(inspection, options = {}) {
   const ExcelJS = ensureExcelJS();
   if (!inspection?.documents?.length) throw new Error('Não há documentos para exportar.');
   const opts = normalizeExportOptions(options);
-  const selectedDocuments = (inspection.documents || []).filter(document => shouldExportDocument(document, opts));
+  const selectedDocuments = uniqueBy((inspection.documents || []), document => document.id || document.code).filter(document => shouldExportDocument(document, opts));
   if (!selectedDocuments.length) throw new Error('Nenhum documento atende aos filtros selecionados para exportação.');
 
   const workbook = new ExcelJS.Workbook();
