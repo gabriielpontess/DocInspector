@@ -60,14 +60,12 @@ function truncate(doc, value, width) {
 }
 
 
-function boundedLines(doc, value, width, maxLines = 5) {
-  const lines = doc.splitTextToSize(String(value ?? ''), width);
-  if (lines.length <= maxLines) return lines;
-  const visible = lines.slice(0, maxLines);
-  let last = String(visible[maxLines - 1] || '');
-  while (last.length > 1 && doc.getTextWidth(`${last}…`) > width) last = last.slice(0, -1);
-  visible[maxLines - 1] = `${last}…`;
-  return visible;
+export function sliceRowLineSets(lineSets, offsets, maxLines) {
+  const safeMax = Math.max(1, Number(maxLines) || 1);
+  const chunkSets = lineSets.map((lines, index) => lines.slice(offsets[index], offsets[index] + safeMax));
+  const nextOffsets = offsets.map((offset, index) => offset + chunkSets[index].length);
+  const done = lineSets.every((lines, index) => nextOffsets[index] >= lines.length);
+  return { chunkSets, nextOffsets, done };
 }
 
 function drawBrand(doc, x, y) {
@@ -277,26 +275,41 @@ function drawTable(doc, {
 
   rows.forEach((row, rowIndex) => {
     const values = columns.map(col => String(row[col.key] ?? ''));
-    const lineSets = values.map((value, i) => boundedLines(doc, value, widths[i] - 3, columns[i].maxLines || 5));
-    const maxLines = Math.max(...lineSets.map(lines => lines.length), 1);
-    const rowH = Math.max(7, maxLines * 3.4 + 2.2);
-    if (y + rowH > pageHeight - 16) newPage();
+    const lineSets = values.map((value, i) => doc.splitTextToSize(value, widths[i] - 3));
+    let offsets = lineSets.map(() => 0);
+    let done = false;
 
-    setFill(doc, rowIndex % 2 ? '#F8FAFC' : COLORS.white);
-    doc.rect(left, y, usable, rowH, 'F');
-    setDraw(doc, '#E4EAF2');
-    doc.setLineWidth(0.2);
-    let x = left;
-    columns.forEach((col, i) => {
-      doc.rect(x, y, widths[i], rowH, 'S');
-      if (col.key === 'Resultado' || col.key === 'Resultado da cópia') setText(doc, resultColor(values[i]));
-      else setText(doc, COLORS.ink);
-      doc.setFont('helvetica', col.key === 'Código PW' ? 'bold' : 'normal');
-      doc.setFontSize(fontSize);
-      doc.text(lineSets[i], x + 1.5, y + 4.5);
-      x += widths[i];
-    });
-    y += rowH;
+    while (!done) {
+      const availableHeight = pageHeight - 16 - y;
+      const availableLines = Math.floor((availableHeight - 2.2) / 3.4);
+      if (availableLines < 1) {
+        newPage();
+        continue;
+      }
+
+      const chunk = sliceRowLineSets(lineSets, offsets, availableLines);
+      const maxChunkLines = Math.max(...chunk.chunkSets.map(lines => lines.length), 1);
+      const rowH = Math.max(7, maxChunkLines * 3.4 + 2.2);
+
+      setFill(doc, rowIndex % 2 ? '#F8FAFC' : COLORS.white);
+      doc.rect(left, y, usable, rowH, 'F');
+      setDraw(doc, '#E4EAF2');
+      doc.setLineWidth(0.2);
+      let x = left;
+      columns.forEach((col, i) => {
+        doc.rect(x, y, widths[i], rowH, 'S');
+        if (col.key === 'Resultado' || col.key === 'Resultado da cópia') setText(doc, resultColor(values[i]));
+        else setText(doc, COLORS.ink);
+        doc.setFont('helvetica', col.key === 'Código PW' ? 'bold' : 'normal');
+        doc.setFontSize(fontSize);
+        if (chunk.chunkSets[i].length) doc.text(chunk.chunkSets[i], x + 1.5, y + 4.5);
+        x += widths[i];
+      });
+      y += rowH;
+      offsets = chunk.nextOffsets;
+      done = chunk.done;
+      if (!done) newPage();
+    }
   });
 
   return y;
@@ -331,7 +344,7 @@ export function exportInspectionPdf(inspection, data) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.2);
   doc.text(`Exportado em ${generatedAt}`, 196, 17, { align: 'right' });
-  doc.text('Versão do relatório: v0.9.11', 196, 22, { align: 'right' });
+  doc.text('Versão do relatório: v0.9.12', 196, 22, { align: 'right' });
 
   setText(doc, COLORS.navy);
   doc.setFont('helvetica', 'bold');
@@ -352,7 +365,7 @@ export function exportInspectionPdf(inspection, data) {
   if (data.options.includeDocuments) {
     const columns = [
       { key: 'Código PW', label: 'Código PW', width: 0.18 },
-      { key: 'Descrição', label: 'Descrição', width: 0.30, maxLines: 3 },
+      { key: 'Descrição', label: 'Descrição', width: 0.30 },
       { key: 'Revisão esperada', label: 'Rev. esperada', width: 0.12 },
       { key: 'Revisão encontrada', label: 'Rev. encontrada', width: 0.13 },
       { key: 'Resultado', label: 'Resultado', width: 0.15 },
@@ -378,13 +391,13 @@ export function exportInspectionPdf(inspection, data) {
     doc.text(`${inspection.system || ''} - ${inspection.name || inspection.project || ''}`, 198, 16, { align: 'right' });
     const columns = [
       { key: 'Código PW', label: 'Código PW', width: 0.17 },
-      { key: 'Descrição', label: 'Descrição', width: 0.22, maxLines: 3 },
+      { key: 'Descrição', label: 'Descrição', width: 0.22 },
       { key: 'Cópia', label: 'Cópia', width: 0.055 },
       { key: 'Revisão encontrada', label: 'Rev.', width: 0.065 },
       { key: 'Resultado da cópia', label: 'Resultado', width: 0.12 },
       { key: 'Origem', label: 'Origem', width: 0.08 },
-      { key: 'Marcações', label: 'Marcações', width: 0.105, maxLines: 2 },
-      { key: 'Comentário', label: 'Comentário', width: 0.185, maxLines: 4 }
+      { key: 'Marcações', label: 'Marcações', width: 0.105 },
+      { key: 'Comentário', label: 'Comentário', width: 0.185 }
     ].filter(col => (col.key !== 'Marcações' || data.options.includeMarkings) && (col.key !== 'Comentário' || data.options.includeComments));
     const total = columns.reduce((sum, col) => sum + col.width, 0);
     columns.forEach(col => { col.width /= total; });

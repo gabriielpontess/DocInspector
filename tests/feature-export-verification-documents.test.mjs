@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { buildInspectionExportData } from '../js/xlsx.js';
+import { sliceRowLineSets } from '../js/report.js';
 import { hydrateDocument, RESULT } from '../js/domain.js';
 
 const duplicateSource = hydrateDocument({ id:'d1', code:'PW-1', description:'NC', expectedRevision:'A', fieldCopies:[{ id:'c1', foundRevision:'B', sequence:1, confirmed:true }] });
@@ -35,7 +36,18 @@ const inspectViewSource = app.match(/function inspectView\(\)[\s\S]*?function no
 assert.ok(inspectViewSource, 'trecho de inspectView deve ser localizado antes de validar a ausência do dashboard');
 assert.doesNotMatch(inspectViewSource[0], /global-dashboard/);
 assert.doesNotMatch(app, /querySelector\('#global-dashboard'\)/, 'referência morta ao dashboard antigo não deve retornar');
-assert.match(report, /boundedLines/);
-assert.match(report, /maxLines: 4/);
+assert.doesNotMatch(report, /boundedLines/);
+assert.doesNotMatch(report, /maxLines:/);
+const lineSets = [['a1','a2','a3','a4','a5'], ['b1','b2'], ['c1','c2','c3']];
+const firstChunk = sliceRowLineSets(lineSets, [0,0,0], 2);
+assert.deepEqual(firstChunk.chunkSets, [['a1','a2'], ['b1','b2'], ['c1','c2']]);
+assert.deepEqual(firstChunk.nextOffsets, [2,2,2]);
+assert.equal(firstChunk.done, false);
+const secondChunk = sliceRowLineSets(lineSets, firstChunk.nextOffsets, 2);
+assert.deepEqual(secondChunk.chunkSets, [['a3','a4'], [], ['c3']]);
+assert.equal(secondChunk.done, false);
+const thirdChunk = sliceRowLineSets(lineSets, secondChunk.nextOffsets, 2);
+assert.deepEqual(thirdChunk.chunkSets, [['a5'], [], []]);
+assert.equal(thirdChunk.done, true);
 assert.match(word, /application\/msword/);
 console.log('feature-export-verification-documents.test.mjs: OK');
