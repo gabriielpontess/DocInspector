@@ -74,5 +74,6 @@ jobs:
 
             Do not approve merely because CI passes. If evidence is insufficient, say so explicitly.
           claude_args: >-
-            --max-turns 12
+            --model sonnet
+            --max-turns 8
             --allowedTools "Read,Glob,Grep,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
