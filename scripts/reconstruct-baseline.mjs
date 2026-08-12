@@ -16,9 +16,20 @@ const files = {
   'styles.css': ['aaa4e1c67f9a11993c91283c7013eacd99656c268e898e8018a78b213e90852e', 81047]
 };
 
+const appParts = [
+  'js__app_js.000.fixed.b64',
+  'js__app_js.001.b64',
+  'js__app_js.002.b64',
+  'js__app_js.003.b64',
+  'js__app_js.004.b64',
+  'js__app_js.005.fixed.b64'
+];
+
 for (const [target, [expectedHash, expectedSize]] of Object.entries(files)) {
   const key = target.replaceAll('/', '__').replaceAll('.', '_');
-  const parts = (await readdir('.import_gz')).filter(name => name.startsWith(`${key}.`) && name.endsWith('.b64')).sort();
+  const parts = target === 'js/app.js'
+    ? appParts
+    : (await readdir('.import_gz')).filter(name => name.startsWith(`${key}.`) && name.endsWith('.b64') && !name.includes('.fixed.')).sort();
   if (!parts.length) throw new Error(`Fragmentos ausentes para ${target}`);
   console.log(`BEGIN ${target} (${parts.length} fragmentos)`);
   const encoded = (await Promise.all(parts.map(name => readFile(`.import_gz/${name}`, 'utf8')))).join('').replace(/\s+/g, '');
