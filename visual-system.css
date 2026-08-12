@@ -1,0 +1,203 @@
+/* DocInspector visual system v1.0 — migration foundation
+   Stage 1: tokens + base controls only. Page-specific redesign follows in later commits. */
+
+:root {
+  --color-navy-950: #061426;
+  --color-navy-900: #071a31;
+  --color-navy-800: #0d3159;
+  --color-navy-700: #174574;
+  --color-gold-500: #f3b83f;
+  --color-gold-400: #ffc85d;
+  --color-bg: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f8fafc;
+  --color-text: #172033;
+  --color-text-secondary: #667085;
+  --color-text-tertiary: #8b95a5;
+  --color-border: #dce3ea;
+  --color-border-strong: #c9d3df;
+  --color-success: #16845f;
+  --color-success-bg: #eaf7f1;
+  --color-danger: #c63d46;
+  --color-danger-bg: #fdf0f1;
+  --color-warning: #a96d19;
+  --color-warning-bg: #fff5e3;
+  --color-info: #2467a8;
+  --color-info-bg: #edf5fc;
+
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-2xl: 28px;
+  --text-metric: 36px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  --radius-sm-v2: 8px;
+  --radius-control-v2: 12px;
+  --radius-card-v2: 16px;
+  --radius-modal-v2: 20px;
+
+  --shadow-card-v2: 0 4px 16px rgba(6, 20, 38, .06);
+  --shadow-overlay-v2: 0 20px 60px rgba(6, 20, 38, .18);
+  --sidebar-v2: 272px;
+  --content-max-v2: 1440px;
+  --control-height-v2: 48px;
+  --control-height-primary-mobile-v2: 52px;
+  --touch-target-v2: 44px;
+  --motion-fast-v2: 160ms;
+  --motion-standard-v2: 190ms;
+}
+
+html {
+  background: var(--color-bg);
+}
+
+body {
+  color: var(--color-text);
+  background: var(--color-bg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: var(--text-md);
+  line-height: 1.5;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.subtitle,
+.field-help {
+  color: var(--color-text-secondary);
+}
+
+/* Foundation components. These intentionally normalize existing variants
+   without changing page composition in this stage. */
+.btn {
+  min-height: var(--control-height-v2);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-control-v2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1.2;
+  box-shadow: none;
+  transition:
+    transform var(--motion-fast-v2) ease,
+    border-color var(--motion-fast-v2) ease,
+    background-color var(--motion-fast-v2) ease,
+    box-shadow var(--motion-fast-v2) ease;
+}
+
+.btn-primary {
+  border-color: var(--color-navy-900);
+  color: #fff;
+  background: var(--color-navy-900);
+  box-shadow: 0 4px 12px rgba(7, 26, 49, .14);
+}
+
+.btn-danger {
+  border-color: #e7bcc0;
+  color: var(--color-danger);
+  background: var(--color-surface);
+}
+
+.icon-button,
+.quantity-btn {
+  min-width: var(--touch-target-v2);
+  min-height: var(--touch-target-v2);
+  border-radius: var(--radius-control-v2);
+}
+
+input,
+select,
+textarea {
+  min-height: var(--control-height-v2);
+  padding: 11px var(--space-3);
+  border-color: var(--color-border-strong);
+  border-radius: var(--radius-control-v2);
+  color: var(--color-text);
+  background: var(--color-surface);
+  font-size: var(--text-md);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--color-navy-700);
+  box-shadow: 0 0 0 3px rgba(23, 69, 116, .12);
+}
+
+.card,
+.dashboard-block {
+  border-color: var(--color-border);
+  border-radius: var(--radius-card-v2);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card-v2);
+}
+
+.modal {
+  border-radius: var(--radius-modal-v2);
+  box-shadow: var(--shadow-overlay-v2);
+}
+
+:focus-visible {
+  outline: 3px solid rgba(243, 184, 63, .46);
+  outline-offset: 2px;
+}
+
+@media (max-width: 767px) {
+  .btn {
+    min-height: var(--control-height-v2);
+  }
+
+  .btn-primary {
+    min-height: var(--control-height-primary-mobile-v2);
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: var(--color-border-strong);
+    box-shadow: 0 4px 12px rgba(6, 20, 38, .08);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    border-color: var(--color-navy-800);
+    background: var(--color-navy-800);
+    box-shadow: 0 6px 16px rgba(7, 26, 49, .18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
