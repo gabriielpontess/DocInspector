@@ -1445,7 +1445,6 @@ html, body { touch-action: manipulation; }
 .inspection-mini-stats { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 8px; color: var(--muted); font-size: .73rem; font-weight: 650; }
 .inspection-mini-stats span + span::before { content: "·"; margin-right: 12px; color: var(--line-strong); }
 
-.global-dashboard { margin-bottom: 0; }
 .global-verify-layout { grid-template-columns: minmax(390px,.82fr) minmax(0,1.18fr); }
 .locate-card { min-height: 360px; }
 .global-search-box input { min-height: 58px; font-size: 1.06rem; }

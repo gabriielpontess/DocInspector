@@ -271,8 +271,6 @@ async function refreshAfterSync() {
     }
 
     if (state.view === 'inspect') {
-      const dashboardRoot = document.querySelector('#global-dashboard');
-      if (dashboardRoot) dashboardRoot.innerHTML = dashboard(allDocuments(), 'Resumo de todas as inspeções');
       updateSearchSuggestions();
       const detail = document.querySelector('.doc-detail');
       if (detail && !hasActiveVerificationDraft()) detail.innerHTML = documentDetailView();
@@ -1090,7 +1088,8 @@ async function removeInspection(id) {
 
 function bindCopyQuantityControls() {
   const input = document.querySelector('#copy-quantity');
-  if (!input) return;
+  if (!input || input.dataset.bound) return;
+  input.dataset.bound = '1';
   const normalize = () => {
     const value = Math.min(9999, Math.max(1, Number.parseInt(input.value, 10) || 1));
     input.value = String(value);
