@@ -23,39 +23,32 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
           app = Path('js/app.js')
           text = app.read_text(encoding='utf-8')
-          old = """    if (state.view === 'inspect') {
-              const dashboardRoot = document.querySelector('#global-dashboard');
-              if (dashboardRoot) dashboardRoot.innerHTML = dashboard(allDocuments(), 'Resumo de todas as inspeções');
-              updateSearchSuggestions();"""
-          new = """    if (state.view === 'inspect') {
-              updateSearchSuggestions();"""
-          if old not in text:
-              raise SystemExit('dead dashboard refresh block not found')
-          text = text.replace(old, new, 1)
+          text, count = re.subn(
+              r"\n\s*const dashboardRoot = document\.querySelector\('#global-dashboard'\);\n\s*if \(dashboardRoot\) dashboardRoot\.innerHTML = dashboard\(allDocuments\(\), 'Resumo de todas as inspeções'\);",
+              '', text, count=1
+          )
+          if count != 1:
+              raise SystemExit(f'dead dashboard refresh replacements={count}')
 
-          old = """function bindCopyQuantityControls() {
-            const input = document.querySelector('#copy-quantity');
-            if (!input) return;
-            const normalize = () => {"""
-          new = """function bindCopyQuantityControls() {
-            const input = document.querySelector('#copy-quantity');
-            if (!input || input.dataset.bound) return;
-            input.dataset.bound = '1';
-            const normalize = () => {"""
-          if old not in text:
-              raise SystemExit('copy quantity binder block not found')
-          text = text.replace(old, new, 1)
+          text, count = re.subn(
+              r"(function bindCopyQuantityControls\(\) \{\n\s*const input = document\.querySelector\('#copy-quantity'\);\n)\s*if \(!input\) return;",
+              r"\1  if (!input || input.dataset.bound) return;\n  input.dataset.bound = '1';",
+              text, count=1
+          )
+          if count != 1:
+              raise SystemExit(f'copy quantity binder replacements={count}')
           app.write_text(text, encoding='utf-8')
 
           css = Path('styles.css')
           css_text = css.read_text(encoding='utf-8')
-          dead = ".global-dashboard { margin-bottom: 0; }\n"
-          if dead not in css_text:
-              raise SystemExit('dead global dashboard css not found')
-          css.write_text(css_text.replace(dead, '', 1), encoding='utf-8')
+          css_text, count = re.subn(r"^\.global-dashboard \{ margin-bottom: 0; \}\n", '', css_text, count=1, flags=re.M)
+          if count != 1:
+              raise SystemExit(f'dead global dashboard css replacements={count}')
+          css.write_text(css_text, encoding='utf-8')
           PY
 
       - name: Run quality gate
