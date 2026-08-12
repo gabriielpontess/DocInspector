@@ -1,4 +1,4 @@
-const VERSION = '0.9.18';
+const VERSION = '0.9.19';
 const CORE_CACHE = `docinspector-core-${VERSION}`;
 const RUNTIME_CACHE = `docinspector-runtime-${VERSION}`;
 const XLSX_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
@@ -16,33 +16,11 @@ function isOcrRuntimeAsset(url) {
 }
 
 const APP_SHELL = [
-  './',
-  './index.html',
-  './styles.css',
-  './visual-system.css',
-  './visual-verify.css',
-  './manifest.webmanifest',
-  './assets/icon.svg',
-  './assets/icon-180.png',
-  './assets/icon-192.png',
-  './assets/icon-512.png',
-  './assets/icon-maskable-192.png',
-  './assets/icon-maskable-512.png',
-  './js/app.js',
-  './js/db.js',
-  './js/domain.js',
-  './js/inspection-update.js',
-  './js/inspection-update-ui.js',
-  './js/field-recovery-ui.js',
-  './js/evidence-health-ui.js',
-  './js/marking-policy-ui.js',
-  './js/pwa.js',
-  './js/report.js',
-  './js/sync.js',
-  './js/ui.js',
-  './js/xlsx.js',
-  './js/vision.js',
-  './js/word.js'
+  './', './index.html', './styles.css', './visual-system.css', './visual-verify.css', './visual-documents.css',
+  './manifest.webmanifest', './assets/icon.svg', './assets/icon-180.png', './assets/icon-192.png', './assets/icon-512.png',
+  './assets/icon-maskable-192.png', './assets/icon-maskable-512.png', './js/app.js', './js/db.js', './js/domain.js',
+  './js/inspection-update.js', './js/inspection-update-ui.js', './js/field-recovery-ui.js', './js/evidence-health-ui.js',
+  './js/marking-policy-ui.js', './js/pwa.js', './js/report.js', './js/sync.js', './js/ui.js', './js/xlsx.js', './js/vision.js', './js/word.js'
 ];
 
 async function cacheExternalAssets() {
@@ -80,9 +58,7 @@ self.addEventListener('activate', event => {
 self.addEventListener('message', event => {
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
   if (event.data?.type === 'CACHE_EXTERNAL') {
-    event.waitUntil(cacheExternalAssets().then(result => {
-      event.ports?.[0]?.postMessage(result);
-    }));
+    event.waitUntil(cacheExternalAssets().then(result => event.ports?.[0]?.postMessage(result)));
   }
 });
 
@@ -126,7 +102,6 @@ self.addEventListener('fetch', event => {
   }
 
   if (url.origin !== self.location.origin) return;
-
   event.respondWith((async () => {
     const cached = await caches.match(request);
     const networkPromise = fetch(request)
