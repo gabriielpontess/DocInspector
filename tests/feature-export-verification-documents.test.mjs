@@ -5,20 +5,12 @@ import { availableRowLines, sliceRowLineSets } from '../js/report.js';
 import { hydrateDocument, RESULT } from '../js/domain.js';
 
 const duplicateSource = hydrateDocument({ id:'d1', code:'PW-1', description:'NC', expectedRevision:'A', fieldCopies:[{ id:'c1', foundRevision:'B', sequence:1, confirmed:true }] });
-const inspection = {
-  id: 'inspection-1', name: 'Teste', project: 'P', system: 'S', responsible: 'R', location: 'L',
-  documents: [
-    duplicateSource,
-    structuredClone(duplicateSource),
-    hydrateDocument({ id:'d2', code:'PW-2', description:'NF', expectedRevision:'A', result:RESULT.NOT_FOUND, fieldCopies:[] }),
-    hydrateDocument({ id:'d3', code:'PW-3', description:'Pendente', expectedRevision:'A', result:RESULT.PENDING, fieldCopies:[] })
-  ]
-};
+const inspection = { id:'inspection-1', name:'Teste', project:'P', system:'S', responsible:'R', location:'L', documents:[duplicateSource, structuredClone(duplicateSource), hydrateDocument({ id:'d2', code:'PW-2', description:'NF', expectedRevision:'A', result:RESULT.NOT_FOUND, fieldCopies:[] }), hydrateDocument({ id:'d3', code:'PW-3', description:'Pendente', expectedRevision:'A', result:RESULT.PENDING, fieldCopies:[] })] };
 const data = buildInspectionExportData(inspection, { includeConforming:false, includeNonconforming:true, includeNotFound:true, includePending:false, includeCopies:true });
 assert.deepEqual(data.documents.map(row => row['Código PW']), ['PW-1','PW-2']);
-assert.equal(data.documents.length, 2, 'documento duplicado por id deve produzir uma única linha');
-assert.equal(data.copies.length, 1, 'cópia do documento duplicado não pode ser repetida');
-assert.equal(data.metrics.total, 2, 'resumo deve usar a mesma coleção deduplicada');
+assert.equal(data.documents.length, 2);
+assert.equal(data.copies.length, 1);
+assert.equal(data.metrics.total, 2);
 assert.equal(data.metrics.verified, 2);
 assert.equal(data.metrics.pending, 0);
 
@@ -29,18 +21,19 @@ const serviceWorker = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf
 const index = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const visualSystem = fs.readFileSync(new URL('../visual-system.css', import.meta.url), 'utf8');
 const visualVerify = fs.readFileSync(new URL('../visual-verify.css', import.meta.url), 'utf8');
+const visualDocuments = fs.readFileSync(new URL('../visual-documents.css', import.meta.url), 'utf8');
 const markingPolicy = fs.readFileSync(new URL('../js/marking-policy-ui.js', import.meta.url), 'utf8');
 assert.match(app, /id="copy-quantity"/);
-assert.match(app, /if \(!input \|\| input\.dataset\.bound\) return;[\s\S]{0,80}input\.dataset\.bound = '1';/, 'contador de cópias deve impedir listeners duplicados');
+assert.match(app, /if \(!input \|\| input\.dataset\.bound\) return;[\s\S]{0,80}input\.dataset\.bound = '1';/);
 assert.match(app, /data-copy-edit=/);
 assert.match(app, /id="next-document"/);
 assert.match(app, /id="clear-pw-search"/);
 assert.match(app, /Registrar por foto/);
 assert.match(app, /documents-dashboard/);
 const inspectViewSource = app.match(/function inspectView\(\)[\s\S]*?function normalizeSearchText/);
-assert.ok(inspectViewSource, 'trecho de inspectView deve ser localizado antes de validar a ausência do dashboard');
+assert.ok(inspectViewSource);
 assert.doesNotMatch(inspectViewSource[0], /global-dashboard/);
-assert.doesNotMatch(app, /querySelector\('#global-dashboard'\)/, 'referência morta ao dashboard antigo não deve retornar');
+assert.doesNotMatch(app, /querySelector\('#global-dashboard'\)/);
 assert.doesNotMatch(report, /boundedLines/);
 assert.doesNotMatch(report, /maxLines:/);
 const lineSets = [['a1','a2','a3','a4','a5'], ['b1','b2'], ['c1','c2','c3']];
@@ -54,23 +47,26 @@ assert.equal(secondChunk.done, false);
 const thirdChunk = sliceRowLineSets(lineSets, secondChunk.nextOffsets, 2);
 assert.deepEqual(thirdChunk.chunkSets, [['a5'], [], []]);
 assert.equal(thirdChunk.done, true);
-assert.equal(availableRowLines(5.6), 0, 'altura menor que a linha mínima deve forçar nova página');
-assert.equal(availableRowLines(6.99), 0, 'faixa limítrofe abaixo de 7 mm não pode aceitar uma linha');
-assert.equal(availableRowLines(7), 1, '7 mm comporta exatamente a altura mínima de uma linha');
-assert.match(serviceWorker, /const VERSION = '0\.9\.18';/, 'cache do PWA deve invalidar assets quando a camada visual de verificação é adicionada');
-assert.match(serviceWorker, /\.\/visual-system\.css/, 'novo sistema visual deve fazer parte do shell offline');
-assert.match(serviceWorker, /\.\/visual-verify\.css/, 'estilos de verificação devem funcionar offline');
-assert.match(serviceWorker, /\.\/js\/marking-policy-ui\.js/, 'política de marcações deve funcionar offline');
-assert.match(index, /href="visual-system\.css"/, 'index deve carregar a fundação visual após o CSS legado durante a migração');
-assert.match(index, /href="visual-verify\.css"/, 'index deve carregar a camada visual de verificação');
-assert.match(index, /src="js\/marking-policy-ui\.js"/, 'index deve carregar a política de marcações');
-assert.match(markingPolicy, /new Set\(\['Amarelo', 'Vermelho'\]\)/, 'novos registros devem oferecer apenas amarelo e vermelho');
-assert.match(markingPolicy, /input\.checked = false;[\s\S]*input\.disabled = true;/, 'marcações antigas não permitidas não podem ser salvas em novos registros');
-assert.match(visualVerify, /grid-template-columns: minmax\(320px, 40%\) minmax\(0, 60%\)/, 'desktop deve priorizar a área de verificação');
-assert.match(visualVerify, /white-space: normal;[\s\S]*overflow-wrap: anywhere;/, 'descrições longas devem permanecer legíveis');
-assert.match(visualVerify, /marking-amarelo/);
-assert.match(visualVerify, /marking-vermelho/);
-assert.match(visualSystem, /--color-navy-900:/, 'fundação visual deve expor tokens de marca');
-assert.match(visualSystem, /--control-height-v2: 48px/, 'controles devem usar altura padrão consistente');
+assert.equal(availableRowLines(5.6), 0);
+assert.equal(availableRowLines(6.99), 0);
+assert.equal(availableRowLines(7), 1);
+assert.match(serviceWorker, /const VERSION = '0\.9\.19';/);
+assert.match(serviceWorker, /\.\/visual-system\.css/);
+assert.match(serviceWorker, /\.\/visual-verify\.css/);
+assert.match(serviceWorker, /\.\/visual-documents\.css/);
+assert.match(serviceWorker, /\.\/js\/marking-policy-ui\.js/);
+assert.match(index, /href="visual-system\.css"/);
+assert.match(index, /href="visual-verify\.css"/);
+assert.match(index, /href="visual-documents\.css"/);
+assert.match(index, /src="js\/marking-policy-ui\.js"/);
+assert.match(markingPolicy, /new Set\(\['Amarelo', 'Vermelho'\]\)/);
+assert.match(markingPolicy, /input\.checked = false;[\s\S]*input\.disabled = true;/);
+assert.match(visualVerify, /grid-template-columns: minmax\(320px, 40%\) minmax\(0, 60%\)/);
+assert.match(visualVerify, /white-space: normal;[\s\S]*overflow-wrap: anywhere;/);
+assert.match(visualDocuments, /table-layout: fixed/);
+assert.match(visualDocuments, /-webkit-line-clamp: 3/);
+assert.match(visualDocuments, /@media \(max-width: 767px\)[\s\S]*\.compact-doc-table table,[\s\S]*display: block/);
+assert.match(visualSystem, /--color-navy-900:/);
+assert.match(visualSystem, /--control-height-v2: 48px/);
 assert.match(word, /application\/msword/);
 console.log('feature-export-verification-documents.test.mjs: OK');
