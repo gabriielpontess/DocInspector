@@ -53,6 +53,6 @@ assert.equal(thirdChunk.done, true);
 assert.equal(availableRowLines(5.6), 0, 'altura menor que a linha mínima deve forçar nova página');
 assert.equal(availableRowLines(6.99), 0, 'faixa limítrofe abaixo de 7 mm não pode aceitar uma linha');
 assert.equal(availableRowLines(7), 1, '7 mm comporta exatamente a altura mínima de uma linha');
-assert.match(serviceWorker, /const VERSION = '0\.9\.14';/, 'cache do PWA deve invalidar assets quando a recuperação de rascunho é adicionada');
+assert.match(serviceWorker, /const VERSION = '0\.9\.15';/, 'cache do PWA deve invalidar assets quando o diagnóstico de evidências é adicionado');
 assert.match(word, /application\/msword/);
 console.log('feature-export-verification-documents.test.mjs: OK');
