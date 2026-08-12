@@ -31,6 +31,25 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
+      - name: Validate review instructions
+        shell: bash
+        run: |
+          set -euo pipefail
+          required_files=(
+            "CLAUDE.md"
+            "AI-DEVELOPMENT-RULES.md"
+            "docs/engineering/AI-REVIEW-CHECKLIST.md"
+          )
+
+          for file in "${required_files[@]}"; do
+            if [[ ! -f "$file" ]]; then
+              echo "::error file=$file::Required Claude review instruction file is missing."
+              exit 1
+            fi
+          done
+
+          echo "All Claude review instruction files are present."
+
       - name: Claude adversarial review
         uses: anthropics/claude-code-action@v1
         with:
@@ -51,7 +70,7 @@ jobs:
             Before reviewing, read and follow:
             - CLAUDE.md
             - AI-DEVELOPMENT-RULES.md
-            - docs/AI-REVIEW-CHECKLIST.md
+            - docs/engineering/AI-REVIEW-CHECKLIST.md
 
             Inspect the complete PR diff and relevant surrounding code. Verify the claimed root cause rather than reviewing only the visible symptom. Search for the same defective pattern in analogous components and flows.
 
