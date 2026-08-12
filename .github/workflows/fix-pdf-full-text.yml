@@ -133,19 +133,7 @@ jobs:
           test_text = test.read_text(encoding='utf-8')
           test_text = test_text.replace("import { buildInspectionExportData } from '../js/xlsx.js';", "import { buildInspectionExportData } from '../js/xlsx.js';\nimport { sliceRowLineSets } from '../js/report.js';")
           old_assertions = "assert.match(report, /boundedLines/);\nassert.match(report, /maxLines: 4/);"
-          new_assertions = """assert.doesNotMatch(report, /boundedLines/);
-assert.doesNotMatch(report, /maxLines:/);
-const lineSets = [['a1','a2','a3','a4','a5'], ['b1','b2'], ['c1','c2','c3']];
-const firstChunk = sliceRowLineSets(lineSets, [0,0,0], 2);
-assert.deepEqual(firstChunk.chunkSets, [['a1','a2'], ['b1','b2'], ['c1','c2']]);
-assert.deepEqual(firstChunk.nextOffsets, [2,2,2]);
-assert.equal(firstChunk.done, false);
-const secondChunk = sliceRowLineSets(lineSets, firstChunk.nextOffsets, 2);
-assert.deepEqual(secondChunk.chunkSets, [['a3','a4'], [], ['c3']]);
-assert.equal(secondChunk.done, false);
-const thirdChunk = sliceRowLineSets(lineSets, secondChunk.nextOffsets, 2);
-assert.deepEqual(thirdChunk.chunkSets, [['a5'], [], []]);
-assert.equal(thirdChunk.done, true);"""
+          new_assertions = "assert.doesNotMatch(report, /boundedLines/);\nassert.doesNotMatch(report, /maxLines:/);\nconst lineSets = [['a1','a2','a3','a4','a5'], ['b1','b2'], ['c1','c2','c3']];\nconst firstChunk = sliceRowLineSets(lineSets, [0,0,0], 2);\nassert.deepEqual(firstChunk.chunkSets, [['a1','a2'], ['b1','b2'], ['c1','c2']]);\nassert.deepEqual(firstChunk.nextOffsets, [2,2,2]);\nassert.equal(firstChunk.done, false);\nconst secondChunk = sliceRowLineSets(lineSets, firstChunk.nextOffsets, 2);\nassert.deepEqual(secondChunk.chunkSets, [['a3','a4'], [], ['c3']]);\nassert.equal(secondChunk.done, false);\nconst thirdChunk = sliceRowLineSets(lineSets, secondChunk.nextOffsets, 2);\nassert.deepEqual(thirdChunk.chunkSets, [['a5'], [], []]);\nassert.equal(thirdChunk.done, true);"
           if old_assertions not in test_text:
               raise SystemExit('old PDF assertions not found')
           test.write_text(test_text.replace(old_assertions, new_assertions, 1), encoding='utf-8')
