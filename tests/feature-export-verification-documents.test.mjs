@@ -43,7 +43,8 @@ assert.match(serviceWorker, /const VERSION = '0\.9\.22';/);
 for (const asset of ['visual-system.css','visual-verify.css','visual-documents.css','visual-overlays.css','visual-responsive.css','visual-refinement.css','js/marking-policy-ui.js','js/copy-evidence-edit-ui.js','js/ui-refinement.js']) {
   assert.ok(serviceWorker.includes(`./${asset}`), `${asset} deve estar no shell offline`);
 }
-for (const asset of ['visual-system.css','visual-verify.css','visual-documents.css','visual-overlays.css','visual-responsive.css','visual-refinement.css']) assert.ok(index.includes(`href="${asset}"`));
+for (const asset of ['visual-system.css','visual-verify.css','visual-documents.css','visual-overlays.css','visual-responsive.css']) assert.ok(index.includes(`href="${asset}"`));
+assert.match(index, /href="visual-refinement\.css\?v=0\.9\.23"/);
 assert.match(index, /src="js\/marking-policy-ui\.js"/);
 assert.match(index, /src="js\/copy-evidence-edit-ui\.js"/);
 assert.match(index, /src="js\/ui-refinement\.js"/);
