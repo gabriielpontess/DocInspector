@@ -55,7 +55,7 @@ assert.equal(availableRowLines(5.6), 0, 'altura menor que a linha mínima deve f
 assert.equal(availableRowLines(6.99), 0, 'faixa limítrofe abaixo de 7 mm não pode aceitar uma linha');
 assert.equal(availableRowLines(7), 1, '7 mm comporta exatamente a altura mínima de uma linha');
 
-assert.match(serviceWorker, /const VERSION = '0\.9\.25';/);
+assert.match(serviceWorker, /const VERSION = '0\.9\.26';/);
 for (const asset of ['visual-system.css','visual-verify.css','visual-documents.css','visual-overlays.css','visual-responsive.css','visual-refinement.css','js/marking-policy-ui.js','js/copy-evidence-edit-ui.js','js/ui-refinement.js']) {
   assert.ok(serviceWorker.includes(`./${asset}`), `${asset} deve estar no shell offline`);
 }
