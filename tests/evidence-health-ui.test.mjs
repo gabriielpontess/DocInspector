@@ -14,6 +14,7 @@ assert.match(moduleSource, /Tentar sincronizar agora/, 'usuário deve conseguir 
 assert.match(moduleSource, /LARGE_SOURCE_BYTES/, 'fotos grandes devem possuir guarda de armazenamento local');
 assert.match(moduleSource, /MIN_FREE_STORAGE_BYTES/, 'guarda deve exigir reserva mínima de armazenamento');
 assert.match(moduleSource, /navigator\.storage\?\.estimate/, 'guarda deve usar quota real do navegador quando disponível');
+assert.match(moduleSource, /input\.id === 'camera-input' \|\| input\.hasAttribute\('data-copy-evidence-input'\)/, 'guarda de armazenamento deve cobrir câmera e foto anexada ao editar cópia');
 assert.match(html, /js\/evidence-health-ui\.js/, 'diagnóstico deve ser carregado pela aplicação');
 assert.match(sw, /\.\/js\/evidence-health-ui\.js/, 'diagnóstico deve funcionar offline');
 
