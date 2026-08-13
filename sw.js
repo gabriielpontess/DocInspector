@@ -1,4 +1,4 @@
-const VERSION = '0.9.24';
+const VERSION = '0.9.25';
 const CORE_CACHE = `docinspector-core-${VERSION}`;
 const RUNTIME_CACHE = `docinspector-runtime-${VERSION}`;
 const XLSX_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
@@ -43,6 +43,7 @@ self.addEventListener('install', event => {
     const cache = await caches.open(CORE_CACHE);
     await cache.addAll(APP_SHELL);
     await cacheExternalAssets();
+    await self.skipWaiting();
   })());
 });
 
