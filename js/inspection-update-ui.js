@@ -35,7 +35,7 @@ function mappingOptions(headers, suggested, key) {
   ).join('')}`;
 }
 
-async function openUpdateListModal(inspectionId) {
+export async function openUpdateListModal(inspectionId) {
   const inspection = await getInspection(inspectionId).catch(() => null);
   if (!inspection) return showToast('Inspeção não encontrada.', 'error');
 
