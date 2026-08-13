@@ -20,5 +20,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Quality gate
-        run: npm run check
+      - name: JavaScript syntax
+        run: npm run check:syntax
+      - name: SQL validation
+        run: npm run check:sql
+      - name: Secret scan
+        run: npm run check:secrets
+      - name: Regression tests
+        run: npm test

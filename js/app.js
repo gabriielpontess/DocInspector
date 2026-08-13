@@ -29,6 +29,7 @@ import { exportInspectionPdf } from './report.js';
 import { exportInspectionWord } from './word.js';
 import { codesEquivalent, detectMarkingColors, prepareEvidenceImage, prepareOcrRuntime, recognizeEngineeringDrawing } from './vision.js';
 import { escapeHtml, formatDate, icon, openModal, setButtonBusy, showToast } from './ui.js';
+import { openUpdateListModal } from './inspection-update-ui.js';
 import { getInstallState, getStorageReadiness, prepareOfflineDependencies, registerPWA, requestInstall } from './pwa.js';
 import {
   bindSyncLifecycle,
@@ -414,12 +415,41 @@ function homeView() {
             </div>
           </div>
         </div>
-        <div class="inspection-actions">
-          <button class="btn" data-view-inspection="${escapeHtml(inspection.id)}" type="button">Ver documentos</button>
-          <button class="btn" data-edit-inspection="${escapeHtml(inspection.id)}" type="button">${icon('edit')}<span>Editar</span></button>
-          <button class="btn" data-export-inspection="${escapeHtml(inspection.id)}" type="button">Exportar</button>
-          <button class="btn btn-danger" data-delete="${escapeHtml(inspection.id)}" type="button">Excluir</button>
-        </div>
+       <div class="inspection-actions">
+  <button class="btn inspection-primary-action"
+          data-view-inspection="${escapeHtml(inspection.id)}"
+          type="button">
+    Ver documentos
+  </button>
+
+  <details class="inspection-more-menu">
+    <summary class="inspection-more-button"
+             aria-label="Mais opções da inspeção"
+             title="Mais opções">⋮</summary>
+
+    <div class="inspection-menu-popover" role="menu">
+      <button class="inspection-menu-option"
+              data-edit-inspection="${escapeHtml(inspection.id)}"
+              role="menuitem"
+              type="button">Editar</button>
+
+      <button class="inspection-menu-option"
+              data-update-inspection-list="${escapeHtml(inspection.id)}"
+              role="menuitem"
+              type="button">Atualizar lista</button>
+
+      <button class="inspection-menu-option"
+              data-export-inspection="${escapeHtml(inspection.id)}"
+              role="menuitem"
+              type="button">Exportar</button>
+
+      <button class="inspection-menu-option danger"
+              data-delete="${escapeHtml(inspection.id)}"
+              role="menuitem"
+              type="button">Excluir</button>
+    </div>
+  </details>
+</div>
       </article>`;
   }).join('');
 
@@ -910,7 +940,26 @@ function bindHomeActions() {
   document.querySelector('#new-inspection-hero')?.addEventListener('click', newInspectionModal);
   document.querySelector('#new-verification')?.addEventListener('click', launchGlobalCameraVerification);
   document.querySelectorAll('[data-edit-inspection]').forEach(button => button.addEventListener('click', () => editInspectionModal(button.dataset.editInspection)));
+document.querySelectorAll('[data-update-inspection-list]').forEach(button => {
+  button.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    void openUpdateListModal(button.dataset.updateInspectionList);
+  });
+});
 
+document.querySelectorAll('.inspection-more-menu').forEach(menu => {
+  menu.addEventListener('click', event => event.stopPropagation());
+  menu.addEventListener('keydown', event => event.stopPropagation());
+
+  menu.addEventListener('toggle', () => {
+    if (!menu.open) return;
+
+    document.querySelectorAll('.inspection-more-menu[open]').forEach(other => {
+      if (other !== menu) other.removeAttribute('open');
+    });
+  });
+});
   const openInspectionDocuments = inspectionId => {
     const inspection = state.inspections.find(item => item.id === inspectionId);
     if (!inspection) return showToast('Inspeção não encontrada.', 'error');
