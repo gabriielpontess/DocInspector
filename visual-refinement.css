@@ -1,0 +1,228 @@
+/* DocInspector — final visual refinement pass before CSS consolidation */
+
+/* Structural shell correction: sidebar must always span the visible viewport. */
+@media (min-width: 1024px) {
+  .app-shell { min-height: 100dvh; align-items: start; }
+  .sidebar {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+/* Home — one primary action + compact overflow menu. */
+.inspection-item { overflow: visible; }
+.inspection-actions {
+  position: relative;
+  flex-wrap: nowrap;
+  max-width: none;
+}
+.inspection-action-source {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+  pointer-events: none !important;
+}
+.inspection-primary-action { min-width: 150px; }
+.inspection-more-menu { position: relative; flex: 0 0 auto; }
+.inspection-more-menu > summary { list-style: none; }
+.inspection-more-menu > summary::-webkit-details-marker { display: none; }
+.inspection-more-button {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control-v2);
+  color: var(--color-text);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-size: 25px;
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+}
+.inspection-more-button:hover { border-color: var(--color-navy-700); background: var(--color-surface-subtle); }
+.inspection-menu-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 80;
+  display: grid;
+  width: 190px;
+  padding: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control-v2);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-overlay-v2);
+}
+.inspection-menu-option {
+  min-height: 42px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--color-text);
+  background: transparent;
+  text-align: left;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.inspection-menu-option:hover,
+.inspection-menu-option:focus-visible { background: var(--color-surface-subtle); }
+.inspection-menu-option.danger {
+  margin-top: 5px;
+  border-top: 1px solid var(--color-border);
+  border-radius: 0 0 8px 8px;
+  color: var(--color-danger);
+}
+
+/* Verification search — more compact, more operational. */
+.locate-card { padding: var(--space-6); }
+.locate-card .section-title { margin-bottom: var(--space-2); }
+.locate-card > p.subtitle {
+  max-width: 580px;
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+  line-height: 20px;
+}
+.global-search-box {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px auto;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+.global-search-box #pw-search { min-width: 0; }
+.global-search-box #find-pw { min-width: 126px; }
+.search-field-help {
+  display: block;
+  margin: 7px 2px 0;
+  color: var(--color-text-tertiary);
+  font-size: var(--text-xs);
+  line-height: 18px;
+}
+.search-suggestions[hidden] { display: none !important; }
+.search-suggestions:not(:empty) { margin-top: var(--space-3); }
+.scan-actions {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+.scan-actions .field-help { max-width: 440px; }
+
+/* Document sequence controls. */
+.doc-heading-actions { display: flex; align-items: center; gap: var(--space-2); }
+.previous-document-button,
+.next-document-button { flex: 0 0 auto; }
+.previous-document-button span { display: block; font-size: 27px; line-height: 1; transform: translateY(-1px); }
+.previous-document-button:disabled,
+.next-document-button:disabled { opacity: .38; cursor: not-allowed; }
+
+/* Verification density + clearer read-only source status. */
+.document-origin-strip,
+.document-summary-strip { gap: var(--space-2); }
+.document-origin-strip > div,
+.document-summary-strip > div { padding: var(--space-3); }
+.new-copy-panel { margin-top: var(--space-5, 20px); padding-top: var(--space-5, 20px); }
+.new-copy-panel .form-grid { gap: var(--space-3); }
+.expected-status-field input:disabled {
+  border-color: transparent;
+  color: var(--color-text);
+  background: var(--color-surface-subtle);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+  opacity: 1;
+  font-weight: 600;
+}
+.new-copy-panel textarea { min-height: 118px; }
+.copies-history { margin-top: var(--space-6); }
+.copy-card { padding: var(--space-4); }
+
+/* Documents — compact dashboard, better filter allocation and denser rows. */
+.documents-dashboard { padding: var(--space-5, 20px); }
+.documents-dashboard .grid.cards { gap: var(--space-2); }
+.documents-dashboard .metric { min-height: 128px; padding: var(--space-4); }
+.documents-dashboard .metric strong { margin-top: var(--space-3); }
+.documents-catalog { padding: var(--space-5, 20px); }
+.documents-toolbar {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.65fr) minmax(210px, 1.05fr) minmax(170px, .9fr) minmax(180px, .92fr) minmax(165px, .84fr) minmax(190px, .95fr);
+  gap: var(--space-2);
+  align-items: center;
+}
+.documents-toolbar #clear-filters {
+  grid-column: 1 / 2;
+  width: auto;
+  justify-self: start;
+  min-width: 160px;
+}
+.documents-table th,
+.documents-table td { padding-top: 12px; padding-bottom: 12px; }
+.documents-table td:nth-child(2) { line-height: 1.35; }
+.documents-table .btn { min-height: 40px; }
+
+/* Details — stronger operational hierarchy without removing information. */
+.document-page-card .document-meta-grid { gap: var(--space-2); }
+.document-page-card .document-meta-grid > div { padding: var(--space-3); }
+.document-page-card .document-meta-grid > div:nth-child(5),
+.document-page-card .document-meta-grid > div:nth-child(6),
+.document-page-card .document-meta-grid > div:nth-child(7),
+.document-page-card .document-meta-grid > div:nth-child(8) {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-subtle);
+}
+
+/* Settings — reduce unused space while preserving readable sections. */
+.settings-grid { align-items: stretch; }
+.settings-grid .card { padding: var(--space-5, 20px); }
+.settings-grid .card p { max-width: 880px; }
+.field-readiness-card { padding: var(--space-5, 20px) !important; }
+
+@media (max-width: 1199px) {
+  .documents-toolbar {
+    grid-template-columns: minmax(260px, 1.4fr) repeat(2, minmax(170px, 1fr));
+  }
+  .documents-toolbar #clear-filters { grid-column: auto; }
+}
+
+@media (max-width: 767px) {
+  .inspection-actions { width: 100%; justify-content: flex-end; }
+  .inspection-primary-action { flex: 1 1 auto; min-width: 0; }
+  .inspection-more-button { width: 48px; height: 48px; }
+  .inspection-menu-popover { position: fixed; left: 16px; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); top: auto; width: auto; padding: 8px; }
+  .inspection-menu-option { min-height: 48px; font-size: var(--text-md); }
+
+  .locate-card { padding: var(--space-4); }
+  .locate-card > p.subtitle { margin-bottom: var(--space-3); }
+  .global-search-box {
+    grid-template-columns: minmax(0, 1fr) 48px;
+  }
+  .global-search-box #find-pw { grid-column: 1 / -1; width: 100%; min-width: 0; }
+  .scan-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+  .scan-actions .btn { width: 100%; }
+  .scan-actions .field-help { max-width: none; }
+
+  .doc-heading-actions { gap: 6px; }
+  .previous-document-button,
+  .next-document-button { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+
+  .new-copy-panel textarea { min-height: 100px; }
+  .documents-dashboard { padding: var(--space-4); }
+  .documents-dashboard .metric { min-height: 96px; }
+  .documents-catalog { padding: var(--space-4); }
+  .documents-toolbar { display: grid; grid-template-columns: 1fr; }
+  .documents-toolbar #clear-filters { grid-column: auto; width: 100%; justify-self: stretch; }
+}
