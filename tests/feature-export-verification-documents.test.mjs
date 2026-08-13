@@ -39,13 +39,14 @@ assert.equal(sliceRowLineSets(lineSets, firstChunk.nextOffsets, 2).done, false);
 assert.equal(availableRowLines(5.6), 0);
 assert.equal(availableRowLines(7), 1);
 
-assert.match(serviceWorker, /const VERSION = '0\.9\.21';/);
-for (const asset of ['visual-system.css','visual-verify.css','visual-documents.css','visual-overlays.css','visual-responsive.css','js/marking-policy-ui.js','js/copy-evidence-edit-ui.js']) {
+assert.match(serviceWorker, /const VERSION = '0\.9\.22';/);
+for (const asset of ['visual-system.css','visual-verify.css','visual-documents.css','visual-overlays.css','visual-responsive.css','visual-refinement.css','js/marking-policy-ui.js','js/copy-evidence-edit-ui.js','js/ui-refinement.js']) {
   assert.ok(serviceWorker.includes(`./${asset}`), `${asset} deve estar no shell offline`);
 }
-for (const asset of ['visual-system.css','visual-verify.css','visual-documents.css','visual-overlays.css','visual-responsive.css']) assert.ok(index.includes(`href="${asset}"`));
+for (const asset of ['visual-system.css','visual-verify.css','visual-documents.css','visual-overlays.css','visual-responsive.css','visual-refinement.css']) assert.ok(index.includes(`href="${asset}"`));
 assert.match(index, /src="js\/marking-policy-ui\.js"/);
 assert.match(index, /src="js\/copy-evidence-edit-ui\.js"/);
+assert.match(index, /src="js\/ui-refinement\.js"/);
 assert.match(markingPolicy, /new Set\(\['Amarelo', 'Vermelho'\]\)/);
 assert.match(markingPolicy, /input\.checked = false;[\s\S]*input\.disabled = true;/);
 assert.match(copyEvidenceEdit, /context\.copy\.evidenceId = evidenceId/);
