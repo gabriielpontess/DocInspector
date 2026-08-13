@@ -1,4 +1,5 @@
 let deferredInstallPrompt = null;
+let reloadingForControllerChange = false;
 
 const EXTERNAL_RUNTIME_ASSETS = Object.freeze([
   'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
@@ -99,6 +100,30 @@ export async function requestInstall() {
   return { status: 'unavailable' };
 }
 
+function promoteWaitingWorker(registration) {
+  registration?.waiting?.postMessage({ type: 'SKIP_WAITING' });
+}
+
+function watchRegistrationUpdates(registration, hadController) {
+  promoteWaitingWorker(registration);
+
+  registration.addEventListener('updatefound', () => {
+    const worker = registration.installing;
+    if (!worker) return;
+    worker.addEventListener('statechange', () => {
+      if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+        worker.postMessage({ type: 'SKIP_WAITING' });
+      }
+    });
+  });
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloadingForControllerChange) return;
+    reloadingForControllerChange = true;
+    window.location.reload();
+  });
+}
+
 export async function registerPWA(onError) {
   if (!('serviceWorker' in navigator)) return null;
 
@@ -112,12 +137,14 @@ export async function registerPWA(onError) {
       }
     }
 
-    const registration = await navigator.serviceWorker.register('./sw.js');
+    const hadController = Boolean(navigator.serviceWorker.controller);
+    const registration = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+    watchRegistrationUpdates(registration, hadController);
+    await registration.update().catch(() => {});
+
     const readyRegistration = await navigator.serviceWorker.ready;
+    promoteWaitingWorker(readyRegistration);
     readyRegistration.active?.postMessage({ type: 'CACHE_EXTERNAL' });
-
-
-
 
     return registration;
   } catch (error) {
