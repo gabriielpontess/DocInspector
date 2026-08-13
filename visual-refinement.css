@@ -1,17 +1,23 @@
 /* DocInspector — final visual refinement pass before CSS consolidation */
 
-/* Structural shell correction: sidebar must always span the visible viewport. */
+/* Structural shell correction: desktop navigation is anchored to viewport edges. */
 @media (min-width: 1024px) {
   .app-shell { min-height: 100dvh; align-items: start; }
   .sidebar {
-    position: sticky;
+    position: fixed;
     top: 0;
-    align-self: start;
-    height: 100dvh;
-    min-height: 100dvh;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    width: var(--sidebar-v2);
+    height: auto;
+    min-height: 0;
+    max-height: none;
     overflow-y: auto;
     overscroll-behavior: contain;
   }
+  .app-shell.sidebar-collapsed .sidebar { width: 82px; }
+  .main { grid-column: 2; }
 }
 
 /* Home — one primary action + compact overflow menu. */
@@ -65,6 +71,10 @@
   border-radius: var(--radius-control-v2);
   background: var(--color-surface);
   box-shadow: var(--shadow-overlay-v2);
+}
+.inspection-more-menu.opens-up .inspection-menu-popover {
+  top: auto;
+  bottom: calc(100% + 8px);
 }
 .inspection-menu-option {
   min-height: 42px;
@@ -199,6 +209,7 @@
   .inspection-primary-action { flex: 1 1 auto; min-width: 0; }
   .inspection-more-button { width: 48px; height: 48px; }
   .inspection-menu-popover { position: fixed; left: 16px; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); top: auto; width: auto; padding: 8px; }
+  .inspection-more-menu.opens-up .inspection-menu-popover { top: auto; bottom: calc(76px + env(safe-area-inset-bottom)); }
   .inspection-menu-option { min-height: 48px; font-size: var(--text-md); }
 
   .locate-card { padding: var(--space-4); }
