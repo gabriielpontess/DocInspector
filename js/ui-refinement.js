@@ -31,19 +31,6 @@ function refineInspectionActions(root = document) {
     const viewButton = actions.querySelector('[data-view-inspection]');
     if (viewButton) viewButton.classList.add('inspection-primary-action');
 
-    const sources = [
-      ['edit', actions.querySelector('[data-edit-inspection]'), 'Editar'],
-      ['update', actions.querySelector('[data-update-inspection-list]'), 'Atualizar lista'],
-      ['export', actions.querySelector('[data-export-inspection]'), 'Exportar'],
-      ['delete', actions.querySelector('[data-delete]'), 'Excluir']
-    ].filter(([, button]) => Boolean(button));
-
-    sources.forEach(([, button]) => {
-      button.classList.add('inspection-action-source');
-      button.setAttribute('tabindex', '-1');
-      button.setAttribute('aria-hidden', 'true');
-    });
-
     let details = actions.querySelector('.inspection-more-menu');
     if (!details) {
       details = document.createElement('details');
@@ -58,26 +45,24 @@ function refineInspectionActions(root = document) {
       actions.appendChild(details);
     }
 
-    const signature = sources.map(([key, button]) => `${key}:${button?.dataset.updateInspectionList || button?.dataset.editInspection || button?.dataset.exportInspection || button?.dataset.delete || ''}`).join('|');
-    if (details.dataset.signature === signature) return;
-    details.dataset.signature = signature;
-
     const popover = details.querySelector('.inspection-menu-popover');
-    popover.innerHTML = '';
-    sources.forEach(([key, source, label]) => {
-      const option = document.createElement('button');
-      option.type = 'button';
-      option.className = `inspection-menu-option${key === 'delete' ? ' danger' : ''}`;
-      option.setAttribute('role', 'menuitem');
-      option.textContent = label;
-      option.addEventListener('click', event => {
-        event.preventDefault();
-        event.stopPropagation();
-        details.removeAttribute('open');
-        source.click();
-      });
-      popover.appendChild(option);
-    });
+    if (!popover) return;
+
+    const sources = [
+      ['edit', actions.querySelector('[data-edit-inspection]'), 'Editar'],
+      ['update', actions.querySelector('[data-update-inspection-list]'), 'Atualizar lista'],
+      ['export', actions.querySelector('[data-export-inspection]'), 'Exportar'],
+      ['delete', actions.querySelector('[data-delete]'), 'Excluir']
+    ].filter(([, button]) => Boolean(button));
+
+    for (const [key, button, label] of sources) {
+      button.className = `inspection-menu-option${key === 'delete' ? ' danger' : ''}`;
+      button.removeAttribute('aria-hidden');
+      button.removeAttribute('tabindex');
+      button.setAttribute('role', 'menuitem');
+      button.textContent = label;
+      if (button.parentElement !== popover) popover.appendChild(button);
+    }
   });
 }
 
