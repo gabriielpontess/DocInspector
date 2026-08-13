@@ -6,9 +6,9 @@ const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 const script = fs.readFileSync(new URL('../js/ui-refinement.js', import.meta.url), 'utf8');
 const css = fs.readFileSync(new URL('../visual-refinement.css', import.meta.url), 'utf8');
 
-assert.match(index, /href="visual-refinement\.css\?v=0\.9\.23"/, 'refinamento visual deve usar URL versionada para evitar CSS antigo no preview');
+assert.match(index, /href="visual-refinement\.css"/, 'refinamento visual deve usar a mesma URL pré-cacheada pelo app shell offline');
 assert.match(index, /src="js\/ui-refinement\.js"/, 'comportamentos de refinamento devem ser carregados no app');
-assert.match(sw, /const VERSION = '0\.9\.22';/, 'Service Worker permanece na versão validada; o cache-bust é restrito ao CSS');
+assert.match(sw, /const VERSION = '0\.9\.22';/, 'Service Worker deve permanecer na versão validada desta branch');
 assert.match(sw, /\.\/visual-refinement\.css/, 'refinamento visual deve continuar no shell offline');
 assert.match(sw, /\.\/js\/ui-refinement\.js/, 'navegação refinada deve funcionar offline');
 
