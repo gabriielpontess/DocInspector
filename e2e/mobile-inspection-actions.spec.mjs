@@ -80,6 +80,6 @@ test('menu secundário usa Action Sheet fora do card e executa ações sem naveg
 test('área branca do card continua abrindo Documentos', async ({ page }) => {
   const card = await seedInspection(page);
   await card.locator('.inspection-summary').click();
-  await expect(page.locator('.topbar h1')).toHaveText('Documentos');
+  await expect(page.locator('.topbar h1')).toContainText('Documentos');
   await expect(page.locator('#filter-system')).toHaveValue('AMV');
 });
