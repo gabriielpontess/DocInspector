@@ -2,9 +2,14 @@ name: Mobile Inspection Actions E2E
 
 on:
   push:
-    branches: [fix/mobile-inspection-actions]
+    branches:
+      - fix/mobile-actions-final
+      - feature/field-readiness-hardening
   pull_request:
-    branches: [feature/field-readiness-hardening]
+    branches:
+      - feature/field-readiness-hardening
+      - develop
+      - main
 
 permissions:
   contents: read
