@@ -84,4 +84,20 @@ const punctuationUpdate = buildInspectionListUpdate(
 assert.equal(punctuationUpdate.id, 'punctuation-id', 'identidade alfanumérica única deve preservar o documento mesmo com mudança de pontuação');
 assert.equal(punctuationUpdate.fieldCopies[0].id, 'copy-punctuation');
 
+const duplicateA = imported('PW-DUP', 'Duplicado A', 'Emitido', 'A');
+duplicateA.id = 'duplicate-a';
+addFieldCopy(duplicateA, { id: 'copy-duplicate-a', foundRevision: 'A' });
+const duplicateB = imported('PW-DUP', 'Duplicado B', 'Emitido', 'A');
+duplicateB.id = 'duplicate-b';
+addFieldCopy(duplicateB, { id: 'copy-duplicate-b', foundRevision: 'A' });
+const duplicateResult = buildInspectionListUpdate(
+  inspection([duplicateA, duplicateB]),
+  [imported('PW-DUP', 'Catálogo atualizado', 'Liberado', 'B')]
+);
+assert.equal(duplicateResult.summary.matched, 1, 'um registro de entrada deve consumir apenas um duplicado existente');
+assert.equal(duplicateResult.summary.reviewedRetained, 1, 'o outro duplicado revisado deve ser preservado, nunca sobrescrito pelo índice');
+assert.equal(duplicateResult.inspection.documents.filter(document => document.code === 'PW-DUP').length, 2, 'nenhum duplicado revisado pode desaparecer durante a atualização');
+assert.ok(duplicateResult.inspection.documents.some(document => document.id === 'duplicate-a'), 'primeiro candidato exato deve continuar endereçável');
+assert.ok(duplicateResult.inspection.documents.some(document => document.id === 'duplicate-b'), 'segundo candidato exato deve continuar preservado');
+
 console.log('inspection-update.test.mjs: OK');
