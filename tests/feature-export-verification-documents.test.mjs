@@ -60,7 +60,10 @@ for (const asset of ['visual-system.css','visual-verify.css','visual-documents.c
   assert.ok(serviceWorker.includes(`./${asset}`), `${asset} deve estar no shell offline`);
 }
 for (const asset of ['visual-system.css','visual-verify.css','visual-documents.css','visual-overlays.css','visual-responsive.css']) assert.ok(index.includes(`href="${asset}"`));
-assert.match(index, /href="visual-refinement\.css\?v=0\.9\.23"/);
+assert.ok(
+  index.includes('href="visual-refinement.css"'),
+  'refinamento visual deve usar a mesma URL pré-cacheada pelo app shell offline'
+);
 assert.match(index, /src="js\/marking-policy-ui\.js"/);
 assert.match(index, /src="js\/copy-evidence-edit-ui\.js"/);
 assert.match(index, /src="js\/ui-refinement\.js"/);
