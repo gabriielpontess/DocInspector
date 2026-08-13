@@ -1,5 +1,5 @@
 # Changelog
-
+<!-- Retrigger Netlify Deploy Preview #7 — no functional change. -->
 ## v0.9.11 — Correção estrutural de responsividade mobile
 
 - Corrigida a regressão em que `flex-basis` em pixels, criado para largura no desktop, passava a atuar como altura quando componentes mudavam para `flex-direction: column` no mobile.
