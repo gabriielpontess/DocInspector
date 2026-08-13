@@ -43,7 +43,6 @@ self.addEventListener('install', event => {
     const cache = await caches.open(CORE_CACHE);
     await cache.addAll(APP_SHELL);
     await cacheExternalAssets();
-    await self.skipWaiting();
   })());
 });
 
