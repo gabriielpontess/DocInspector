@@ -3,17 +3,25 @@ import fs from 'node:fs';
 
 const index = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+const app = fs.readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
+const pwa = fs.readFileSync(new URL('../js/pwa.js', import.meta.url), 'utf8');
 const script = fs.readFileSync(new URL('../js/ui-refinement.js', import.meta.url), 'utf8');
 const css = fs.readFileSync(new URL('../visual-refinement.css', import.meta.url), 'utf8');
 
 assert.match(index, /href="visual-refinement\.css"/, 'refinamento visual deve usar a mesma URL pré-cacheada pelo app shell offline');
 assert.match(index, /src="js\/ui-refinement\.js"/, 'comportamentos de refinamento devem ser carregados no app');
-assert.match(sw, /const VERSION = '0\.9\.23';/, 'Service Worker deve permanecer na versão validada desta branch');
+assert.match(sw, /const VERSION = '0\.9\.25';/, 'Service Worker deve permanecer na versão validada desta branch');
+assert.match(sw, /await self\.skipWaiting\(\)/, 'novo app shell deve ativar sem permanecer preso em waiting');
 assert.match(sw, /\.\/visual-refinement\.css/, 'refinamento visual deve continuar no shell offline');
 assert.match(sw, /\.\/js\/ui-refinement\.js/, 'navegação refinada deve funcionar offline');
+assert.match(pwa, /updateViaCache: 'none'/, 'registro do PWA deve buscar sw.js sem reutilizar cache HTTP antigo');
+assert.match(pwa, /registration\.update\(\)/, 'PWA deve verificar explicitamente por nova versão');
+assert.match(pwa, /SKIP_WAITING/, 'PWA deve promover worker em espera');
+assert.match(pwa, /controllerchange/, 'troca de controlador deve ser tratada de forma determinística');
 
-assert.match(script, /inspection-more-menu/, 'ações secundárias da inspeção devem ser agrupadas em menu');
-assert.match(script, /Atualizar lista/, 'menu deve manter atualização segura da lista');
+assert.match(app, /inspection-more-menu/, 'ações secundárias da inspeção devem ser renderizadas pelo app principal');
+assert.match(app, /data-update-inspection-list/, 'menu nativo deve manter atualização segura da lista');
+assert.doesNotMatch(script, /refineInspectionActions/, 'camada de refinamento não deve reconstruir nem mover ações da inspeção');
 assert.match(script, /previous-document/, 'deve existir navegação para documento anterior');
 assert.match(script, /previous\.disabled = index === 0/, 'documento anterior deve desabilitar no início da lista');
 assert.match(script, /next\.disabled = index === documents\.length - 1/, 'próximo documento deve desabilitar no fim da lista');
