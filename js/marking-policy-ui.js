@@ -11,11 +11,10 @@ function enforceMarkingPolicy(root = document) {
 }
 
 function start() {
-  enforceMarkingPolicy();
-  const app = document.querySelector('#app');
-  if (!app || observer) return;
-  observer = new MutationObserver(() => enforceMarkingPolicy(app));
-  observer.observe(app, { childList: true, subtree: true });
+  enforceMarkingPolicy(document);
+  if (!document.body || observer) return;
+  observer = new MutationObserver(() => enforceMarkingPolicy(document.body));
+  observer.observe(document.body, { childList: true, subtree: true });
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
