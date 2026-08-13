@@ -6,10 +6,10 @@ const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 const script = fs.readFileSync(new URL('../js/ui-refinement.js', import.meta.url), 'utf8');
 const css = fs.readFileSync(new URL('../visual-refinement.css', import.meta.url), 'utf8');
 
-assert.match(index, /href="visual-refinement\.css"/, 'refinamento visual deve ser carregado após as camadas aprovadas');
+assert.match(index, /href="visual-refinement\.css\?v=0\.9\.23"/, 'refinamento visual deve usar URL versionada para evitar CSS antigo no preview');
 assert.match(index, /src="js\/ui-refinement\.js"/, 'comportamentos de refinamento devem ser carregados no app');
-assert.match(sw, /const VERSION = '0\.9\.22';/, 'PWA deve invalidar o cache para o refinamento final');
-assert.match(sw, /\.\/visual-refinement\.css/, 'refinamento visual deve funcionar offline');
+assert.match(sw, /const VERSION = '0\.9\.22';/, 'Service Worker permanece na versão validada; o cache-bust é restrito ao CSS');
+assert.match(sw, /\.\/visual-refinement\.css/, 'refinamento visual deve continuar no shell offline');
 assert.match(sw, /\.\/js\/ui-refinement\.js/, 'navegação refinada deve funcionar offline');
 
 assert.match(script, /inspection-more-menu/, 'ações secundárias da inspeção devem ser agrupadas em menu');
@@ -21,10 +21,16 @@ assert.match(script, /suggestions\.replaceChildren\(\)/, 'busca vazia não deve 
 assert.match(script, /Pesquise por Código PW ou por palavras da descrição\./, 'descrição da busca deve ficar como ajuda discreta abaixo do campo');
 assert.match(script, /Status da revisão esperada/, 'status proveniente da lista deve deixar clara sua relação com a revisão esperada');
 
-assert.match(css, /height: 100dvh/, 'sidebar desktop deve preencher a viewport durante scroll');
-assert.match(css, /position: sticky/, 'sidebar deve permanecer estruturalmente presa à viewport');
-assert.match(css, /inspection-menu-popover/, 'menu de inspeção deve ter apresentação dedicada');
-assert.match(css, /documents-toolbar/, 'filtros de documentos devem ter redistribuição de espaço');
-assert.match(css, /global-search-box/, 'área de localizar documento deve receber refinamento dedicado');
+assert.match(css, /position: fixed;[\s\S]*inset: 0 auto 0 0;/, 'sidebar desktop deve ficar ancorada do topo ao rodapé da viewport');
+assert.match(css, /inspection-menu-popover[\s\S]*bottom: calc\(100% \+ 8px\)/, 'menu de inspeção deve abrir acima do gatilho e evitar corte no rodapé');
+assert.match(css, /global-search-box #find-pw \{ display: none !important; \}/, 'busca deve funcionar por Enter sem botão Localizar redundante');
+assert.match(css, /scan-actions #scan-document[\s\S]*width: 48px;[\s\S]*height: 48px;/, 'câmera deve ter o mesmo tamanho do botão de limpar');
+assert.match(css, /scan-actions #scan-document span \{ display: none; \}/, 'ação fotográfica deve exibir apenas o SVG da câmera');
+assert.match(css, /:has\(#pw-search:placeholder-shown\)[\s\S]*doc-detail/, 'busca vazia não deve manter documento antigo visível');
+assert.match(css, /doc-kicker[\s\S]*font-weight: 600;[\s\S]*letter-spacing: 0;[\s\S]*text-transform: none;/, 'identificação do sistema deve usar tipografia mais natural');
+assert.match(css, /previous-document-button::before[\s\S]*next-document-button::before/, 'navegação anterior e próxima deve usar o mesmo desenho base');
+assert.match(css, /#filter-inspection,[\s\S]*#sort-docs,[\s\S]*#clear-doc-filters \{ display: none !important; \}/, 'toolbar deve manter apenas busca, sistema, resultado e status visíveis');
+assert.match(css, /settings-grid \.settings-wide \{ grid-column: auto; \}/, 'dados e backup devem usar grade consistente sem caixotes arbitrariamente largos');
+assert.match(css, /\.modal:has\(#save-copy-edit\)[\s\S]*overflow: hidden;/, 'edição de cópia deve caber sem scroll interno em desktop normal');
 
 console.log('ui-refinement.test.mjs: OK');
