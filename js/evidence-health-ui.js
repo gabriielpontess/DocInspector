@@ -205,7 +205,9 @@ function enhanceSettings(summary, root = document) {
 
 function guardLargeCameraInput(event) {
   const input = event.target;
-  if (!(input instanceof HTMLInputElement) || input.id !== 'camera-input' || input.type !== 'file') return;
+  if (!(input instanceof HTMLInputElement) || input.type !== 'file') return;
+  const isEvidenceCapture = input.id === 'camera-input' || input.hasAttribute('data-copy-evidence-input');
+  if (!isEvidenceCapture) return;
   const file = input.files?.[0];
   if (!file || file.size < LARGE_SOURCE_BYTES) return;
   refreshStorageEstimate();
