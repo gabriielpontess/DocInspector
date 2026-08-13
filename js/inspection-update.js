@@ -17,7 +17,11 @@ function indexExistingDocuments(documents = []) {
 
   for (const document of documents) {
     const code = normalizeCode(document.code);
-    if (code) byCode.set(code, document);
+    if (code) {
+      const exactEntries = byCode.get(code) || [];
+      exactEntries.push(document);
+      byCode.set(code, exactEntries);
+    }
 
     const identity = codeIdentity(document.code);
     if (!identity) continue;
@@ -30,8 +34,9 @@ function indexExistingDocuments(documents = []) {
 }
 
 function findExistingDocument(incoming, index, consumedIds) {
-  const exact = index.byCode.get(normalizeCode(incoming.code));
-  if (exact && !consumedIds.has(exact.id)) return exact;
+  const exactCandidates = (index.byCode.get(normalizeCode(incoming.code)) || [])
+    .filter(document => !consumedIds.has(document.id));
+  if (exactCandidates.length) return exactCandidates[0];
 
   const identity = codeIdentity(incoming.code);
   const candidates = (index.byIdentity.get(identity) || []).filter(document => !consumedIds.has(document.id));
