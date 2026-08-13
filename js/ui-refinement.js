@@ -12,57 +12,9 @@ function scheduleRefinement() {
   });
 }
 
-function stopCardPropagation(element) {
-  element.addEventListener('click', event => event.stopPropagation());
-  element.addEventListener('keydown', event => event.stopPropagation());
-}
-
 function closeInspectionMenus(except = null) {
   document.querySelectorAll('.inspection-more-menu[open]').forEach(menu => {
     if (menu !== except) menu.removeAttribute('open');
-  });
-}
-
-function refineInspectionActions(root = document) {
-  root.querySelectorAll('.inspection-item[data-open-inspection]').forEach(card => {
-    const actions = card.querySelector('.inspection-actions');
-    if (!actions) return;
-
-    const viewButton = actions.querySelector('[data-view-inspection]');
-    if (viewButton) viewButton.classList.add('inspection-primary-action');
-
-    let details = actions.querySelector('.inspection-more-menu');
-    if (!details) {
-      details = document.createElement('details');
-      details.className = 'inspection-more-menu';
-      details.innerHTML = `
-        <summary class="inspection-more-button" aria-label="Mais opções da inspeção" title="Mais opções">⋮</summary>
-        <div class="inspection-menu-popover" role="menu"></div>`;
-      stopCardPropagation(details);
-      details.addEventListener('toggle', () => {
-        if (details.open) closeInspectionMenus(details);
-      });
-      actions.appendChild(details);
-    }
-
-    const popover = details.querySelector('.inspection-menu-popover');
-    if (!popover) return;
-
-    const sources = [
-      ['edit', actions.querySelector('[data-edit-inspection]'), 'Editar'],
-      ['update', actions.querySelector('[data-update-inspection-list]'), 'Atualizar lista'],
-      ['export', actions.querySelector('[data-export-inspection]'), 'Exportar'],
-      ['delete', actions.querySelector('[data-delete]'), 'Excluir']
-    ].filter(([, button]) => Boolean(button));
-
-    for (const [key, button, label] of sources) {
-      button.className = `inspection-menu-option${key === 'delete' ? ' danger' : ''}`;
-      button.removeAttribute('aria-hidden');
-      button.removeAttribute('tabindex');
-      button.setAttribute('role', 'menuitem');
-      button.textContent = label;
-      if (button.parentElement !== popover) popover.appendChild(button);
-    }
   });
 }
 
@@ -177,7 +129,6 @@ function clarifyExpectedRevisionStatus() {
 }
 
 function refineUi() {
-  refineInspectionActions();
   syncSearchPresentation();
   clarifyExpectedRevisionStatus();
   refineDocumentNavigation();
