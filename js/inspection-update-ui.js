@@ -4,31 +4,6 @@ import { syncNow } from './sync.js';
 import { escapeHtml, openModal, setButtonBusy, showToast } from './ui.js';
 import { mapRows, readWorkbook, suggestMapping } from './xlsx.js';
 
-let observer = null;
-
-function injectUpdateButtons(root = document) {
-  root.querySelectorAll('.inspection-item[data-open-inspection]').forEach(card => {
-    const actions = card.querySelector('.inspection-actions');
-    if (!actions || actions.querySelector('[data-update-inspection-list]')) return;
-
-    const button = document.createElement('button');
-    button.className = 'btn';
-    button.type = 'button';
-    button.dataset.updateInspectionList = card.dataset.openInspection || '';
-    button.textContent = 'Atualizar lista';
-    button.title = 'Importar uma nova versão da planilha preservando os documentos já revisados';
-    button.addEventListener('click', event => {
-      event.preventDefault();
-      event.stopPropagation();
-      openUpdateListModal(button.dataset.updateInspectionList);
-    });
-
-    const exportButton = actions.querySelector('[data-export-inspection]');
-    if (exportButton) actions.insertBefore(button, exportButton);
-    else actions.appendChild(button);
-  });
-}
-
 function mappingOptions(headers, suggested, key) {
   return `<option value="">Selecione</option>${headers.map(header =>
     `<option value="${escapeHtml(header)}" ${suggested[key] === header ? 'selected' : ''}>${escapeHtml(header)}</option>`
@@ -178,14 +153,3 @@ function openUpdatePreviewModal(inspectionId, incomingDocuments, summary) {
     }
   });
 }
-
-function start() {
-  injectUpdateButtons();
-  const app = document.querySelector('#app');
-  if (!app || observer) return;
-  observer = new MutationObserver(() => injectUpdateButtons(app));
-  observer.observe(app, { childList: true, subtree: true });
-}
-
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
-else start();
