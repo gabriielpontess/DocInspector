@@ -64,6 +64,123 @@ button,
   .table-wrap { overscroll-behavior-inline: contain; }
 }
 
+/* Documentos usa cards próprios em mobile, sem herdar a tabela desktop. */
+@media (max-width: 767px), (orientation: landscape) and (max-height: 520px) and (pointer: coarse) {
+  .compact-doc-table {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+  .compact-doc-table table,
+  .compact-doc-table tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  .compact-doc-table thead { display: none; }
+  .compact-doc-table tbody {
+    display: grid;
+    gap: var(--space-3);
+  }
+  .compact-doc-table tr.document-row-clickable {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0,1fr) 44px;
+    grid-template-areas:
+      "code action"
+      "description description";
+    gap: var(--space-2) var(--space-3);
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    padding: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card-v2);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card-v2);
+  }
+  .compact-doc-table tr.document-row-clickable::after { content: none; display: none; }
+  .compact-doc-table tr.document-row-clickable > td {
+    display: block;
+    width: auto;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+  .compact-doc-table tr.document-row-clickable > td::before {
+    content: none !important;
+    display: none !important;
+  }
+  .compact-doc-table .code-cell {
+    grid-area: code;
+    align-self: center;
+  }
+  .compact-doc-table .code-cell strong {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    color: var(--color-text);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    line-height: 22px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .compact-doc-table .document-description-cell {
+    grid-area: description;
+    width: 100%;
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--color-border);
+  }
+  .compact-doc-table .document-description-text {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    color: var(--color-text);
+    font-size: var(--text-sm);
+    line-height: 1.45;
+    overflow-wrap: break-word;
+  }
+  .compact-doc-table .row-origin {
+    margin-top: 4px;
+    color: var(--color-text-tertiary);
+    font-size: 11px;
+  }
+  .compact-doc-table .details-cell {
+    grid-area: action;
+    display: grid;
+    width: 44px;
+    place-items: center;
+    justify-self: end;
+    align-self: center;
+  }
+  .compact-doc-table .details-cell .btn {
+    display: grid;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: var(--color-navy-800);
+    background: transparent;
+    box-shadow: none;
+    font-size: 0;
+  }
+  .compact-doc-table .details-cell .btn::before {
+    content: '›';
+    font-size: 30px;
+    font-weight: 400;
+    line-height: 1;
+  }
+  .compact-doc-table .no-results { display: block; width: 100%; }
+}
+
 @media (max-width: 430px) {
   .main {
     padding-left: max(var(--space-3),env(safe-area-inset-left));
@@ -73,8 +190,20 @@ button,
   .topbar .subtitle { font-size: var(--text-xs); line-height: 18px; }
   .sync-badge { max-width: 128px; }
   .home-summary { margin-inline: calc(var(--space-3) * -1); padding-inline: var(--space-3); }
-  .inspection-mini-stats { grid-template-columns: 1fr; }
-  .inspection-mini-stats span { text-align: left; }
+
+  /* Home mobile: resumo da inspeção permanece compacto e escaneável. */
+  .inspection-item { gap: var(--space-3); }
+  .inspection-mini-stats {
+    grid-template-columns: repeat(3,minmax(0,1fr));
+    gap: 6px;
+  }
+  .inspection-mini-stats span {
+    min-width: 0;
+    padding: 7px 5px;
+    font-size: 10.5px;
+    line-height: 15px;
+    white-space: nowrap;
+  }
   .inspection-actions { grid-template-columns: 1fr 44px 44px 44px; }
   .marking-grid { grid-template-columns: 1fr 1fr; }
   .copy-card-head { display: grid; }
@@ -91,6 +220,7 @@ button,
   .mobile-nav button { font-size: 10px; }
   .mobile-nav .icon { width: 19px; height: 19px; }
   .marking-grid { grid-template-columns: 1fr; }
+  .inspection-mini-stats span { font-size: 9.5px; padding-inline: 3px; }
   .inspection-actions { grid-template-columns: 1fr 42px 42px 42px; }
 }
 
@@ -99,6 +229,8 @@ button,
   .mobile-nav button { min-height: 48px; }
   .main { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
   .new-copy-panel .actions { position: static; margin-inline: 0; }
+  .compact-doc-table tr.document-row-clickable { padding: var(--space-3) var(--space-4); }
+  .compact-doc-table .document-description-text { -webkit-line-clamp: 2; }
 }
 
 @media (prefers-reduced-motion: reduce) {
