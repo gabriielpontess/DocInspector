@@ -30,8 +30,9 @@ function currentFingerprint(root = document) {
   const detail = root.querySelector('.doc-detail');
   const code = detail?.querySelector('.doc-heading h2')?.textContent?.trim() || '';
   const origin = detail?.querySelector('.doc-kicker')?.textContent?.trim() || '';
-  if (!detail || !code || !origin || !detail.querySelector('#found-revision')) return '';
-  return `${origin}::${code}`;
+  const inspectionId = localStorage.getItem('sky17-current') || '';
+  if (!detail || !inspectionId || !code || !origin || !detail.querySelector('#found-revision')) return '';
+  return `${inspectionId}::${origin}::${code}`;
 }
 
 function readDraft(root = document) {
@@ -103,7 +104,6 @@ function restoreDraftIfNeeded(root = document) {
   const quantity = detail?.querySelector('#copy-quantity');
   if (!detail || !revision || !comment || !quantity) return;
 
-  // Nunca sobrescreve uma edição já iniciada na tela atual.
   const liveHasContent = Boolean(
     revision.value.trim() ||
     comment.value.trim() ||
