@@ -10,14 +10,15 @@ const css = fs.readFileSync(new URL('../visual-refinement.css', import.meta.url)
 
 assert.match(index, /href="visual-refinement\.css"/, 'refinamento visual deve usar a mesma URL pré-cacheada pelo app shell offline');
 assert.match(index, /src="js\/ui-refinement\.js"/, 'comportamentos de refinamento devem ser carregados no app');
+assert.match(index, /navigator\.serviceWorker\.getRegistration\(\)[\s\S]*registration\?\.update\(\)/, 'bootstrap deve verificar atualização do Service Worker em toda abertura online');
+assert.doesNotMatch(index, /src="js\/inspection-update-ui\.js"/, 'inspection-update-ui deve ser carregado somente pelo app principal');
 assert.match(sw, /const VERSION = '0\.9\.25';/, 'Service Worker deve permanecer na versão validada desta branch');
-assert.match(sw, /await self\.skipWaiting\(\)/, 'novo app shell deve ativar sem permanecer preso em waiting');
+assert.doesNotMatch(sw, /install[\s\S]{0,500}self\.skipWaiting\(\)/, 'install não deve trocar o worker durante trabalho ativo');
 assert.match(sw, /\.\/visual-refinement\.css/, 'refinamento visual deve continuar no shell offline');
 assert.match(sw, /\.\/js\/ui-refinement\.js/, 'navegação refinada deve funcionar offline');
 assert.match(pwa, /updateViaCache: 'none'/, 'registro do PWA deve buscar sw.js sem reutilizar cache HTTP antigo');
 assert.match(pwa, /registration\.update\(\)/, 'PWA deve verificar explicitamente por nova versão');
-assert.match(pwa, /SKIP_WAITING/, 'PWA deve promover worker em espera');
-assert.match(pwa, /controllerchange/, 'troca de controlador deve ser tratada de forma determinística');
+assert.doesNotMatch(pwa, /controllerchange|location\.reload/, 'PWA não deve recarregar automaticamente durante trabalho ativo');
 
 assert.match(app, /inspection-more-menu/, 'ações secundárias da inspeção devem ser renderizadas pelo app principal');
 assert.match(app, /data-update-inspection-list/, 'menu nativo deve manter atualização segura da lista');
