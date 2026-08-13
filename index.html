@@ -15,6 +15,12 @@
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="visual-system.css">
+  <link rel="stylesheet" href="visual-verify.css">
+  <link rel="stylesheet" href="visual-documents.css">
+  <link rel="stylesheet" href="visual-overlays.css">
+  <link rel="stylesheet" href="visual-responsive.css">
+  <link rel="stylesheet" href="visual-refinement.css">
   <title>DocInspector</title>
 </head>
 <body>
@@ -26,6 +32,18 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@4.0.0/dist/jspdf.umd.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/tesseract.min.js" crossorigin="anonymous"></script>
+  <script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistration()
+      .then(registration => registration?.update())
+      .catch(() => {});
+  }
+</script>
   <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/field-recovery-ui.js"></script>
+  <script type="module" src="js/evidence-health-ui.js"></script>
+  <script type="module" src="js/marking-policy-ui.js"></script>
+  <script type="module" src="js/copy-evidence-edit-ui.js"></script>
+  <script type="module" src="js/ui-refinement.js"></script>
 </body>
 </html>

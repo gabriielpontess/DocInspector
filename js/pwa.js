@@ -112,12 +112,11 @@ export async function registerPWA(onError) {
       }
     }
 
-    const registration = await navigator.serviceWorker.register('./sw.js');
-    const readyRegistration = await navigator.serviceWorker.ready;
-    readyRegistration.active?.postMessage({ type: 'CACHE_EXTERNAL' });
+const registration = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+await registration.update().catch(() => {});
 
-
-
+const readyRegistration = await navigator.serviceWorker.ready;
+readyRegistration.active?.postMessage({ type: 'CACHE_EXTERNAL' });
 
     return registration;
   } catch (error) {
