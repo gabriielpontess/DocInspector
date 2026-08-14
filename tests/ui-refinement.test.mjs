@@ -12,7 +12,7 @@ assert.match(index, /href="visual-refinement\.css"/, 'refinamento visual deve us
 assert.match(index, /src="js\/ui-refinement\.js"/, 'comportamentos de refinamento devem ser carregados no app');
 assert.match(index, /navigator\.serviceWorker\.getRegistration\(\)[\s\S]*registration\?\.update\(\)/, 'bootstrap deve verificar atualização do Service Worker em toda abertura online');
 assert.doesNotMatch(index, /src="js\/inspection-update-ui\.js"/, 'inspection-update-ui deve ser carregado somente pelo app principal');
-assert.match(sw, /const VERSION = '0\.9\.26';/, 'Service Worker deve permanecer na versão validada desta branch');
+assert.match(sw, /const VERSION = '0\.9\.27';/, 'Service Worker deve usar a identidade de cache validada para a release v0.9.12');
 assert.doesNotMatch(sw, /install[\s\S]{0,500}self\.skipWaiting\(\)/, 'install não deve trocar o worker durante trabalho ativo');
 assert.match(sw, /\.\/visual-refinement\.css/, 'refinamento visual deve continuar no shell offline');
 assert.match(sw, /\.\/js\/ui-refinement\.js/, 'navegação refinada deve funcionar offline');

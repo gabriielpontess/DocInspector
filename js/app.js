@@ -47,7 +47,7 @@ import {
   downloadRemoteEvidence
 } from './sync.js';
 
-const APP_VERSION = '0.9.11';
+const APP_VERSION = '0.9.12';
 const DOCS_PAGE_SIZE = 50;
 const app = document.querySelector('#app');
 const state = {

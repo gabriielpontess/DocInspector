@@ -71,6 +71,18 @@ export function availableRowLines(availableHeight) {
   return Math.max(0, Math.floor((Number(availableHeight) - 2.2) / 3.4));
 }
 
+export function tableRowHeight(lineSets) {
+  const maxLines = Math.max(...lineSets.map(lines => lines.length), 1);
+  return Math.max(7, maxLines * 3.4 + 2.2);
+}
+
+export function shouldStartRowOnNextPage(rowHeight, currentAvailableHeight, freshPageAvailableHeight) {
+  const height = Number(rowHeight) || 0;
+  const current = Math.max(0, Number(currentAvailableHeight) || 0);
+  const fresh = Math.max(0, Number(freshPageAvailableHeight) || 0);
+  return height > current && height <= fresh;
+}
+
 function drawBrand(doc, x, y) {
   setFill(doc, COLORS.navy);
   doc.roundedRect(x, y, 13, 13, 2.6, 2.6, 'F');
@@ -236,6 +248,9 @@ function drawTable(doc, {
   const usable = pageWidth - left - right;
   const headerH = 8;
   const fontSize = 6.15;
+  const contentBottom = pageHeight - 16;
+  const continuationTableBodyY = 29 + 4 + headerH;
+  const freshPageAvailableHeight = contentBottom - continuationTableBodyY;
   let y = startY;
 
   const widths = columns.map(col => usable * col.width);
@@ -261,7 +276,7 @@ function drawTable(doc, {
     y += headerH;
   };
   const newPage = () => {
-    doc.addPage('a4', 'portrait');
+    doc.addPage('a4', pageOrientation);
     y = 14;
     drawBrand(doc, left, 10);
     setText(doc, COLORS.muted);
@@ -272,6 +287,23 @@ function drawTable(doc, {
     drawSectionTitle();
     drawHeader();
   };
+  const drawRowPart = (values, lineSets, rowIndex, rowH) => {
+    setFill(doc, rowIndex % 2 ? '#F8FAFC' : COLORS.white);
+    doc.rect(left, y, usable, rowH, 'F');
+    setDraw(doc, '#E4EAF2');
+    doc.setLineWidth(0.2);
+    let x = left;
+    columns.forEach((col, i) => {
+      doc.rect(x, y, widths[i], rowH, 'S');
+      if (col.key === 'Resultado' || col.key === 'Resultado da cópia') setText(doc, resultColor(values[i]));
+      else setText(doc, COLORS.ink);
+      doc.setFont('helvetica', col.key === 'Código PW' ? 'bold' : 'normal');
+      doc.setFontSize(fontSize);
+      if (lineSets[i]?.length) doc.text(lineSets[i], x + 1.5, y + 4.5);
+      x += widths[i];
+    });
+    y += rowH;
+  };
 
   drawSectionTitle();
   drawHeader();
@@ -279,36 +311,30 @@ function drawTable(doc, {
   rows.forEach((row, rowIndex) => {
     const values = columns.map(col => String(row[col.key] ?? ''));
     const lineSets = values.map((value, i) => doc.splitTextToSize(value, widths[i] - 3));
+    const fullRowH = tableRowHeight(lineSets);
+    const currentAvailableHeight = contentBottom - y;
+
+    if (shouldStartRowOnNextPage(fullRowH, currentAvailableHeight, freshPageAvailableHeight)) {
+      newPage();
+    }
+
+    if (fullRowH <= contentBottom - y) {
+      drawRowPart(values, lineSets, rowIndex, fullRowH);
+      return;
+    }
+
     let offsets = lineSets.map(() => 0);
     let done = false;
-
     while (!done) {
-      const availableHeight = pageHeight - 16 - y;
+      const availableHeight = contentBottom - y;
       const availableLines = availableRowLines(availableHeight);
       if (availableLines < 1) {
         newPage();
         continue;
       }
-
       const chunk = sliceRowLineSets(lineSets, offsets, availableLines);
-      const maxChunkLines = Math.max(...chunk.chunkSets.map(lines => lines.length), 1);
-      const rowH = Math.max(7, maxChunkLines * 3.4 + 2.2);
-
-      setFill(doc, rowIndex % 2 ? '#F8FAFC' : COLORS.white);
-      doc.rect(left, y, usable, rowH, 'F');
-      setDraw(doc, '#E4EAF2');
-      doc.setLineWidth(0.2);
-      let x = left;
-      columns.forEach((col, i) => {
-        doc.rect(x, y, widths[i], rowH, 'S');
-        if (col.key === 'Resultado' || col.key === 'Resultado da cópia') setText(doc, resultColor(values[i]));
-        else setText(doc, COLORS.ink);
-        doc.setFont('helvetica', col.key === 'Código PW' ? 'bold' : 'normal');
-        doc.setFontSize(fontSize);
-        if (chunk.chunkSets[i].length) doc.text(chunk.chunkSets[i], x + 1.5, y + 4.5);
-        x += widths[i];
-      });
-      y += rowH;
+      const rowH = tableRowHeight(chunk.chunkSets);
+      drawRowPart(values, chunk.chunkSets, rowIndex, rowH);
       offsets = chunk.nextOffsets;
       done = chunk.done;
       if (!done) newPage();
@@ -384,8 +410,6 @@ export function exportInspectionPdf(inspection, data) {
   }
 
   if (data.options.includeCopies && data.copies.length) {
-    // Mantém todo o relatório em A4 retrato. A tabela de cópias usa
-    // proporções compactas e quebra de texto para evitar páginas mistas.
     doc.addPage('a4', 'portrait');
     drawBrand(doc, 12, 10);
     setText(doc, COLORS.muted);
