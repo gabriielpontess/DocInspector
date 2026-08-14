@@ -122,4 +122,39 @@ test('Cópias de campo são opção compacta, separada e desmarcada no PDF', asy
   expect(box).not.toBeNull();
   expect(box.width).toBeLessThanOrEqual(24);
   expect(box.height).toBeLessThanOrEqual(24);
+
+  const viewport = page.viewportSize();
+  if (viewport && viewport.width >= 768 && viewport.height >= 700) {
+    const fit = await dialog.evaluate(element => ({
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+      overflow: getComputedStyle(element).overflow
+    }));
+    expect(fit.overflow).toBe('hidden');
+    expect(fit.scrollHeight).toBeLessThanOrEqual(fit.clientHeight + 1);
+  }
+});
+
+test('Sincronização mantém a rolagem afastada da moldura do modal no desktop', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('[data-nav="settings"]:visible').first().click();
+  await expect(page.locator('.topbar h1')).toHaveText('Dados e backup');
+  await page.locator('#configure-sync').click();
+
+  const dialog = page.getByRole('dialog', { name: 'Configurar sincronização' });
+  await expect(dialog).toBeVisible();
+  const viewport = page.viewportSize();
+  if (viewport && viewport.width >= 768) {
+    const tabs = dialog.locator('.sync-setup-tabs');
+    const outerOverflow = await dialog.evaluate(element => getComputedStyle(element).overflow);
+    const innerOverflow = await tabs.evaluate(element => getComputedStyle(element).overflowY);
+    expect(outerOverflow).toBe('hidden');
+    expect(innerOverflow).toBe('auto');
+
+    const modalBox = await dialog.boundingBox();
+    const tabsBox = await tabs.boundingBox();
+    expect(modalBox).not.toBeNull();
+    expect(tabsBox).not.toBeNull();
+    expect((modalBox.x + modalBox.width) - (tabsBox.x + tabsBox.width)).toBeGreaterThanOrEqual(12);
+  }
 });
