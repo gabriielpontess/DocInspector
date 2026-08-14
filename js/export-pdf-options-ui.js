@@ -8,10 +8,7 @@ function ensurePdfCopiesOption() {
   section.innerHTML = `
     <label for="exp-pdf-copies">
       <input type="checkbox" id="exp-pdf-copies">
-      <span>
-        <strong>Incluir cópias de campo no PDF</strong>
-        <small>Opcional. Acrescenta revisão encontrada, origem, marcações e comentários das cópias físicas. O relatório principal permanece com uma única linha por Código PW.</small>
-      </span>
+      <strong>Incluir cópias de campo no PDF</strong>
     </label>`;
 
   const note = modal.querySelector('.export-format-note');
