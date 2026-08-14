@@ -9,6 +9,8 @@ import {
 
 const report = fs.readFileSync(new URL('../js/report.js', import.meta.url), 'utf8');
 const refinement = fs.readFileSync(new URL('../js/ui-refinement.js', import.meta.url), 'utf8');
+const exportPdfOptionsUi = fs.readFileSync(new URL('../js/export-pdf-options-ui.js', import.meta.url), 'utf8');
+const index = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
 // O fallback histórico para uma linha maior que a própria página continua disponível.
 const lineSets = [['a1', 'a2', 'a3'], ['b1'], ['c1', 'c2']];
@@ -32,6 +34,7 @@ assert.match(refinement, /Todas as inspeções \(global\)/, 'Escopo global deve 
 assert.match(refinement, /data-search-inspection/, 'Filtro deve usar a identidade real da inspeção nas sugestões');
 assert.match(refinement, /handleScopedSearchAction/, 'Enter e ação de localizar devem respeitar a lista escolhida');
 assert.match(refinement, /A identificação por câmera continua global/, 'UI deve deixar explícito que o filtro atual é da busca manual');
+assert.match(refinement, /escapeHtml\(String\(item\.system/, 'Rótulos do filtro de inspeção devem ser escapados');
 
 // Navegação na página Mais detalhes.
 assert.match(refinement, /id="detail-previous-document"/, 'Detalhes deve possuir botão de documento anterior');
@@ -41,11 +44,13 @@ assert.match(refinement, /previous\.disabled = index === 0/, 'Anterior deve desa
 assert.match(refinement, /next\.disabled = index === documents\.length - 1/, 'Próximo deve desabilitar no último documento');
 
 // Cópias de campo passam a ser opcionais somente no PDF principal.
-assert.match(refinement, /id="exp-pdf-copies"/, 'Exportação PDF deve oferecer checkbox de cópias de campo');
-assert.doesNotMatch(refinement, /id="exp-pdf-copies"[^>]*checked/, 'Checkbox de cópias de campo não pode vir pré-selecionado');
+assert.match(refinement, /id="exp-pdf-copies"/, 'Geração PDF deve conhecer a opção de cópias de campo');
 assert.match(refinement, /includeCopies: checked\('exp-pdf-copies'\)/, 'PDF deve obedecer ao checkbox de cópias');
 assert.match(refinement, /buildInspectionExportData\(inspection, options\)/, 'PDF deve reconstruir dados com a opção escolhida');
-assert.match(refinement, /queueMicrotask\(ensurePdfCopiesOption\)/, 'Opção de cópias deve ser inserida quando o modal de exportação for aberto');
-assert.match(refinement, /escapeHtml\(String\(item\.system/, 'Rótulos do filtro de inspeção devem ser escapados');
+assert.match(index, /src="js\/export-pdf-options-ui\.js"/, 'HTML deve carregar o montador da opção do PDF');
+assert.match(exportPdfOptionsUi, /id="exp-pdf-copies"/, 'Modal deve receber o checkbox de cópias de campo');
+assert.doesNotMatch(exportPdfOptionsUi, /id="exp-pdf-copies"[^>]*checked/, 'Checkbox de cópias de campo não pode vir pré-selecionado');
+assert.match(exportPdfOptionsUi, /MutationObserver/, 'Montador deve observar brevemente o modal que é anexado ao body');
+assert.match(exportPdfOptionsUi, /bodyObserver\.disconnect\(\)/, 'Observador temporário deve ser desconectado após montar a opção');
 
 console.log('report-verification-navigation.test.mjs: OK');
