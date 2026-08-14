@@ -2,7 +2,7 @@ import { getInspection, listInspections } from './db.js';
 import { normalizeCode } from './domain.js';
 import { buildInspectionExportData } from './xlsx.js';
 import { exportInspectionPdf } from './report.js';
-import { setButtonBusy, showToast } from './ui.js';
+import { escapeHtml, setButtonBusy, showToast } from './ui.js';
 
 let observer = null;
 let scheduled = false;
@@ -364,9 +364,12 @@ async function ensureVerificationScope() {
     if (!select.isConnected) return;
     const availableIds = new Set(inspections.map(item => item.id));
     if (verificationScopeId && !availableIds.has(verificationScopeId)) setVerificationScope('');
-    select.innerHTML = `<option value="">Todas as inspeções (global)</option>${inspections.map(item =>
-      `<option value="${String(item.id).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')}">${String(item.system || 'Sem sistema')} · ${String(item.name || item.project || 'Inspeção')}</option>`
-    ).join('')}`;
+    select.innerHTML = `<option value="">Todas as inspeções (global)</option>${inspections.map(item => {
+      const id = escapeHtml(String(item.id || ''));
+      const system = escapeHtml(String(item.system || 'Sem sistema'));
+      const name = escapeHtml(String(item.name || item.project || 'Inspeção'));
+      return `<option value="${id}">${system} · ${name}</option>`;
+    }).join('')}`;
     select.value = verificationScopeId;
     select.dataset.loaded = '1';
   } finally {
@@ -628,10 +631,12 @@ function rememberExportInspection(event) {
   const direct = event.target?.closest?.('[data-export-inspection]');
   if (direct?.dataset.exportInspection) {
     activeExportInspectionId = direct.dataset.exportInspection;
+    queueMicrotask(ensurePdfCopiesOption);
     return;
   }
   if (event.target?.closest?.('#export-selected-inspection')) {
     activeExportInspectionId = document.querySelector('#filter-inspection')?.value || localStorage.getItem('sky17-current') || null;
+    queueMicrotask(ensurePdfCopiesOption);
   }
 }
 
