@@ -55,7 +55,8 @@ async function seedInspections(page) {
 
 test('Verificar alterna entre busca global e uma lista específica', async ({ page }) => {
   const ids = await seedInspections(page);
-  await page.locator('.sidebar [data-nav="inspect"]').click();
+  await page.locator('[data-nav="inspect"]:visible').first().click();
+  await expect(page.locator('.topbar h1')).toHaveText('Verificação em campo');
 
   const scope = page.locator('#verification-scope');
   await expect(scope).toBeVisible();
