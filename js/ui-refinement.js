@@ -1,8 +1,30 @@
-import { getInspection } from './db.js';
+import { getInspection, listInspections } from './db.js';
+import { normalizeCode } from './domain.js';
+import { buildInspectionExportData } from './xlsx.js';
+import { exportInspectionPdf } from './report.js';
+import { setButtonBusy, showToast } from './ui.js';
 
 let observer = null;
 let scheduled = false;
 let activeInspectionActionSheet = null;
+let activeExportInspectionId = null;
+let verificationScopeLoading = false;
+let verificationScopeId = (() => {
+  try { return sessionStorage.getItem('docinspector-verification-scope') || ''; }
+  catch { return ''; }
+})();
+
+function setVerificationScope(value) {
+  verificationScopeId = String(value || '');
+  try {
+    if (verificationScopeId) sessionStorage.setItem('docinspector-verification-scope', verificationScopeId);
+    else sessionStorage.removeItem('docinspector-verification-scope');
+  } catch {}
+}
+
+function currentVerificationScope() {
+  return document.querySelector('#verification-scope')?.value ?? verificationScopeId;
+}
 
 function scheduleRefinement() {
   if (scheduled) return;
@@ -92,9 +114,100 @@ function ensureInspectionActionSheetStyles() {
       min-height: 48px;
     }
     body.inspection-action-sheet-open { overflow: hidden; }
+
+    .verification-scope-control {
+      grid-column: 1 / -1;
+      grid-row: 3;
+      display: grid;
+      grid-template-columns: minmax(150px, 220px) minmax(0, 1fr);
+      gap: 8px 14px;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-control-v2);
+      background: var(--color-surface-subtle);
+    }
+    .verification-scope-control label {
+      color: var(--color-text);
+      font-size: var(--text-sm);
+      font-weight: 700;
+    }
+    .verification-scope-control select {
+      width: 100%;
+      min-height: 44px;
+      background: var(--color-surface);
+    }
+    .verification-scope-control small {
+      grid-column: 1 / -1;
+      color: var(--color-text-tertiary);
+      font-size: var(--text-xs);
+      line-height: 1.45;
+    }
+    .locate-card .global-search-box #pw-search,
+    .locate-card .global-search-box #clear-pw-search,
+    .locate-card .global-search-box #find-pw,
+    .locate-card .scan-actions #scan-document { grid-row: 4 !important; }
+    .locate-card .search-field-help { grid-row: 5 !important; }
+    .locate-card #pw-suggestions { grid-row: 6 !important; }
+    .locate-card .scan-actions .field-help { grid-row: 7 !important; }
+    .search-suggestion[hidden] { display: none !important; }
+    .scope-search-empty {
+      padding: 12px 14px;
+      border: 1px dashed var(--color-border-strong);
+      border-radius: var(--radius-control-v2);
+      color: var(--color-text-secondary);
+      background: var(--color-surface-subtle);
+      font-size: var(--text-sm);
+    }
+
+    .document-detail-navigation {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      margin: -4px 0 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--color-border);
+    }
+    .document-detail-navigation .document-position {
+      min-width: 76px;
+      color: var(--color-text-secondary);
+      text-align: center;
+      font-size: var(--text-sm);
+      font-weight: 650;
+    }
+
+    .export-field-evidence-option {
+      margin-top: 14px;
+      padding: 14px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-control-v2);
+      background: var(--color-surface-subtle);
+    }
+    .export-field-evidence-option label {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      cursor: pointer;
+    }
+    .export-field-evidence-option input { margin-top: 3px; }
+    .export-field-evidence-option strong { display: block; }
+    .export-field-evidence-option small {
+      display: block;
+      margin-top: 3px;
+      color: var(--color-text-secondary);
+      line-height: 1.45;
+    }
+
     @media (min-width: 768px) {
       .inspection-action-sheet-backdrop { place-items: center; }
       .inspection-action-sheet { width: min(440px, calc(100vw - 48px)); }
+    }
+    @media (max-width: 767px) {
+      .verification-scope-control { grid-template-columns: 1fr; }
+      .verification-scope-control small { grid-column: 1; }
+      .document-detail-navigation { justify-content: space-between; }
     }
   `;
   document.head.append(style);
@@ -212,6 +325,86 @@ function refineInspectionActionMenus() {
   });
 }
 
+async function ensureVerificationScope() {
+  const card = document.querySelector('.locate-card');
+  const box = card?.querySelector('.global-search-box');
+  if (!card || !box) return;
+
+  let control = card.querySelector('.verification-scope-control');
+  if (!control) {
+    control = document.createElement('div');
+    control.className = 'verification-scope-control';
+    control.innerHTML = `
+      <label for="verification-scope">Buscar documentos em</label>
+      <select id="verification-scope" aria-label="Escolher lista para a busca de verificação">
+        <option value="">Todas as inspeções (global)</option>
+      </select>
+      <small>Este filtro limita a busca por Código PW e descrição. A identificação por câmera continua global para preservar o fluxo de OCR já homologado.</small>`;
+    box.insertAdjacentElement('beforebegin', control);
+
+    const select = control.querySelector('#verification-scope');
+    select.addEventListener('change', () => {
+      setVerificationScope(select.value);
+      const clear = card.querySelector('#clear-pw-search');
+      clear?.click();
+      filterScopedSuggestions();
+      syncSearchPresentation();
+    });
+  }
+
+  const select = control.querySelector('#verification-scope');
+  if (!select || verificationScopeLoading || select.dataset.loaded === '1') {
+    filterScopedSuggestions();
+    return;
+  }
+
+  verificationScopeLoading = true;
+  try {
+    const inspections = await listInspections();
+    if (!select.isConnected) return;
+    const availableIds = new Set(inspections.map(item => item.id));
+    if (verificationScopeId && !availableIds.has(verificationScopeId)) setVerificationScope('');
+    select.innerHTML = `<option value="">Todas as inspeções (global)</option>${inspections.map(item =>
+      `<option value="${String(item.id).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')}">${String(item.system || 'Sem sistema')} · ${String(item.name || item.project || 'Inspeção')}</option>`
+    ).join('')}`;
+    select.value = verificationScopeId;
+    select.dataset.loaded = '1';
+  } finally {
+    verificationScopeLoading = false;
+  }
+  filterScopedSuggestions();
+  syncSearchPresentation();
+}
+
+function visibleScopedSuggestions() {
+  const scope = currentVerificationScope();
+  return [...document.querySelectorAll('#pw-suggestions [data-search-doc][data-search-inspection]')]
+    .filter(button => !scope || button.dataset.searchInspection === scope);
+}
+
+function filterScopedSuggestions() {
+  const container = document.querySelector('#pw-suggestions');
+  const input = document.querySelector('#pw-search');
+  if (!container || !input) return;
+  const scope = currentVerificationScope();
+  const buttons = [...container.querySelectorAll('[data-search-doc][data-search-inspection]')];
+  let visible = 0;
+  buttons.forEach(button => {
+    const hidden = Boolean(scope && button.dataset.searchInspection !== scope);
+    button.hidden = hidden;
+    if (!hidden) visible += 1;
+  });
+
+  container.querySelector('.scope-search-empty')?.remove();
+  const query = input.value.trim();
+  if (scope && query.length >= 2 && buttons.length && visible === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'scope-search-empty';
+    empty.textContent = 'Nenhum documento correspondente foi encontrado na lista selecionada.';
+    container.append(empty);
+  }
+}
+
 function syncSearchPresentation() {
   const card = document.querySelector('.locate-card');
   const input = card?.querySelector('#pw-search');
@@ -220,9 +413,13 @@ function syncSearchPresentation() {
   if (!card || !input || !box || !suggestions) return;
 
   input.placeholder = 'Digite para localizar…';
-
+  const scoped = Boolean(currentVerificationScope());
+  const kicker = card.querySelector('.section-title .section-kicker');
+  if (kicker) kicker.textContent = scoped ? 'BUSCA POR LISTA' : 'BUSCA GLOBAL';
   const intro = card.querySelector(':scope > p.subtitle');
-  if (intro) intro.textContent = 'Localize rapidamente um documento em qualquer inspeção cadastrada.';
+  if (intro) intro.textContent = scoped
+    ? 'Localize rapidamente um documento somente na lista de inspeção selecionada.'
+    : 'Localize rapidamente um documento em qualquer inspeção cadastrada.';
 
   let help = card.querySelector('.search-field-help');
   if (!help) {
@@ -239,6 +436,7 @@ function syncSearchPresentation() {
       suggestions.hidden = true;
     } else {
       suggestions.hidden = false;
+      filterScopedSuggestions();
     }
   };
 
@@ -259,6 +457,42 @@ function syncSearchPresentation() {
   applyEmptyState();
 }
 
+function handleScopedSearchAction(event) {
+  const isEnter = event.type === 'keydown' && event.target?.id === 'pw-search' && event.key === 'Enter';
+  const isButton = event.type === 'click' && event.target?.closest?.('#find-pw');
+  if (!isEnter && !isButton) return;
+  const scope = currentVerificationScope();
+  if (!scope) return;
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  queueMicrotask(() => {
+    filterScopedSuggestions();
+    const input = document.querySelector('#pw-search');
+    const query = input?.value || '';
+    const normalized = normalizeCode(query);
+    if (!normalized) {
+      showToast('Digite um Código PW ou parte da descrição.', 'error');
+      input?.focus();
+      return;
+    }
+
+    const visible = visibleScopedSuggestions();
+    const exact = visible.filter(button => normalizeCode(button.querySelector('.search-suggestion-code')?.textContent || '') === normalized);
+    if (exact.length === 1) {
+      exact[0].click();
+      return;
+    }
+    if (exact.length > 1) {
+      showToast('Este Código PW aparece mais de uma vez na lista selecionada. Revise a lista antes de registrar.', 'error');
+      return;
+    }
+    if (visible.length) showToast('Há documentos correspondentes nesta lista. Selecione uma sugestão para abrir o registro.');
+    else showToast('Documento não localizado na lista selecionada.', 'error');
+    input?.focus();
+  });
+}
+
 function openDocumentFromSequence(documentRecord, inspectionId) {
   const input = document.querySelector('#pw-search');
   if (!input || !documentRecord) return;
@@ -274,7 +508,8 @@ function openDocumentFromSequence(documentRecord, inspectionId) {
 }
 
 async function refineDocumentNavigation() {
-  const heading = document.querySelector('.doc-heading');
+  const detail = document.querySelector('.doc-detail');
+  const heading = detail?.querySelector('.doc-heading');
   const next = heading?.querySelector('#next-document');
   const code = heading?.querySelector('h2')?.textContent?.trim();
   const inspectionId = localStorage.getItem('sky17-current');
@@ -306,13 +541,174 @@ async function refineDocumentNavigation() {
     previous.dataset.bound = '1';
     previous.addEventListener('click', async () => {
       const latest = await getInspection(inspectionId).catch(() => null);
-      const currentCode = document.querySelector('.doc-heading h2')?.textContent?.trim();
+      const currentCode = document.querySelector('.doc-detail .doc-heading h2')?.textContent?.trim();
       const list = latest?.documents || [];
       const currentIndex = list.findIndex(item => String(item.code || '').trim() === currentCode);
       if (currentIndex <= 0) return;
       openDocumentFromSequence(list[currentIndex - 1], inspectionId);
     });
   }
+}
+
+function openDocumentDetailThroughCatalog(documentId, inspectionId) {
+  const backToDocuments = document.querySelector('.document-page [data-nav="docs"]');
+  if (!backToDocuments) return;
+  backToDocuments.click();
+  requestAnimationFrame(() => {
+    const body = document.querySelector('#docs-body');
+    if (!body) return;
+    const proxy = document.createElement('button');
+    proxy.type = 'button';
+    proxy.hidden = true;
+    proxy.dataset.docDetails = documentId;
+    proxy.dataset.inspectionDetails = inspectionId;
+    body.append(proxy);
+    proxy.click();
+    proxy.remove();
+  });
+}
+
+async function refineDocumentDetailNavigation() {
+  const page = document.querySelector('.document-page');
+  const heading = page?.querySelector('.doc-heading');
+  const code = heading?.querySelector('h2')?.textContent?.trim();
+  const inspectionId = localStorage.getItem('sky17-current');
+  if (!page || !heading || !code || !inspectionId) return;
+
+  const inspection = await getInspection(inspectionId).catch(() => null);
+  if (!inspection || !page.isConnected) return;
+  const documents = inspection.documents || [];
+  const index = documents.findIndex(item => String(item.code || '').trim() === code);
+  if (index < 0) return;
+
+  let nav = page.querySelector('.document-detail-navigation');
+  if (!nav) {
+    nav = document.createElement('div');
+    nav.className = 'document-detail-navigation';
+    nav.setAttribute('aria-label', 'Navegação entre documentos da inspeção');
+    nav.innerHTML = `
+      <button class="icon-button previous-document-button" id="detail-previous-document" type="button" aria-label="Documento anterior" title="Documento anterior"><span aria-hidden="true">‹</span></button>
+      <span class="document-position" aria-live="polite"></span>
+      <button class="icon-button next-document-button" id="detail-next-document" type="button" aria-label="Próximo documento" title="Próximo documento"><span aria-hidden="true">›</span></button>`;
+    heading.insertAdjacentElement('afterend', nav);
+  }
+
+  const previous = nav.querySelector('#detail-previous-document');
+  const next = nav.querySelector('#detail-next-document');
+  const position = nav.querySelector('.document-position');
+  previous.disabled = index === 0;
+  next.disabled = index === documents.length - 1;
+  if (position) position.textContent = `${index + 1} de ${documents.length}`;
+
+  if (!previous.dataset.bound) {
+    previous.dataset.bound = '1';
+    previous.addEventListener('click', async () => {
+      const latest = await getInspection(inspectionId).catch(() => null);
+      const currentCode = document.querySelector('.document-page .doc-heading h2')?.textContent?.trim();
+      const list = latest?.documents || [];
+      const currentIndex = list.findIndex(item => String(item.code || '').trim() === currentCode);
+      if (currentIndex <= 0) return;
+      openDocumentDetailThroughCatalog(list[currentIndex - 1].id, inspectionId);
+    });
+  }
+  if (!next.dataset.bound) {
+    next.dataset.bound = '1';
+    next.addEventListener('click', async () => {
+      const latest = await getInspection(inspectionId).catch(() => null);
+      const currentCode = document.querySelector('.document-page .doc-heading h2')?.textContent?.trim();
+      const list = latest?.documents || [];
+      const currentIndex = list.findIndex(item => String(item.code || '').trim() === currentCode);
+      if (currentIndex < 0 || currentIndex >= list.length - 1) return;
+      openDocumentDetailThroughCatalog(list[currentIndex + 1].id, inspectionId);
+    });
+  }
+}
+
+function rememberExportInspection(event) {
+  const direct = event.target?.closest?.('[data-export-inspection]');
+  if (direct?.dataset.exportInspection) {
+    activeExportInspectionId = direct.dataset.exportInspection;
+    return;
+  }
+  if (event.target?.closest?.('#export-selected-inspection')) {
+    activeExportInspectionId = document.querySelector('#filter-inspection')?.value || localStorage.getItem('sky17-current') || null;
+  }
+}
+
+function ensurePdfCopiesOption() {
+  const generatePdf = document.querySelector('#generate-pdf');
+  const modal = generatePdf?.closest('.modal') || generatePdf?.closest('[role="dialog"]');
+  if (!generatePdf || !modal || modal.querySelector('#exp-pdf-copies')) return;
+  const note = modal.querySelector('.export-format-note');
+  const section = document.createElement('section');
+  section.className = 'export-field-evidence-option';
+  section.innerHTML = `
+    <label for="exp-pdf-copies">
+      <input type="checkbox" id="exp-pdf-copies">
+      <span><strong>Incluir cópias de campo no PDF</strong><small>Opcional. Acrescenta revisão encontrada, origem, marcações e comentários das cópias físicas. O relatório principal permanece com uma única linha por Código PW.</small></span>
+    </label>`;
+  if (note) note.insertAdjacentElement('beforebegin', section);
+  else generatePdf.closest('.actions')?.insertAdjacentElement('beforebegin', section);
+}
+
+async function resolveExportInspection(modal) {
+  const preferredId = activeExportInspectionId || localStorage.getItem('sky17-current');
+  if (preferredId) {
+    const preferred = await getInspection(preferredId).catch(() => null);
+    if (preferred) return preferred;
+  }
+
+  const system = modal.querySelector('.export-report-preview strong')?.textContent?.trim() || '';
+  const listName = modal.querySelector('.export-report-preview small')?.textContent?.trim() || '';
+  const inspections = await listInspections();
+  const matches = inspections.filter(item => String(item.system || 'Sem sistema') === system && String(item.name || item.project || '') === listName);
+  return matches.length === 1 ? matches[0] : null;
+}
+
+async function generateRefinedPdf(button) {
+  const modal = button.closest('.modal') || button.closest('[role="dialog"]');
+  if (!modal) return;
+  try {
+    setButtonBusy(button, true, 'Gerando PDF…');
+    const inspection = await resolveExportInspection(modal);
+    if (!inspection) throw new Error('Não foi possível identificar com segurança a inspeção que será exportada.');
+    const checked = id => Boolean(modal.querySelector(`#${id}`)?.checked);
+    const options = {
+      includeConforming: checked('exp-conforming'),
+      includeNonconforming: checked('exp-nonconforming'),
+      includeNotFound: checked('exp-notfound'),
+      includePending: checked('exp-pending'),
+      includeSummary: true,
+      includeDocuments: true,
+      includeCopies: checked('exp-pdf-copies'),
+      includeComments: true,
+      includeMarkings: true,
+      includeEvidence: true
+    };
+    if (!options.includeConforming && !options.includeNonconforming && !options.includeNotFound && !options.includePending) {
+      throw new Error('Selecione pelo menos um resultado para exportar.');
+    }
+    const data = buildInspectionExportData(inspection, options);
+    exportInspectionPdf(inspection, data);
+    showToast(options.includeCopies ? 'PDF com cópias de campo gerado.' : 'PDF principal gerado sem a seção de cópias de campo.');
+    modal.querySelector('[data-close]')?.click();
+  } catch (error) {
+    showToast(error.message || 'Falha ao gerar PDF.', 'error');
+  } finally {
+    if (button?.isConnected) setButtonBusy(button, false);
+  }
+}
+
+function handleGlobalCaptureClick(event) {
+  rememberExportInspection(event);
+  handleScopedSearchAction(event);
+  const pdfButton = event.target?.closest?.('#generate-pdf');
+  if (!pdfButton) return;
+  ensurePdfCopiesOption();
+  if (!pdfButton.closest('.modal')?.querySelector('#exp-pdf-copies') && !pdfButton.closest('[role="dialog"]')?.querySelector('#exp-pdf-copies')) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  void generateRefinedPdf(pdfButton);
 }
 
 function clarifyExpectedRevisionStatus() {
@@ -325,9 +721,13 @@ function clarifyExpectedRevisionStatus() {
 function refineUi() {
   ensureInspectionActionSheetStyles();
   refineInspectionActionMenus();
+  void ensureVerificationScope();
   syncSearchPresentation();
+  filterScopedSuggestions();
   clarifyExpectedRevisionStatus();
-  refineDocumentNavigation();
+  void refineDocumentNavigation();
+  void refineDocumentDetailNavigation();
+  ensurePdfCopiesOption();
 }
 
 function start() {
@@ -340,6 +740,8 @@ function start() {
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && activeInspectionActionSheet) closeInspectionActionSheet();
   });
+  document.addEventListener('keydown', handleScopedSearchAction, true);
+  document.addEventListener('click', handleGlobalCaptureClick, true);
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
