@@ -50,7 +50,10 @@ assert.match(refinement, /buildInspectionExportData\(inspection, options\)/, 'PD
 assert.match(index, /src="js\/export-pdf-options-ui\.js"/, 'HTML deve carregar o montador da opção do PDF');
 assert.match(exportPdfOptionsUi, /id="exp-pdf-copies"/, 'Modal deve receber o checkbox de cópias de campo');
 assert.doesNotMatch(exportPdfOptionsUi, /id="exp-pdf-copies"[^>]*checked/, 'Checkbox de cópias de campo não pode vir pré-selecionado');
+assert.doesNotMatch(exportPdfOptionsUi, /Opcional\. Acrescenta revisão encontrada/, 'Opção compacta não deve manter legenda explicativa');
 assert.match(exportPdfOptionsUi, /MutationObserver/, 'Montador deve observar brevemente o modal que é anexado ao body');
 assert.match(exportPdfOptionsUi, /bodyObserver\.disconnect\(\)/, 'Observador temporário deve ser desconectado após montar a opção');
+assert.match(index, /#exp-pdf-copies[\s\S]*width: 18px !important/, 'Checkbox deve permanecer compacto');
+assert.match(index, /\.modal:has\(#sync-inline-status\)::\-webkit-scrollbar-thumb/, 'Modal de sincronização deve ter scrollbar visualmente refinada');
 
 console.log('report-verification-navigation.test.mjs: OK');
