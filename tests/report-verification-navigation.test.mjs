@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
   availableRowLines,
-  sliceRowLineSets
+  shouldStartRowOnNextPage,
+  sliceRowLineSets,
+  tableRowHeight
 } from '../js/report.js';
 
 const report = fs.readFileSync(new URL('../js/report.js', import.meta.url), 'utf8');
@@ -15,10 +17,12 @@ assert.deepEqual(first.chunkSets, [['a1', 'a2'], ['b1'], ['c1', 'c2']]);
 assert.equal(first.done, false);
 assert.equal(availableRowLines(7), 1);
 
-// Gate da paginação atômica. Enquanto report.js não expuser os helpers novos,
-// este teste falhará e impedirá que o defeito de linha quebrada seja marcado como resolvido.
-assert.match(report, /export function tableRowHeight\(/, 'report deve calcular a altura integral da linha antes de paginar');
-assert.match(report, /export function shouldStartRowOnNextPage\(/, 'report deve decidir mover uma linha inteira para a página seguinte');
+// Uma linha normal deve ser medida inteira e movida para a página seguinte,
+// nunca dividida só porque começou perto do rodapé.
+assert.equal(tableRowHeight([['a1', 'a2', 'a3'], ['b1']]), 12.399999999999999);
+assert.equal(shouldStartRowOnNextPage(24, 10, 230), true);
+assert.equal(shouldStartRowOnNextPage(24, 30, 230), false);
+assert.equal(shouldStartRowOnNextPage(260, 10, 230), false, 'linha maior que a página usa o fallback de continuação');
 assert.match(report, /shouldStartRowOnNextPage\(fullRowH, currentAvailableHeight, freshPageAvailableHeight\)/, 'linha normal deve ser movida antes de ser fragmentada');
 assert.match(report, /fullRowH <= contentBottom - y/, 'linha que cabe deve ser desenhada integralmente');
 
