@@ -104,7 +104,7 @@ test('Mais detalhes navega para anterior e próximo dentro da inspeção', async
   await expect(page.locator('.document-page .doc-heading h2')).toHaveText('PW-B-002');
 });
 
-test('Cópias de campo são opção separada e desmarcada no PDF', async ({ page }) => {
+test('Cópias de campo são opção compacta, separada e desmarcada no PDF', async ({ page }) => {
   await seedInspections(page);
   const betaCard = page.locator('.inspection-item').filter({ hasText: 'Lista Beta' });
   await betaCard.locator('button.inspection-more-button').click();
@@ -115,5 +115,11 @@ test('Cópias de campo são opção separada e desmarcada no PDF', async ({ page
   const copies = dialog.locator('#exp-pdf-copies');
   await expect(copies).toBeVisible();
   await expect(copies).not.toBeChecked();
-  await expect(dialog).toContainText('O relatório principal permanece com uma única linha por Código PW');
+  await expect(dialog).toContainText('Incluir cópias de campo no PDF');
+  await expect(dialog).not.toContainText('Opcional. Acrescenta revisão encontrada');
+
+  const box = await copies.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box.width).toBeLessThanOrEqual(24);
+  expect(box.height).toBeLessThanOrEqual(24);
 });
