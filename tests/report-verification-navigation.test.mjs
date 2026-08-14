@@ -19,7 +19,7 @@ assert.equal(availableRowLines(7), 1);
 
 // Uma linha normal deve ser medida inteira e movida para a página seguinte,
 // nunca dividida só porque começou perto do rodapé.
-assert.equal(tableRowHeight([['a1', 'a2', 'a3'], ['b1']]), 12.399999999999999);
+assert.ok(Math.abs(tableRowHeight([['a1', 'a2', 'a3'], ['b1']]) - 12.4) < 1e-9);
 assert.equal(shouldStartRowOnNextPage(24, 10, 230), true);
 assert.equal(shouldStartRowOnNextPage(24, 30, 230), false);
 assert.equal(shouldStartRowOnNextPage(260, 10, 230), false, 'linha maior que a página usa o fallback de continuação');
@@ -45,5 +45,7 @@ assert.match(refinement, /id="exp-pdf-copies"/, 'Exportação PDF deve oferecer 
 assert.doesNotMatch(refinement, /id="exp-pdf-copies"[^>]*checked/, 'Checkbox de cópias de campo não pode vir pré-selecionado');
 assert.match(refinement, /includeCopies: checked\('exp-pdf-copies'\)/, 'PDF deve obedecer ao checkbox de cópias');
 assert.match(refinement, /buildInspectionExportData\(inspection, options\)/, 'PDF deve reconstruir dados com a opção escolhida');
+assert.match(refinement, /queueMicrotask\(ensurePdfCopiesOption\)/, 'Opção de cópias deve ser inserida quando o modal de exportação for aberto');
+assert.match(refinement, /escapeHtml\(String\(item\.system/, 'Rótulos do filtro de inspeção devem ser escapados');
 
 console.log('report-verification-navigation.test.mjs: OK');
