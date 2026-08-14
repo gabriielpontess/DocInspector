@@ -11,6 +11,7 @@ const report = fs.readFileSync(new URL('../js/report.js', import.meta.url), 'utf
 const refinement = fs.readFileSync(new URL('../js/ui-refinement.js', import.meta.url), 'utf8');
 const exportPdfOptionsUi = fs.readFileSync(new URL('../js/export-pdf-options-ui.js', import.meta.url), 'utf8');
 const index = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const serviceWorker = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 
 // O fallback histórico para uma linha maior que a própria página continua disponível.
 const lineSets = [['a1', 'a2', 'a3'], ['b1'], ['c1', 'c2']];
@@ -48,6 +49,8 @@ assert.match(refinement, /id="exp-pdf-copies"/, 'Geração PDF deve conhecer a o
 assert.match(refinement, /includeCopies: checked\('exp-pdf-copies'\)/, 'PDF deve obedecer ao checkbox de cópias');
 assert.match(refinement, /buildInspectionExportData\(inspection, options\)/, 'PDF deve reconstruir dados com a opção escolhida');
 assert.match(index, /src="js\/export-pdf-options-ui\.js"/, 'HTML deve carregar o montador da opção do PDF');
+assert.match(serviceWorker, /\.\/js\/export-pdf-options-ui\.js/, 'PWA deve armazenar o montador da opção do PDF no APP_SHELL');
+assert.match(serviceWorker, /const VERSION = '0\.9\.27'/, 'Release deve avançar a identidade técnica do cache ao incluir o novo módulo');
 assert.match(exportPdfOptionsUi, /id="exp-pdf-copies"/, 'Modal deve receber o checkbox de cópias de campo');
 assert.doesNotMatch(exportPdfOptionsUi, /id="exp-pdf-copies"[^>]*checked/, 'Checkbox de cópias de campo não pode vir pré-selecionado');
 assert.doesNotMatch(exportPdfOptionsUi, /Opcional\. Acrescenta revisão encontrada/, 'Opção compacta não deve manter legenda explicativa');
