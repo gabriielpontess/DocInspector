@@ -10,14 +10,19 @@
 - Incluído `js/export-pdf-options-ui.js` no APP_SHELL do PWA e avançada a identidade técnica do cache para `0.9.27`, garantindo disponibilidade offline da nova opção de exportação.
 - Mantidas intactas as regras de dados, histórico, evidências, sincronização e identificação OCR já homologadas no release anterior.
 
-<!-- Retrigger Netlify Deploy Preview #7 — no functional change. -->
-## v0.9.11 — Correção estrutural de responsividade mobile
+## v0.9.11 — Field readiness e estabilização para uso em campo
 
-- Corrigida a regressão em que `flex-basis` em pixels, criado para largura no desktop, passava a atuar como altura quando componentes mudavam para `flex-direction: column` no mobile.
-- Corrigidos preventivamente os mesmos padrões em chamada de nova inspeção, resumo de inspeção, caixa de pesquisa, descrição + ação e cabeçalho.
-- Adicionado reset explícito de eixo em layouts mobile.
-- Adicionado teste de regressão para impedir a reintrodução desse padrão.
-- Mantidas as correções do diagnóstico pré-campo e sincronização de evidências.
+- Atualização segura de listas preservando registros e histórico já coletados.
+- Recuperação de rascunhos interrompidos e reforço de integridade local.
+- Melhorias de sincronização e saúde de evidências fotográficas.
+- Diagnóstico pré-campo para PWA, armazenamento, OCR e sincronização.
+- Nova interface responsiva validada em desktop e mobile.
+- Ações da inspeção no mobile reestruturadas como Action Sheet fora do card clicável.
+- Adicionado gate E2E Playwright em Chromium e WebKit com perfil Mobile Safari/iPhone.
+- Validado em iPhone físico como PWA instalado, incluindo fechamento e reabertura.
+- Validada sincronização bidirecional entre iPhone e notebook com inspeções, documentos e revisões consistentes.
+- Revisão adversarial final concluída sem achados BLOCKER, HIGH ou MEDIUM pendentes.
+- Versão do produto mantida em `0.9.11`; cache interno do Service Worker em `0.9.26`.
 
 ## v0.9.10 — Estado assíncrono do diagnóstico pré-campo
 
