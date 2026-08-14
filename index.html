@@ -21,6 +21,86 @@
   <link rel="stylesheet" href="visual-overlays.css">
   <link rel="stylesheet" href="visual-responsive.css">
   <link rel="stylesheet" href="visual-refinement.css">
+  <style id="modal-polish">
+    .modal .export-field-evidence-option label {
+      align-items: center;
+      gap: 10px;
+    }
+    .modal .export-field-evidence-option #exp-pdf-copies {
+      flex: 0 0 18px;
+      width: 18px !important;
+      min-width: 18px !important;
+      height: 18px !important;
+      min-height: 18px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      accent-color: var(--color-navy-800);
+    }
+    .modal .export-field-evidence-option strong {
+      margin: 0;
+      font-size: var(--text-sm);
+      line-height: 1.35;
+    }
+    .modal:has(#sync-inline-status) {
+      overflow-x: hidden;
+      scrollbar-gutter: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(105, 120, 139, .72) transparent;
+    }
+    .modal:has(#sync-inline-status)::-webkit-scrollbar { width: 8px; }
+    .modal:has(#sync-inline-status)::-webkit-scrollbar-track {
+      margin-block: 14px;
+      background: transparent;
+    }
+    .modal:has(#sync-inline-status)::-webkit-scrollbar-thumb {
+      border: 2px solid transparent;
+      border-radius: 999px;
+      background: rgba(105, 120, 139, .72);
+      background-clip: content-box;
+    }
+    .modal:has(#sync-inline-status)::-webkit-scrollbar-button { display: none; }
+    .modal:has(#sync-inline-status)::-webkit-scrollbar-corner { background: transparent; }
+
+    @media (min-width: 768px) and (min-height: 720px) {
+      .modal:has(#generate-pdf) {
+        width: min(860px, calc(100vw - 48px));
+        max-height: none;
+        overflow: visible;
+        padding: 18px 20px;
+      }
+      .modal:has(#generate-pdf) .modal-head { margin-bottom: 10px; }
+      .modal:has(#generate-pdf) .export-report-preview {
+        margin-bottom: 10px;
+        padding: 12px 14px;
+      }
+      .modal:has(#generate-pdf) .export-result-panel {
+        margin-bottom: 10px;
+        padding: 14px 16px;
+      }
+      .modal:has(#generate-pdf) .export-result-heading p { margin: 4px 0 10px; }
+      .modal:has(#generate-pdf) .export-result-options { gap: 8px; }
+      .modal:has(#generate-pdf) .export-result-option {
+        min-height: 50px;
+        padding: 9px 11px;
+      }
+      .modal:has(#generate-pdf) .export-selection-note {
+        margin: 10px 0 0;
+        padding-top: 10px;
+      }
+      .modal:has(#generate-pdf) .export-field-evidence-option {
+        margin-top: 10px;
+        padding: 10px 12px;
+      }
+      .modal:has(#generate-pdf) .export-format-note {
+        margin-top: 10px;
+        padding: 10px 12px;
+      }
+      .modal:has(#generate-pdf) .export-actions {
+        margin-top: 10px;
+        padding-top: 10px;
+      }
+    }
+  </style>
   <title>DocInspector</title>
 </head>
 <body>
