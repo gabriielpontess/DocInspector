@@ -1,4 +1,15 @@
 # Changelog
+
+## v0.9.12 — Relatório, verificação por lista e navegação documental
+
+- Corrigida a paginação do PDF para manter linhas normais inteiras entre páginas; somente linhas maiores que a própria área útil usam continuação controlada.
+- A seção “Cópias de campo” deixou de fazer parte do PDF principal por padrão e passou a ser uma opção separada de exportação, iniciando desmarcada.
+- Adicionado filtro de busca na área Verificar para alternar entre catálogo global e uma lista de inspeção específica, sem alterar o comportamento homologado da câmera/OCR.
+- Adicionados controles Anterior e Próximo em Documentos → Mais detalhes, respeitando os limites da lista selecionada.
+- Refinados os modais de exportação e configuração de sincronização para reduzir rolagem desnecessária e preservar o acabamento arredondado das janelas.
+- Incluído `js/export-pdf-options-ui.js` no APP_SHELL do PWA e avançada a identidade técnica do cache para `0.9.27`, garantindo disponibilidade offline da nova opção de exportação.
+- Mantidas intactas as regras de dados, histórico, evidências, sincronização e identificação OCR já homologadas no release anterior.
+
 <!-- Retrigger Netlify Deploy Preview #7 — no functional change. -->
 ## v0.9.11 — Correção estrutural de responsividade mobile
 
