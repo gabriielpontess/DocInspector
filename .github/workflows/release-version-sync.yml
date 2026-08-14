@@ -1,0 +1,50 @@
+name: Release Version Sync
+
+on:
+  push:
+    branches:
+      - release/0.9.12
+
+permissions:
+  contents: write
+
+jobs:
+  sync-version:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v6
+        with:
+          ref: release/0.9.12
+          fetch-depth: 0
+
+      - name: Synchronize app version
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'js/app.js';
+          const before = fs.readFileSync(path, 'utf8');
+          const from = "const APP_VERSION = '0.9.11';";
+          const to = "const APP_VERSION = '0.9.12';";
+          const occurrences = before.split(from).length - 1;
+          if (occurrences !== 1) {
+            throw new Error(`Expected exactly one APP_VERSION 0.9.11 occurrence, found ${occurrences}`);
+          }
+          const after = before.replace(from, to);
+          fs.writeFileSync(path, after);
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          if (pkg.version !== '0.9.12') throw new Error(`package.json version is ${pkg.version}, expected 0.9.12`);
+          NODE
+
+          rm .github/workflows/release-version-sync.yml
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add js/app.js .github/workflows/release-version-sync.yml
+          git diff --cached --check
+          git commit -m "release: synchronize runtime version 0.9.12"
+          git push origin HEAD:release/0.9.12
