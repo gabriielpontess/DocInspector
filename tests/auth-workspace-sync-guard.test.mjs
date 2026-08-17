@@ -21,6 +21,11 @@ assert.match(sync, /allowedInspectionIds\.has\(inspection\.id\)/);
 assert.match(sync, /Sincronizado · \$\{quarantinedLocalCount\} registro\(s\) local\(is\) isolado\(s\)/);
 assert.match(sw, /const VERSION = '0\.9\.34';/);
 
+const cycle = sync.match(/async function performSyncCycle\(\) \{[\s\S]*?\n\}/)?.[0] || '';
+const refreshIndex = cycle.indexOf('await refreshAuthContext()');
+const clientIndex = cycle.indexOf('await ensureAuthenticatedClient()');
+assert.ok(refreshIndex >= 0 && clientIndex >= 0 && refreshIndex < clientIndex, 'online sync must revalidate membership before capturing workspace config');
+
 const branchMatch = sync.match(/if \(local && !remoteInspection\) \{[\s\S]*?\n      \}\n      const merged/);
 assert.ok(branchMatch, 'local-only branch must remain explicit');
 const branch = branchMatch[0];
