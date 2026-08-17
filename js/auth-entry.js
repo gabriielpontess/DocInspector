@@ -50,7 +50,8 @@ async function loadApplication() {
     import('./copy-evidence-edit-ui.js'),
     import('./ui-refinement.js'),
     import('./export-pdf-options-ui.js'),
-    import('./permission-ui.js')
+    import('./permission-ui.js'),
+    import('./user-admin-ui.js')
   ]);
 }
 
