@@ -17,7 +17,7 @@ A interface pode ocultar ações não autorizadas, mas isso não é a fronteira 
 
 A migração é deliberadamente dividida em gates. `AUTH_CONFIG.enabled` permanece `false` até que todos os gates abaixo tenham sido validados.
 
-### Gate A — fundação no cliente
+### Gate A — fundação no cliente — concluído
 
 - modelo central de papéis e capacidades;
 - cliente Supabase Auth separado do cliente legado de sincronização;
@@ -26,19 +26,39 @@ A migração é deliberadamente dividida em gates. `AUTH_CONFIG.enabled` permane
 - logout somente da sessão atual;
 - testes de regressão do mapa de permissões.
 
-Nenhuma RPC existente é alterada neste gate.
+Nenhuma RPC existente foi alterada neste gate.
 
-### Gate B — schema de identidade
+### Gate B — schema de identidade — concluído em 2026-08-17
 
-Adicionar, por migration versionada, estruturas equivalentes a:
+Migrations aplicadas e versionadas:
 
-- perfil de usuário (`user_id`, nome de exibição, ativo);
-- associação usuário/workspace (`workspace_id`, `user_id`, `role`, ativo);
-- índices nos campos usados por autorização;
-- RLS e grants mínimos para `authenticated`;
-- função/RPC read-only que retorne somente os workspaces e perfis aos quais `auth.uid()` pertence.
+- `20260817162807_add_auth_profiles_and_workspace_memberships.sql`;
+- `20260817162939_add_authenticated_workspace_discovery.sql`.
 
-Papéis de autorização não devem ser derivados de `raw_user_meta_data`.
+Estruturas criadas:
+
+- `public.docinspector_profiles` — perfil vinculado 1:1 a `auth.users`; não contém papel de autorização;
+- `public.docinspector_workspace_members` — associação `workspace_id + user_id`, papel e estado ativo;
+- índice parcial por usuário/workspace para memberships ativas;
+- trigger privado que cria o perfil automaticamente ao inserir um usuário em `auth.users`;
+- triggers privados de `updated_at`;
+- RLS em `docinspector_profiles`, `docinspector_workspace_members` e leitura autenticada de `sky17_workspaces`;
+- grants mínimos para `authenticated`;
+- RPC read-only `public.docinspector_my_workspaces()` com `SECURITY INVOKER`.
+
+Regras de segurança deste gate:
+
+- `anon` não recebe acesso às novas estruturas;
+- um usuário autenticado só lê o próprio perfil;
+- um usuário autenticado só lê as próprias memberships;
+- `display_name` é o único campo de perfil atualizável pelo próprio usuário;
+- papéis de autorização não são derivados de `raw_user_meta_data` nem ficam em `docinspector_profiles`;
+- somente memberships ativas tornam um workspace visível em `docinspector_my_workspaces()`;
+- a RPC de descoberta não usa `SECURITY DEFINER` e respeita RLS.
+
+Estado no momento da aplicação: 12 workspaces, 13 inspeções, 3 tombstones e 0 usuários Auth. Nenhuma inspeção, exclusão ou evidência foi alterada pela migration.
+
+Os advisors após o Gate B não apontaram falha nova nas estruturas de identidade. Avisos existentes permanecem no mecanismo legado `sky17_* SECURITY DEFINER`, que será tratado no Gate C. O índice de memberships aparece inicialmente como não utilizado porque ainda não existem usuários/memberships.
 
 ### Gate C — autorização das operações existentes
 
@@ -62,9 +82,9 @@ Criação, convite, desativação e alteração de usuários nunca devem usar `s
 
 ## Compatibilidade e rollback
 
-Enquanto `AUTH_CONFIG.enabled` for `false`, a versão de campo continua operando como antes. Se uma regressão for encontrada durante a migração, a branch pode ser descartada sem alteração de dados de produção.
+Enquanto `AUTH_CONFIG.enabled` for `false`, a versão de campo continua operando como antes.
 
-Depois da ativação, rollback exige preservar as tabelas de identidade e reverter apenas o enforcement no cliente/RPC; nenhuma migration deve apagar usuários ou inspeções como parte do rollback.
+Depois do Gate B, rollback funcional deve preservar `docinspector_profiles` e `docinspector_workspace_members` e simplesmente não consumir essas estruturas enquanto Auth estiver desativado. Não apagar usuários, memberships ou inspeções como mecanismo de rollback.
 
 ## Estratégia de revisão independente
 
