@@ -26,7 +26,7 @@ export function getAuthClient() {
         auth: {
           persistSession: true,
           autoRefreshToken: true,
-          detectSessionInUrl: false,
+          detectSessionInUrl: true,
           storageKey: AUTH_CONFIG.storageKey
         }
       }
@@ -55,6 +55,17 @@ export async function signInWithEmailPassword(email, password) {
     throw new Error('Não foi possível entrar. Confira o e-mail e a senha.');
   }
   return { user: data.user, session: data.session };
+}
+
+export async function requestPasswordReset(email, redirectTo = location.origin + location.pathname) {
+  const normalizedEmail = normalize(email).toLowerCase();
+  if (!normalizedEmail || !normalizedEmail.includes('@') || normalizedEmail.length > 254) {
+    throw new Error('Informe um e-mail válido para recuperar a senha.');
+  }
+  const client = getAuthClient();
+  const { error } = await client.auth.resetPasswordForEmail(normalizedEmail, { redirectTo });
+  if (error) throw new Error('Não foi possível enviar o e-mail de recuperação agora.');
+  return true;
 }
 
 export async function updateCurrentPassword(newPassword) {
