@@ -5,7 +5,8 @@ import {
   requestPasswordReset,
   signInWithEmailPassword,
   signOutCurrentSession,
-  updateCurrentPassword
+  updateCurrentPassword,
+  verifyRecoveryTokenHash
 } from './auth.js';
 import { clearAuthContext, resolveAuthContext } from './auth-context.js';
 
@@ -35,7 +36,8 @@ function authCallbackParams() {
     code: read('code'),
     error: read('error'),
     errorCode: read('error_code'),
-    errorDescription: read('error_description')
+    errorDescription: read('error_description'),
+    recoveryToken: read('recovery_token')
   };
 }
 
@@ -88,6 +90,26 @@ function renderAuthShell({ message = '', messageType = 'error', busy = false, em
           <button id="auth-forgot" class="auth-recovery-link" type="button" ${busy ? 'disabled' : ''}>Esqueci minha senha</button>
         </form>
         <div class="auth-note">A primeira validação neste aparelho requer conexão com a internet. Depois disso, o trabalho local pode continuar offline conforme o perfil já validado.</div>
+      </section>
+    </main>`;
+}
+
+function renderRecoveryLanding({ message = '', busy = false } = {}) {
+  app.innerHTML = `
+    <main class="auth-screen">
+      <section class="auth-card" aria-labelledby="recovery-continue-title">
+        <div class="auth-brand">
+          <img src="assets/icon.svg" alt="" aria-hidden="true">
+          <div><strong><span>Doc</span>Inspector</strong><small>Recuperação segura</small></div>
+        </div>
+        <div class="auth-copy">
+          <span class="auth-kicker">RECUPERAÇÃO</span>
+          <h1 id="recovery-continue-title">Continuar redefinição</h1>
+          <p>O código só será validado depois que você confirmar esta ação.</p>
+        </div>
+        <div class="auth-message error" ${message ? '' : 'hidden'}>${esc(message)}</div>
+        <button id="auth-recovery-continue" class="auth-submit" type="button" ${busy ? 'disabled' : ''}>${busy ? 'Validando…' : 'Continuar redefinição'}</button>
+        <div class="auth-note">Esta etapa evita que verificações automáticas do provedor de e-mail consumam o código antes de você utilizá-lo.</div>
       </section>
     </main>`;
 }
@@ -160,6 +182,23 @@ async function waitForRecoverySession() {
       if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && session?.user) finish(session);
     });
     window.setTimeout(() => finish(null), 5000);
+  });
+}
+
+function bindRecoveryLanding(tokenHash) {
+  document.querySelector('#auth-recovery-continue')?.addEventListener('click', async () => {
+    renderRecoveryLanding({ busy: true });
+    try {
+      await verifyRecoveryTokenHash(tokenHash);
+      clearAuthCallbackUrl();
+      renderPasswordRecovery();
+      bindPasswordRecovery();
+      requestAnimationFrame(() => document.querySelector('#auth-new-password')?.focus());
+    } catch (error) {
+      clearAuthCallbackUrl();
+      renderAuthShell({ message: error?.message || 'Não foi possível validar este código de recuperação.' });
+      bindLogin();
+    }
   });
 }
 
@@ -241,6 +280,13 @@ async function bootAuthEntry() {
 
   if (!authRolloutEnabled()) {
     await loadApplication();
+    return;
+  }
+
+  const params = authCallbackParams();
+  if (params.recoveryToken) {
+    renderRecoveryLanding();
+    bindRecoveryLanding(params.recoveryToken);
     return;
   }
 
