@@ -12,6 +12,25 @@ function requireSupabaseLibrary() {
   }
 }
 
+function passwordRecoveryErrorMessage(error) {
+  const status = Number(error?.status || 0);
+  const code = normalize(error?.code).toLowerCase();
+
+  if (status === 429 || code.includes('rate_limit') || code.includes('over_email_send_rate_limit')) {
+    return 'O limite temporário de e-mails de recuperação do Supabase foi atingido. Aguarde o limite liberar antes de solicitar outro link.';
+  }
+  if (code.includes('captcha')) {
+    return 'A recuperação foi bloqueada pela proteção antiabuso. Recarregue a página e tente novamente.';
+  }
+  if (code.includes('redirect') || code.includes('validation')) {
+    return `O Supabase recusou a URL de retorno da recuperação${code ? ` (${code})` : ''}.`;
+  }
+
+  const safeCode = code ? ` Código: ${code}.` : '';
+  const safeStatus = status ? ` HTTP ${status}.` : '';
+  return `Não foi possível enviar o e-mail de recuperação agora.${safeStatus}${safeCode}`;
+}
+
 export function isAuthEnabled() {
   return authRolloutEnabled();
 }
@@ -64,7 +83,7 @@ export async function requestPasswordReset(email, redirectTo = location.origin +
   }
   const client = getAuthClient();
   const { error } = await client.auth.resetPasswordForEmail(normalizedEmail, { redirectTo });
-  if (error) throw new Error('Não foi possível enviar o e-mail de recuperação agora.');
+  if (error) throw new Error(passwordRecoveryErrorMessage(error));
   return true;
 }
 
