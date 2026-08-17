@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
 
+const E2E_URL = '/?e2e-auth-bypass=1';
+
 async function seedInspections(page) {
-  await page.goto('/');
+  await page.goto(E2E_URL);
   await expect(page.locator('.topbar h1')).toHaveText('Início');
 
   const ids = await page.evaluate(async () => {
@@ -136,7 +138,7 @@ test('Cópias de campo são opção compacta, separada e desmarcada no PDF', asy
 });
 
 test('Sincronização mantém a rolagem afastada da moldura do modal no desktop', async ({ page }) => {
-  await page.goto('/');
+  await page.goto(E2E_URL);
   await page.locator('[data-nav="settings"]:visible').first().click();
   await expect(page.locator('.topbar h1')).toHaveText('Dados e backup');
   await page.locator('#configure-sync').click();
