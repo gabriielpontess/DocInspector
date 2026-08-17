@@ -27,9 +27,9 @@
 .auth-kicker { color: #9b741d; font-size: 11px; font-weight: 800; letter-spacing: .12em; }
 .auth-copy h1 { margin: 7px 0 8px; font-size: clamp(27px, 7vw, 36px); line-height: 1.05; color: #071a31; }
 .auth-copy p { margin: 0 0 26px; color: #657386; line-height: 1.55; }
-#auth-form { display: grid; gap: 16px; }
-#auth-form label { display: grid; gap: 7px; color: #26384d; font-size: 13px; font-weight: 700; }
-#auth-form input {
+#auth-form, #auth-recovery-form { display: grid; gap: 16px; }
+#auth-form label, #auth-recovery-form label { display: grid; gap: 7px; color: #26384d; font-size: 13px; font-weight: 700; }
+#auth-form input, #auth-recovery-form input {
   width: 100%;
   min-height: 48px;
   border: 1px solid #cfd6df;
@@ -41,7 +41,7 @@
   font-size: 16px;
   outline: none;
 }
-#auth-form input:focus { border-color: #9b741d; box-shadow: 0 0 0 3px rgba(192, 148, 47, .14); }
+#auth-form input:focus, #auth-recovery-form input:focus { border-color: #9b741d; box-shadow: 0 0 0 3px rgba(192, 148, 47, .14); }
 .auth-submit {
   min-height: 48px;
   border: 0;
@@ -54,6 +54,19 @@
   cursor: pointer;
 }
 .auth-submit:disabled { opacity: .62; cursor: wait; }
+.auth-recovery-link {
+  justify-self: center;
+  border: 0;
+  padding: 2px 4px;
+  background: transparent;
+  color: #765716;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.auth-recovery-link:hover { text-decoration: underline; }
+.auth-recovery-link:disabled { opacity: .55; cursor: wait; }
 .auth-message { border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.4; }
 .auth-message.error { background: #fff1f0; border: 1px solid #f2c4bf; color: #8a281f; }
 .auth-message.success { background: #edf8f0; border: 1px solid #bddfc5; color: #245b31; }
