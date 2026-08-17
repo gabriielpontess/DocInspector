@@ -19,7 +19,7 @@ assert.match(sync, /createdAt >= boundAt/);
 assert.match(sync, /quarantinedLocalCount \+= 1/);
 assert.match(sync, /allowedInspectionIds\.has\(inspection\.id\)/);
 assert.match(sync, /Sincronizado · \$\{quarantinedLocalCount\} registro\(s\) local\(is\) isolado\(s\)/);
-assert.match(sw, /const VERSION = '0\.9\.31';/);
+assert.match(sw, /const VERSION = '0\.9\.32';/);
 
 const branchMatch = sync.match(/if \(local && !remoteInspection\) \{[\s\S]*?\n      \}\n      const merged/);
 assert.ok(branchMatch, 'local-only branch must remain explicit');
