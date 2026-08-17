@@ -21,6 +21,8 @@ const EVIDENCE_DELETIONS_KEY = 'pending-evidence-deletions';
 const DEVICE_KEY = 'sky17-device-id';
 const EVIDENCE_BUCKET = 'docinspector-evidence';
 const SYNC_INTERVAL_MS = 30000;
+const AUTH_WORKSPACE_BINDING_KEY = 'auth-workspace-binding-v1';
+const AUTH_QUARANTINE_KEY = 'auth-workspace-quarantine-v1';
 
 let timer = null;
 let lifecycleBound = false;
@@ -78,6 +80,55 @@ function comparable(inspection) {
     if (Array.isArray(document.deletedCopyIds)) document.deletedCopyIds.sort((a, b) => String(a).localeCompare(String(b)));
   }
   return JSON.stringify(copy);
+}
+
+function inspectionTimestamp(inspection) {
+  const value = Date.parse(inspection?.createdAt || inspection?.updatedAt || '');
+  return Number.isFinite(value) ? value : 0;
+}
+
+async function quarantinePendingQueues(previousWorkspaceId, nextWorkspaceId) {
+  const [deletions, evidenceDeletions, existing] = await Promise.all([
+    getSyncMeta(DELETIONS_KEY, []).catch(() => []),
+    getSyncMeta(EVIDENCE_DELETIONS_KEY, []).catch(() => []),
+    getSyncMeta(AUTH_QUARANTINE_KEY, []).catch(() => [])
+  ]);
+  if (deletions.length || evidenceDeletions.length) {
+    const record = {
+      previousWorkspaceId: previousWorkspaceId || null,
+      nextWorkspaceId,
+      quarantinedAt: new Date().toISOString(),
+      deletions,
+      evidenceDeletions
+    };
+    await setSyncMeta(AUTH_QUARANTINE_KEY, [...existing, record].slice(-10));
+  }
+  await Promise.all([
+    deleteSyncMeta(DELETIONS_KEY).catch(() => {}),
+    deleteSyncMeta(EVIDENCE_DELETIONS_KEY).catch(() => {})
+  ]);
+}
+
+async function ensureWorkspaceBinding(workspaceId) {
+  const current = await getSyncMeta(AUTH_WORKSPACE_BINDING_KEY, null).catch(() => null);
+  if (current?.workspaceId === workspaceId && current?.boundAt) {
+    return { ...current, changed: false };
+  }
+
+  await quarantinePendingQueues(current?.workspaceId || null, workspaceId);
+  const next = {
+    workspaceId,
+    boundAt: new Date().toISOString()
+  };
+  await setSyncMeta(AUTH_WORKSPACE_BINDING_KEY, next);
+  return { ...next, changed: true };
+}
+
+function localOnlyBelongsToCurrentBinding(inspection, binding) {
+  if (!binding?.boundAt) return false;
+  const boundAt = Date.parse(binding.boundAt);
+  const createdAt = inspectionTimestamp(inspection);
+  return Number.isFinite(boundAt) && createdAt >= boundAt;
 }
 
 async function ensureAuthenticatedClient() {
@@ -141,9 +192,10 @@ function evidenceExtension(type = '') {
   return 'jpg';
 }
 
-async function syncPendingEvidence(remote, config) {
+async function syncPendingEvidence(remote, config, allowedInspectionIds) {
   const inspections = await listInspections();
   for (const inspection of inspections) {
+    if (!allowedInspectionIds.has(inspection.id)) continue;
     let changed = false;
     for (const document of inspection.documents || []) {
       for (const copy of document.fieldCopies || []) {
@@ -209,6 +261,7 @@ async function performSyncCycle() {
   try {
     const { remote, config } = await ensureAuthenticatedClient();
     if (navigator.onLine) await refreshAuthContext();
+    const binding = await ensureWorkspaceBinding(config.workspaceId);
     await flushPendingDeletions(remote, config);
     await flushPendingEvidenceDeletions(remote);
 
@@ -228,28 +281,40 @@ async function performSyncCycle() {
       remoteById.delete(id);
     }
 
+    const allowedInspectionIds = new Set(remoteById.keys());
+    let quarantinedLocalCount = 0;
     const allIds = new Set([...localById.keys(), ...remoteById.keys()]);
     for (const id of allIds) {
       const local = localById.get(id) || null;
       const remoteInspection = remoteById.get(id) || null;
       if (!local && remoteInspection) {
         await saveInspection(remoteInspection, { touch: false });
+        allowedInspectionIds.add(id);
         continue;
       }
       if (local && !remoteInspection) {
+        if (!localOnlyBelongsToCurrentBinding(local, binding)) {
+          quarantinedLocalCount += 1;
+          continue;
+        }
         await upsertRemote(remote, config, local);
+        allowedInspectionIds.add(id);
         continue;
       }
       const merged = mergeInspection(local, remoteInspection);
       if (comparable(merged) !== comparable(local)) await saveInspection(merged, { touch: false });
       if (comparable(merged) !== comparable(remoteInspection)) await upsertRemote(remote, config, merged);
+      allowedInspectionIds.add(id);
     }
 
-    await syncPendingEvidence(remote, config);
+    await syncPendingEvidence(remote, config, allowedInspectionIds);
     const lastSyncAt = new Date().toISOString();
     await setSyncMeta('last-sync-at', lastSyncAt);
-    emitStatus({ state: 'synced', label: 'Sincronizado', lastSyncAt, error: null });
-    window.dispatchEvent(new CustomEvent('sky17:sync-complete', { detail: { lastSyncAt } }));
+    const label = quarantinedLocalCount
+      ? `Sincronizado · ${quarantinedLocalCount} registro(s) local(is) isolado(s)`
+      : 'Sincronizado';
+    emitStatus({ state: 'synced', label, lastSyncAt, error: null, quarantinedLocalCount });
+    window.dispatchEvent(new CustomEvent('sky17:sync-complete', { detail: { lastSyncAt, quarantinedLocalCount } }));
     return true;
   } catch (error) {
     const message = error?.message || String(error);
