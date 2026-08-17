@@ -2,6 +2,13 @@ import { test, expect } from '@playwright/test';
 
 const E2E_URL = '/?e2e-auth-bypass=1';
 
+test('Auth gate exige sessão antes de carregar o aplicativo', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Entrar no DocInspector' })).toBeVisible();
+  await expect(page.locator('#auth-form')).toBeVisible();
+  await expect(page.locator('.topbar')).toHaveCount(0);
+});
+
 async function seedInspections(page) {
   await page.goto(E2E_URL);
   await expect(page.locator('.topbar h1')).toHaveText('Início');
