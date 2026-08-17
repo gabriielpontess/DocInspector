@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 
 const identity = await readFile('supabase/migrations/20260817162807_add_auth_profiles_and_workspace_memberships.sql', 'utf8');
 const discovery = await readFile('supabase/migrations/20260817162939_add_authenticated_workspace_discovery.sql', 'utf8');
+const membershipHardening = await readFile('supabase/migrations/20260817191245_hide_inactive_memberships_from_authenticated_clients.sql', 'utf8');
 
 for (const role of ['ADMIN', 'INSPECTOR', 'SUPERVISOR', 'FOREMAN']) {
   assert.match(identity, new RegExp(`'${role}'`), `role ${role} must be constrained in the database`);
@@ -24,5 +25,9 @@ assert.match(discovery, /security invoker/i);
 assert.doesNotMatch(discovery, /security definer/i);
 assert.match(discovery, /revoke all on function public\.docinspector_my_workspaces\(\) from public, anon/i);
 assert.match(discovery, /grant execute on function public\.docinspector_my_workspaces\(\) to authenticated/i);
+
+assert.match(membershipHardening, /drop policy if exists docinspector_workspace_members_select_own/i);
+assert.match(membershipHardening, /docinspector_workspace_members_select_own_active/i);
+assert.match(membershipHardening, /\(select auth\.uid\(\)\) = user_id and active/i);
 
 console.log('Auth/RBAC schema migration regression checks passed.');
