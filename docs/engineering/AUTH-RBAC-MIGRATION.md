@@ -71,7 +71,8 @@ Componentes:
 - `permission-ui.js` aplica a UX compatível com o papel do usuário, enquanto o servidor continua sendo a autoridade;
 - Supervisor/Encarregado têm experiência somente de leitura nesta fase, até a implantação do módulo separado de comentários;
 - logout encerra a sessão local e limpa o contexto autenticado;
-- assets do Gate D, inclusive a dependência `sync.js?legacy=1` do adaptador de rollout, são incluídos no shell offline.
+- assets do Gate D, inclusive a dependência `sync.js?legacy=1` do adaptador de rollout, são incluídos no shell offline;
+- o browser gate Chromium/WebKit do Gate D foi concluído com sucesso antes do início do Gate E.
 
 ### Gate E — gestão/provisionamento de usuários — implementado em modo staged em 2026-08-17
 
