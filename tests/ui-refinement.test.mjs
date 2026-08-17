@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const index = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const authEntry = fs.readFileSync(new URL('../js/auth-entry.js', import.meta.url), 'utf8');
 const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 const app = fs.readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
 const pwa = fs.readFileSync(new URL('../js/pwa.js', import.meta.url), 'utf8');
@@ -9,10 +10,10 @@ const script = fs.readFileSync(new URL('../js/ui-refinement.js', import.meta.url
 const css = fs.readFileSync(new URL('../visual-refinement.css', import.meta.url), 'utf8');
 
 assert.match(index, /href="visual-refinement\.css"/, 'refinamento visual deve usar a mesma URL pré-cacheada pelo app shell offline');
-assert.match(index, /src="js\/ui-refinement\.js"/, 'comportamentos de refinamento devem ser carregados no app');
+assert.match(authEntry, /import\('\.\/ui-refinement\.js'\)/, 'comportamentos de refinamento devem carregar somente após o bootstrap autenticado');
 assert.match(index, /navigator\.serviceWorker\.getRegistration\(\)[\s\S]*registration\?\.update\(\)/, 'bootstrap deve verificar atualização do Service Worker em toda abertura online');
 assert.doesNotMatch(index, /src="js\/inspection-update-ui\.js"/, 'inspection-update-ui deve ser carregado somente pelo app principal');
-assert.match(sw, /const VERSION = '0\.9\.27';/, 'Service Worker deve usar a identidade de cache validada para a release v0.9.12');
+assert.match(sw, /const VERSION = '0\.9\.28';/, 'Service Worker deve usar a identidade de cache do Gate D');
 assert.doesNotMatch(sw, /install[\s\S]{0,500}self\.skipWaiting\(\)/, 'install não deve trocar o worker durante trabalho ativo');
 assert.match(sw, /\.\/visual-refinement\.css/, 'refinamento visual deve continuar no shell offline');
 assert.match(sw, /\.\/js\/ui-refinement\.js/, 'navegação refinada deve funcionar offline');
