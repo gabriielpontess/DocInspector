@@ -21,6 +21,9 @@ assert.match(entry, /resolveAuthContext\(\{ allowOffline: true \}\)/);
 assert.match(entry, /signInWithEmailPassword/);
 assert.match(entry, /import\('\.\/app\.js'\)/);
 assert.match(entry, /import\('\.\/permission-ui\.js'\)/);
+assert.match(entry, /location\.hostname === '127\.0\.0\.1' \|\| location\.hostname === 'localhost'/, 'E2E bypass must be restricted to localhost');
+assert.match(entry, /e2e-auth-bypass/);
+assert.match(entry, /loadApplication\(\{ skipAuthUi: true \}\)/);
 
 assert.match(context, /rpc\('docinspector_my_workspaces'\)/);
 assert.match(context, /docinspector_profiles/);
@@ -39,7 +42,7 @@ for (const rpc of [
 assert.match(sync, /getAuthClient\(\)/);
 assert.doesNotMatch(sync, /p_secret\s*:/);
 assert.match(sync, /if \(!authMode\(\)\) return legacy\./);
-assert.match(sync, /\.\/sync\.js\?legacy=1/, 'adapter autenticado deve manter acesso explícito ao caminho legado somente para rollout');
+assert.match(sync, /\.\/sync\.js\?legacy=1/, 'adapter authenticated keeps explicit rollback compatibility code');
 
 assert.match(permissionsUi, /CAPABILITY\.MANAGE_INSPECTIONS/);
 assert.match(permissionsUi, /CAPABILITY\.VERIFY_DOCUMENTS/);
@@ -50,7 +53,7 @@ for (const asset of ['auth.css', 'js/auth-entry.js', 'js/auth-context.js', 'js/s
   assert.ok(sw.includes(asset), `service worker must cache ${asset}`);
 }
 
-assert.match(config, /enabled:\s*false/, 'Gate D must remain staged until an administrator exists.');
+assert.match(config, /enabled:\s*true/, 'Auth must be active after the first Administrator bootstrap.');
 assert.doesNotMatch(`${entry}\n${context}\n${sync}`, /service_role|sb_secret_/i);
 
-console.log('Auth Gate D staged client checks passed.');
+console.log('Auth Gate D active client checks passed.');
