@@ -111,7 +111,7 @@ Após a primeira homologação foi observada uma tentativa de login sem criaçã
 - a tela de login possui `Esqueci minha senha`;
 - o Service Worker avançou para `0.9.33` para substituir os módulos Auth pré-cacheados.
 
-O primeiro e-mail de recuperação foi disparado pelo endpoint público oficial do Supabase Auth. `pg_net` foi habilitado apenas durante essa chamada e removido imediatamente em seguida; nenhuma chave privilegiada ou senha foi enviada por SQL.
+O primeiro e-mail de recuperação foi disparado pelo endpoint público oficial do Supabase Auth para o Deploy Preview do PR #14. A requisição retornou HTTP 200. `pg_net` foi habilitado somente para efetuar essa chamada e removido imediatamente em seguida; nenhuma senha, service role ou credencial privilegiada foi enviada pela requisição.
 
 ## Compatibilidade e rollback
 
