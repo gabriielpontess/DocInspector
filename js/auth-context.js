@@ -4,6 +4,7 @@ import { normalizeRole } from './permissions.js';
 
 const CONTEXT_KEY = 'docinspector-auth-context-v1';
 const WORKSPACE_KEY = 'docinspector-auth-workspace-v1';
+const LEGACY_SYNC_KEY = 'sky17-sync-config-v1';
 let currentContext = null;
 
 function normalizeText(value) {
@@ -18,6 +19,15 @@ function readCachedContext() {
     return { ...parsed, role };
   } catch {
     return null;
+  }
+}
+
+function readLegacyWorkspaceId() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(LEGACY_SYNC_KEY) || 'null');
+    return normalizeText(parsed?.workspaceId);
+  } catch {
+    return '';
   }
 }
 
@@ -66,7 +76,7 @@ async function loadOnlineContext(user) {
     throw new Error('Sua conta ainda não possui acesso ativo a nenhum espaço do DocInspector.');
   }
 
-  const preferred = localStorage.getItem(WORKSPACE_KEY);
+  const preferred = normalizeText(localStorage.getItem(WORKSPACE_KEY)) || readLegacyWorkspaceId();
   const selected = available.find(item => item.workspaceId === preferred) || available[0];
   selectWorkspace(selected.workspaceId);
 
