@@ -272,8 +272,8 @@ async function syncPendingEvidence(remote, config, allowedInspectionIds) {
 async function performSyncCycle() {
   emitStatus({ state: 'syncing', label: 'Sincronizando…', error: null });
   try {
-    const { remote, config } = await ensureAuthenticatedClient();
     if (navigator.onLine) await refreshAuthContext();
+    const { remote, config } = await ensureAuthenticatedClient();
     const binding = await ensureWorkspaceBinding(config.workspaceId);
     await flushPendingDeletions(remote, config);
     await flushPendingEvidenceDeletions(remote);
