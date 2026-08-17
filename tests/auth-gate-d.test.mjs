@@ -39,13 +39,14 @@ for (const rpc of [
 assert.match(sync, /getAuthClient\(\)/);
 assert.doesNotMatch(sync, /p_secret\s*:/);
 assert.match(sync, /if \(!authMode\(\)\) return legacy\./);
+assert.match(sync, /\.\/sync\.js\?legacy=1/, 'adapter autenticado deve manter acesso explícito ao caminho legado somente para rollout');
 
 assert.match(permissionsUi, /CAPABILITY\.MANAGE_INSPECTIONS/);
 assert.match(permissionsUi, /CAPABILITY\.VERIFY_DOCUMENTS/);
 assert.match(permissionsUi, /CAPABILITY\.EXPORT_DATA/);
 assert.match(permissionsUi, /signOutCurrentSession/);
 
-for (const asset of ['auth.css', 'js/auth-entry.js', 'js/auth-context.js', 'js/sync-auth.js', 'js/permission-ui.js']) {
+for (const asset of ['auth.css', 'js/auth-entry.js', 'js/auth-context.js', 'js/sync-auth.js', 'js/permission-ui.js', 'js/sync.js?legacy=1']) {
   assert.ok(sw.includes(asset), `service worker must cache ${asset}`);
 }
 
