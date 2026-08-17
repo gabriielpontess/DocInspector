@@ -23,6 +23,7 @@ const EVIDENCE_BUCKET = 'docinspector-evidence';
 const SYNC_INTERVAL_MS = 30000;
 const AUTH_WORKSPACE_BINDING_KEY = 'auth-workspace-binding-v1';
 const AUTH_QUARANTINE_KEY = 'auth-workspace-quarantine-v1';
+const AUTH_LOCAL_INSPECTION_QUARANTINE_KEY = 'auth-local-inspection-quarantine-v1';
 
 let timer = null;
 let lifecycleBound = false;
@@ -107,6 +108,18 @@ async function quarantinePendingQueues(previousWorkspaceId, nextWorkspaceId) {
     deleteSyncMeta(DELETIONS_KEY).catch(() => {}),
     deleteSyncMeta(EVIDENCE_DELETIONS_KEY).catch(() => {})
   ]);
+}
+
+async function quarantineLocalInspection(inspection, workspaceId) {
+  const existing = await getSyncMeta(AUTH_LOCAL_INSPECTION_QUARANTINE_KEY, []).catch(() => []);
+  const withoutSameId = existing.filter(item => item?.inspection?.id !== inspection.id);
+  const record = {
+    workspaceId,
+    quarantinedAt: new Date().toISOString(),
+    inspection: structuredClone(inspection)
+  };
+  await setSyncMeta(AUTH_LOCAL_INSPECTION_QUARANTINE_KEY, [...withoutSameId, record].slice(-50));
+  await deleteInspection(inspection.id);
 }
 
 async function ensureWorkspaceBinding(workspaceId) {
@@ -294,6 +307,7 @@ async function performSyncCycle() {
       }
       if (local && !remoteInspection) {
         if (!localOnlyBelongsToCurrentBinding(local, binding)) {
+          await quarantineLocalInspection(local, config.workspaceId);
           quarantinedLocalCount += 1;
           continue;
         }
