@@ -57,10 +57,10 @@ Estado de dados antes/depois do Gate C: 13 inspeções, 3 tombstones e 1 evidên
 
 ### Gate D — interface e cliente autenticado — implementado em modo staged em 2026-08-17
 
-O Gate D foi implementado sem ativar o corte global, pois ainda não existem usuários Supabase Auth no projeto.
+O Gate D foi implementado sem ativar o corte global, pois o projeto ainda possui zero usuários Supabase Auth e zero memberships.
 
 Componentes:
-- `auth-entry.js` passa a ser o único bootstrap do aplicativo;
+- `auth-entry.js` é o único bootstrap do aplicativo;
 - quando Auth está ativo, `app.js` e módulos auxiliares só são carregados depois da validação da sessão/membership;
 - tela de login por e-mail e senha;
 - `auth-context.js` carrega perfil, workspaces e papel a partir do servidor;
@@ -72,14 +72,14 @@ Componentes:
 - Admin/Inspetor mantêm operações de campo e gestão operacional;
 - Supervisor/Encarregado têm experiência somente de leitura nesta fase, até a implantação do módulo separado de comentários;
 - logout encerra a sessão local e limpa o contexto autenticado;
-- assets do Gate D e dependência legada de rollout são incluídos no shell offline;
+- assets do Gate D, inclusive a dependência `sync.js?legacy=1` do adaptador de rollout, são incluídos no shell offline;
 - cache técnico do Service Worker avançou para `0.9.28`.
 
 Validação staged:
 - `AUTH_CONFIG.enabled` continua `false`;
-- sintaxe, SQL e secret scan passam no CI;
-- regressões foram atualizadas para validar a cadeia `auth-entry -> app/módulos`, sem reintroduzir scripts que executem antes do gate de login;
-- o browser gate Chromium/WebKit deve permanecer obrigatório antes da ativação;
+- sintaxe, SQL, secret scan e regressões devem permanecer verdes no CI;
+- regressões validam a cadeia `auth-entry -> app/módulos`, sem reintroduzir scripts que executem antes do gate de login;
+- o browser gate Chromium/WebKit permanece obrigatório antes da ativação;
 - a ativação real requer primeiro provisionar ao menos um usuário `ADMIN` e validar login, RLS, sync e Storage com uma sessão real.
 
 ### Gate E — gestão/provisionamento de usuários
