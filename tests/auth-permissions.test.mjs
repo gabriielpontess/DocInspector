@@ -24,11 +24,13 @@ assert.equal(normalizeRole('unknown'), null);
 assert.equal(roleLabel(ROLE.FOREMAN), 'Encarregado');
 assert.equal(roleLabel('unknown'), 'Sem perfil');
 
-for (const role of [ROLE.ADMIN, ROLE.INSPECTOR]) {
-  for (const capability of Object.values(CAPABILITY)) {
-    assert.equal(can(role, capability), true, `${role} should have ${capability}`);
-  }
+for (const capability of Object.values(CAPABILITY)) {
+  assert.equal(can(ROLE.ADMIN, capability), true, `ADMIN should have ${capability}`);
 }
+for (const capability of Object.values(CAPABILITY).filter(item => item !== CAPABILITY.MANAGE_USERS)) {
+  assert.equal(can(ROLE.INSPECTOR, capability), true, `INSPECTOR should have ${capability}`);
+}
+assert.equal(can(ROLE.INSPECTOR, CAPABILITY.MANAGE_USERS), false, 'Only ADMIN can manage users.');
 
 for (const role of [ROLE.SUPERVISOR, ROLE.FOREMAN]) {
   assert.deepEqual(
