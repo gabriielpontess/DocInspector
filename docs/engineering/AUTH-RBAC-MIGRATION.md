@@ -6,8 +6,8 @@ Introduzir identidade individual via Supabase Auth e autorização por perfil se
 
 ## Perfis
 
-- `ADMIN` — acesso total.
-- `INSPECTOR` — acesso total.
+- `ADMIN` — acesso total, incluindo gestão de usuários.
+- `INSPECTOR` — acesso operacional total, sem gestão de usuários.
 - `SUPERVISOR` — visualização de documentos e comentários.
 - `FOREMAN` — visualização de documentos e comentários.
 
@@ -69,29 +69,36 @@ Componentes:
 - nenhuma chamada autenticada envia `p_secret` ou a antiga sync key;
 - o caminho legado continua delegado somente quando a flag de rollout está desligada;
 - `permission-ui.js` aplica a UX compatível com o papel do usuário, enquanto o servidor continua sendo a autoridade;
-- Admin/Inspetor mantêm operações de campo e gestão operacional;
 - Supervisor/Encarregado têm experiência somente de leitura nesta fase, até a implantação do módulo separado de comentários;
 - logout encerra a sessão local e limpa o contexto autenticado;
-- assets do Gate D, inclusive a dependência `sync.js?legacy=1` do adaptador de rollout, são incluídos no shell offline;
-- cache técnico do Service Worker avançou para `0.9.28`.
+- assets do Gate D, inclusive a dependência `sync.js?legacy=1` do adaptador de rollout, são incluídos no shell offline.
 
-Validação staged:
-- `AUTH_CONFIG.enabled` continua `false`;
-- sintaxe, SQL, secret scan e regressões devem permanecer verdes no CI;
-- regressões validam a cadeia `auth-entry -> app/módulos`, sem reintroduzir scripts que executem antes do gate de login;
-- o browser gate Chromium/WebKit permanece obrigatório antes da ativação;
-- a ativação real requer primeiro provisionar ao menos um usuário `ADMIN` e validar login, RLS, sync e Storage com uma sessão real.
+### Gate E — gestão/provisionamento de usuários — implementado em modo staged em 2026-08-17
 
-### Gate E — gestão/provisionamento de usuários
+Foi implantada a Edge Function `docinspector-user-admin` com `verify_jwt=true` e sua fonte foi versionada em `supabase/functions/docinspector-user-admin/index.ts`.
 
-Criação, convite, desativação e alteração de usuários nunca devem usar `service_role`/secret key no navegador. Essas operações exigem componente server-side que autentique o chamador e confirme seu papel antes de usar credenciais elevadas.
+Regras do servidor:
+- valida o JWT da sessão no Supabase Auth;
+- exige membership ativa `ADMIN` no workspace solicitado;
+- somente então usa `SUPABASE_SERVICE_ROLE_KEY`, que permanece exclusivamente no ambiente server-side da Edge Function;
+- permite listar membros, convidar por e-mail, vincular usuário existente, alterar papel e ativar/desativar membership;
+- não oferece exclusão física de usuário nesta fase;
+- protege o último Administrador ativo contra rebaixamento ou desativação.
 
-Como o projeto ainda possui zero usuários Auth, o provisionamento do primeiro Administrador precisa ocorrer antes de mudar `AUTH_CONFIG.enabled` para `true`. O corte do legado `anon + syncKey` também só deve ocorrer depois da homologação autenticada.
+Cliente:
+- `user-admin-ui.js` é carregado somente pelo bootstrap autenticado;
+- a tela de gestão aparece apenas para `CAPABILITY.MANAGE_USERS`;
+- `ADMIN` possui essa capability; `INSPECTOR` mantém acesso operacional total, mas não administra contas;
+- convites e alterações usam `functions.invoke('docinspector-user-admin')` com a sessão corrente;
+- nenhuma credencial privilegiada existe no navegador;
+- o módulo foi incluído no app shell e o cache técnico do Service Worker avançou para `0.9.29`.
+
+O Gate E continua staged porque ainda não existe um usuário Auth para ser promovido ao primeiro Administrador. Sem uma identidade/e-mail real não é seguro inventar ou provisionar uma conta. `AUTH_CONFIG.enabled` permanece `false` até o bootstrap da primeira conta e a homologação real de login/RLS/sync/Storage.
 
 ## Compatibilidade e rollback
 
-Enquanto `AUTH_CONFIG.enabled` for `false`, a versão de campo continua operando como antes. Depois dos Gates B/C/D, rollback funcional deve preservar as novas tabelas, migrations e módulos, mantendo o app no caminho legado. Não apagar usuários, memberships, inspeções ou evidências como mecanismo de rollback.
+Enquanto `AUTH_CONFIG.enabled` for `false`, a versão de campo continua operando como antes. Depois dos Gates B/C/D/E, rollback funcional deve preservar tabelas, migrations, Edge Function e módulos, mantendo o app no caminho legado. Não apagar usuários, memberships, inspeções ou evidências como mecanismo de rollback.
 
 ## Estratégia de revisão independente
 
-Claude não deve ser executado em commits intermediários. A revisão Anthropic será solicitada uma única vez quando o Gate D estiver estabilizado, houver um primeiro Administrador provisionado, os fluxos autenticados reais estiverem homologados e CI/E2E estiverem verdes. Reexecutar somente diante de achado `BLOCKER`/`HIGH`, mudança substancial posterior ou alteração em área crítica que invalide a revisão anterior.
+Claude não deve ser executado em commits intermediários. A revisão Anthropic será solicitada uma única vez quando houver um primeiro Administrador provisionado, os fluxos autenticados reais estiverem homologados e CI/E2E estiverem verdes. Reexecutar somente diante de achado `BLOCKER`/`HIGH`, mudança substancial posterior ou alteração em área crítica que invalide a revisão anterior.
