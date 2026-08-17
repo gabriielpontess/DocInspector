@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 async function seedInspection(page) {
-  await page.goto('/');
+  await page.goto('/?e2e-auth-bypass=1');
   await expect(page.locator('.topbar h1')).toHaveText('Início');
 
   await page.evaluate(async () => {
