@@ -83,3 +83,24 @@ test('área branca do card continua abrindo Documentos', async ({ page }) => {
   await expect(page.locator('.topbar h1')).toContainText('Documentos');
   await expect(page.locator('#filter-system')).toHaveValue('AMV');
 });
+
+test('inspeção local continua disponível após reabrir o PWA offline', async ({ page, context }) => {
+  await seedInspection(page);
+  await page.evaluate(async () => {
+    if (!('serviceWorker' in navigator)) throw new Error('Service Worker indisponível no navegador de teste.');
+    await navigator.serviceWorker.ready;
+  });
+
+  await context.setOffline(true);
+  try {
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.topbar h1')).toHaveText('Início');
+    const card = page.locator('.inspection-item').filter({ hasText: 'E2E Mobile Actions' }).first();
+    await expect(card).toBeVisible();
+    await card.locator('.inspection-summary').click();
+    await expect(page.locator('.topbar h1')).toContainText('Documentos');
+    await expect(page.locator('#filter-system')).toHaveValue('AMV');
+  } finally {
+    await context.setOffline(false);
+  }
+});
