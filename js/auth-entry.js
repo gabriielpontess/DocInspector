@@ -10,6 +10,7 @@ import {
 import { clearAuthContext, resolveAuthContext } from './auth-context.js';
 
 const app = document.querySelector('#app');
+const RECOVERY_REQUEST_KEY = 'docinspector-recovery-requested-v1';
 
 function esc(value) {
   return String(value ?? '')
@@ -25,10 +26,45 @@ function isLocalE2EBypass() {
   return localHost && new URLSearchParams(location.search).get('e2e-auth-bypass') === '1';
 }
 
-function isPasswordRecoveryUrl() {
+function authCallbackParams() {
   const query = new URLSearchParams(location.search);
   const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
-  return query.get('type') === 'recovery' || hash.get('type') === 'recovery' || query.has('code');
+  const read = key => query.get(key) || hash.get(key) || '';
+  return {
+    type: read('type'),
+    code: read('code'),
+    error: read('error'),
+    errorCode: read('error_code'),
+    errorDescription: read('error_description')
+  };
+}
+
+function isPasswordRecoveryUrl() {
+  const params = authCallbackParams();
+  return params.type === 'recovery' || Boolean(params.code);
+}
+
+function authCallbackErrorMessage() {
+  const params = authCallbackParams();
+  const code = String(params.errorCode || params.error || '').toLowerCase();
+  if (!code) return '';
+  if (code.includes('otp_expired') || code.includes('expired') || code.includes('access_denied')) {
+    return 'O link de recuperação já foi usado ou expirou antes da validação. Isso também pode acontecer quando o provedor de e-mail verifica links automaticamente. Não reutilize este link.';
+  }
+  return `O Supabase recusou o link de recuperação${params.errorCode ? ` (${params.errorCode})` : ''}. Solicite um novo link somente quando o fluxo de recuperação estiver disponível novamente.`;
+}
+
+function clearAuthCallbackUrl() {
+  if (!location.search && !location.hash) return;
+  history.replaceState({}, '', location.pathname);
+}
+
+function markRecoveryRequested() {
+  localStorage.setItem(RECOVERY_REQUEST_KEY, new Date().toISOString());
+}
+
+function clearRecoveryRequested() {
+  localStorage.removeItem(RECOVERY_REQUEST_KEY);
 }
 
 function renderAuthShell({ message = '', messageType = 'error', busy = false, email = '' } = {}) {
@@ -140,7 +176,8 @@ function bindPasswordRecovery() {
     renderPasswordRecovery({ busy: true });
     try {
       await updateCurrentPassword(password);
-      history.replaceState({}, '', location.pathname);
+      clearRecoveryRequested();
+      clearAuthCallbackUrl();
       const entered = await enterAuthenticatedApp();
       if (!entered) throw new Error('A nova senha foi salva, mas a sessão não pôde ser carregada. Entre novamente.');
     } catch (error) {
@@ -160,6 +197,7 @@ function bindLogin() {
     try {
       if (!navigator.onLine) throw new Error('Conecte-se à internet para entrar pela primeira vez neste aparelho.');
       await signInWithEmailPassword(email, password);
+      clearRecoveryRequested();
       const entered = await enterAuthenticatedApp();
       if (!entered) throw new Error('A sessão não pôde ser validada.');
     } catch (error) {
@@ -180,6 +218,7 @@ function bindLogin() {
     }
     try {
       await requestPasswordReset(email, `${location.origin}${location.pathname}`);
+      markRecoveryRequested();
       renderAuthShell({
         message: 'E-mail de recuperação enviado. Abra o link recebido para definir uma nova senha.',
         messageType: 'success',
@@ -205,11 +244,20 @@ async function bootAuthEntry() {
     return;
   }
 
+  const callbackError = authCallbackErrorMessage();
+  if (callbackError) {
+    clearAuthCallbackUrl();
+    renderAuthShell({ message: callbackError });
+    bindLogin();
+    return;
+  }
+
   if (isPasswordRecoveryUrl()) {
     renderStarting('Validando recuperação…');
     const session = await waitForRecoverySession();
     if (!session?.user) {
-      renderAuthShell({ message: 'O link de recuperação expirou ou não pôde ser validado. Solicite um novo link.' });
+      clearAuthCallbackUrl();
+      renderAuthShell({ message: 'O link de recuperação expirou ou não pôde ser validado. Solicite um novo link apenas quando o fluxo de recuperação estiver disponível novamente.' });
       bindLogin();
       return;
     }
