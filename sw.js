@@ -21,7 +21,7 @@ const APP_SHELL = [
   './assets/icon-maskable-192.png', './assets/icon-maskable-512.png', './js/app.js', './js/db.js', './js/domain.js',
   './js/auth-config.js', './js/auth.js', './js/auth-context.js', './js/auth-entry.js', './js/permissions.js', './js/permission-ui.js', './js/sync-auth.js',
   './js/inspection-update.js', './js/inspection-update-ui.js', './js/field-recovery-ui.js', './js/evidence-health-ui.js',
-  './js/marking-policy-ui.js', './js/copy-evidence-edit-ui.js', './js/ui-refinement.js', './js/export-pdf-options-ui.js', './js/pwa.js', './js/report.js', './js/sync.js', './js/ui.js', './js/xlsx.js', './js/vision.js', './js/word.js'
+  './js/marking-policy-ui.js', './js/copy-evidence-edit-ui.js', './js/ui-refinement.js', './js/export-pdf-options-ui.js', './js/pwa.js', './js/report.js', './js/sync.js', './js/sync.js?legacy=1', './js/ui.js', './js/xlsx.js', './js/vision.js', './js/word.js'
 ];
 
 async function cacheExternalAssets() {
