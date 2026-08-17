@@ -23,15 +23,18 @@ export const CAPABILITY = Object.freeze({
   MANAGE_USERS: 'MANAGE_USERS'
 });
 
-const FULL_ACCESS = Object.freeze(Object.values(CAPABILITY));
+const ADMIN_ACCESS = Object.freeze(Object.values(CAPABILITY));
+const INSPECTOR_ACCESS = Object.freeze(
+  Object.values(CAPABILITY).filter(capability => capability !== CAPABILITY.MANAGE_USERS)
+);
 const READ_AND_COMMENT = Object.freeze([
   CAPABILITY.VIEW_DOCUMENTS,
   CAPABILITY.COMMENT_DOCUMENTS
 ]);
 
 const ROLE_CAPABILITIES = Object.freeze({
-  [ROLE.ADMIN]: FULL_ACCESS,
-  [ROLE.INSPECTOR]: FULL_ACCESS,
+  [ROLE.ADMIN]: ADMIN_ACCESS,
+  [ROLE.INSPECTOR]: INSPECTOR_ACCESS,
   [ROLE.SUPERVISOR]: READ_AND_COMMENT,
   [ROLE.FOREMAN]: READ_AND_COMMENT
 });
