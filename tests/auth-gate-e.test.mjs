@@ -23,10 +23,15 @@ assert.match(permissions, /capability !== CAPABILITY\.MANAGE_USERS/);
 assert.match(entry, /import\('\.\/user-admin-ui\.js'\)/);
 assert.match(auth, /updateCurrentPassword/);
 assert.match(auth, /auth\.updateUser\(\{ password \}\)/);
+assert.match(auth, /resetPasswordForEmail/);
+assert.match(auth, /detectSessionInUrl:\s*true/);
+assert.match(entry, /auth-forgot/);
+assert.match(entry, /auth-recovery-form/);
+assert.match(entry, /PASSWORD_RECOVERY/);
 assert.match(permissionUi, /auth-change-password/);
 assert.match(context, /sky17-sync-config-v1/);
 assert.match(context, /readLegacyWorkspaceId/);
 assert.match(sw, /\.\/js\/user-admin-ui\.js/);
-assert.match(sw, /const VERSION = '0\.9\.32';/);
+assert.match(sw, /const VERSION = '0\.9\.33';/);
 
 console.log('Auth/RBAC Gate E administration checks passed.');
