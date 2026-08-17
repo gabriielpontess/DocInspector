@@ -15,7 +15,7 @@ A interface pode ocultar ações não autorizadas, mas isso não é a fronteira 
 
 ## Rollout seguro
 
-A migração é dividida em gates. `AUTH_CONFIG.enabled` permanece `false` até que o Gate D esteja validado.
+A migração é dividida em gates. `AUTH_CONFIG.enabled` permanece `false` enquanto não existir ao menos um Administrador provisionado e validado. Isso evita bloquear todos os aparelhos atuais durante a transição.
 
 ### Gate A — fundação no cliente — concluído
 
@@ -55,28 +55,43 @@ A transição é intencionalmente dupla, mas sem bypass entre os mundos: o app a
 
 Estado de dados antes/depois do Gate C: 13 inspeções, 3 tombstones e 1 evidência; nenhum registro operacional foi alterado pela migration.
 
-Os advisors após o Gate C não apontam `SECURITY DEFINER` acessível por `authenticated`. Permanecem apenas avisos para RPCs legadas acessíveis por `anon`, necessários temporariamente para compatibilidade. Esses avisos só devem desaparecer quando o Gate D estiver homologado e o caminho legado for removido.
+### Gate D — interface e cliente autenticado — implementado em modo staged em 2026-08-17
 
-### Gate D — ativação da interface
+O Gate D foi implementado sem ativar o corte global, pois ainda não existem usuários Supabase Auth no projeto.
 
-Próximos passos:
-1. habilitar a tela de login em ambiente controlado;
-2. carregar usuário, perfil e membership após autenticação;
-3. trocar sync/evidências para as RPCs/políticas autenticadas;
-4. filtrar navegação e ações por capacidade;
-5. validar Supervisor/Encarregado sem escrita operacional;
-6. validar Admin/Inspetor com escrita;
-7. validar logout, expiração, offline e retorno online;
-8. somente após homologação remover o caminho legado `anon + syncKey`.
+Componentes:
+- `auth-entry.js` passa a ser o único bootstrap do aplicativo;
+- quando Auth está ativo, `app.js` e módulos auxiliares só são carregados depois da validação da sessão/membership;
+- tela de login por e-mail e senha;
+- `auth-context.js` carrega perfil, workspaces e papel a partir do servidor;
+- contexto offline é aceito somente após uma validação online anterior no mesmo aparelho e para o mesmo `user_id` da sessão armazenada;
+- `sync-auth.js` usa as RPCs `docinspector_*` e o mesmo cliente Supabase Auth para Storage;
+- nenhuma chamada autenticada envia `p_secret` ou a antiga sync key;
+- o caminho legado continua delegado somente quando a flag de rollout está desligada;
+- `permission-ui.js` aplica a UX compatível com o papel do usuário, enquanto o servidor continua sendo a autoridade;
+- Admin/Inspetor mantêm operações de campo e gestão operacional;
+- Supervisor/Encarregado têm experiência somente de leitura nesta fase, até a implantação do módulo separado de comentários;
+- logout encerra a sessão local e limpa o contexto autenticado;
+- assets do Gate D e dependência legada de rollout são incluídos no shell offline;
+- cache técnico do Service Worker avançou para `0.9.28`.
 
-### Gate E — gestão de usuários
+Validação staged:
+- `AUTH_CONFIG.enabled` continua `false`;
+- sintaxe, SQL e secret scan passam no CI;
+- regressões foram atualizadas para validar a cadeia `auth-entry -> app/módulos`, sem reintroduzir scripts que executem antes do gate de login;
+- o browser gate Chromium/WebKit deve permanecer obrigatório antes da ativação;
+- a ativação real requer primeiro provisionar ao menos um usuário `ADMIN` e validar login, RLS, sync e Storage com uma sessão real.
 
-Criação, convite, desativação e alteração de usuários nunca devem usar `service_role`/secret key no navegador. Essas operações exigirão componente server-side que autentique o chamador e confirme seu papel antes de usar credenciais elevadas.
+### Gate E — gestão/provisionamento de usuários
+
+Criação, convite, desativação e alteração de usuários nunca devem usar `service_role`/secret key no navegador. Essas operações exigem componente server-side que autentique o chamador e confirme seu papel antes de usar credenciais elevadas.
+
+Como o projeto ainda possui zero usuários Auth, o provisionamento do primeiro Administrador precisa ocorrer antes de mudar `AUTH_CONFIG.enabled` para `true`. O corte do legado `anon + syncKey` também só deve ocorrer depois da homologação autenticada.
 
 ## Compatibilidade e rollback
 
-Enquanto `AUTH_CONFIG.enabled` for `false`, a versão de campo continua operando como antes. Depois dos Gates B/C, rollback funcional deve preservar as novas tabelas e migrations e simplesmente manter o app no caminho legado. Não apagar usuários, memberships, inspeções ou evidências como mecanismo de rollback.
+Enquanto `AUTH_CONFIG.enabled` for `false`, a versão de campo continua operando como antes. Depois dos Gates B/C/D, rollback funcional deve preservar as novas tabelas, migrations e módulos, mantendo o app no caminho legado. Não apagar usuários, memberships, inspeções ou evidências como mecanismo de rollback.
 
 ## Estratégia de revisão independente
 
-Claude não deve ser executado em commits intermediários. A revisão Anthropic será solicitada uma única vez quando os Gates A–D estiverem implementados, testes/CI estiverem verdes e o PR estiver estabilizado. Reexecutar somente diante de achado `BLOCKER`/`HIGH`, mudança substancial posterior ou alteração em área crítica que invalide a revisão anterior.
+Claude não deve ser executado em commits intermediários. A revisão Anthropic será solicitada uma única vez quando o Gate D estiver estabilizado, houver um primeiro Administrador provisionado, os fluxos autenticados reais estiverem homologados e CI/E2E estiverem verdes. Reexecutar somente diante de achado `BLOCKER`/`HIGH`, mudança substancial posterior ou alteração em área crítica que invalide a revisão anterior.
