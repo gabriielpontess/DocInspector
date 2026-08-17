@@ -47,7 +47,7 @@ O novo caminho autenticado usa exclusivamente `auth.uid()` + membership ativa:
 - leitura de evidências: todos os quatro perfis com membership ativa;
 - upload/update/delete de evidências: somente `ADMIN` e `INSPECTOR`;
 - novas RPCs `docinspector_*` são `SECURITY INVOKER` e dependem da RLS das tabelas;
-- `authenticated` não pode executar as RPCs legadas `sky17_*` de sincronização;
+- `authenticated` não pode executar as RPCs legadas de sincronização `sky17_*`;
 - as políticas legadas do bucket de evidências permanecem temporariamente apenas para `anon`, preservando o app atual enquanto Auth continua desligado;
 - os helpers legados `sky17_has_workspace_access` e `sky17_secret_hash` não são APIs executáveis por clientes Auth/anon.
 
@@ -55,7 +55,7 @@ A transição é intencionalmente dupla, mas sem bypass entre os mundos: o app a
 
 Estado de dados antes/depois do Gate C: 13 inspeções, 3 tombstones e 1 evidência; nenhum registro operacional foi alterado pela migration.
 
-Os advisors após o Gate C não apontam `SECURITY DEFINER` acessível por `authenticated`. Permanecem apenas avisos para RPCs legadas acessíveis por `anon`, necessários temporariamente para compatibilidade e previstos para remoção após o Gate D e homologação do corte.
+Os advisors após o Gate C não apontam `SECURITY DEFINER` acessível por `authenticated`. Permanecem apenas avisos para RPCs legadas acessíveis por `anon`, necessários temporariamente para compatibilidade. Esses avisos só devem desaparecer quando o Gate D estiver homologado e o caminho legado for removido.
 
 ### Gate D — ativação da interface
 
