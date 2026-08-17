@@ -13,6 +13,11 @@ function esc(value) {
     .replaceAll("'", '&#039;');
 }
 
+function isLocalE2EBypass() {
+  const localHost = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
+  return localHost && new URLSearchParams(location.search).get('e2e-auth-bypass') === '1';
+}
+
 function renderAuthShell({ message = '', busy = false } = {}) {
   app.innerHTML = `
     <main class="auth-screen">
@@ -41,18 +46,20 @@ function renderStarting(message = 'Validando sessão…') {
   app.innerHTML = `<main class="auth-screen"><section class="auth-card auth-starting"><div class="auth-brand"><img src="assets/icon.svg" alt=""><div><strong><span>Doc</span>Inspector</strong><small>${esc(message)}</small></div></div><div class="auth-spinner" aria-hidden="true"></div></section></main>`;
 }
 
-async function loadApplication() {
+async function loadApplication({ skipAuthUi = false } = {}) {
   await import('./app.js');
-  await Promise.all([
+  const modules = [
     import('./field-recovery-ui.js'),
     import('./evidence-health-ui.js'),
     import('./marking-policy-ui.js'),
     import('./copy-evidence-edit-ui.js'),
     import('./ui-refinement.js'),
-    import('./export-pdf-options-ui.js'),
-    import('./permission-ui.js'),
-    import('./user-admin-ui.js')
-  ]);
+    import('./export-pdf-options-ui.js')
+  ];
+  if (!skipAuthUi) {
+    modules.push(import('./permission-ui.js'), import('./user-admin-ui.js'));
+  }
+  await Promise.all(modules);
 }
 
 async function enterAuthenticatedApp() {
@@ -90,6 +97,12 @@ function bindLogin() {
 }
 
 async function bootAuthEntry() {
+  if (isLocalE2EBypass()) {
+    document.documentElement.dataset.authTestBypass = 'true';
+    await loadApplication({ skipAuthUi: true });
+    return;
+  }
+
   if (!authRolloutEnabled()) {
     await loadApplication();
     return;
