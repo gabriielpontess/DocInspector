@@ -87,6 +87,23 @@ export async function requestPasswordReset(email, redirectTo = location.origin +
   return true;
 }
 
+export async function verifyRecoveryTokenHash(tokenHash) {
+  const token = normalize(tokenHash);
+  if (!token || token.length < 20 || token.length > 1024) {
+    throw new Error('O código de recuperação recebido é inválido.');
+  }
+  const client = getAuthClient();
+  const { data, error } = await client.auth.verifyOtp({ token_hash: token, type: 'recovery' });
+  if (error || !data?.user || !data?.session) {
+    const code = normalize(error?.code).toLowerCase();
+    if (code.includes('expired') || code.includes('otp_expired')) {
+      throw new Error('Este código de recuperação expirou ou já foi utilizado. Solicite um novo e-mail.');
+    }
+    throw new Error('Não foi possível validar este código de recuperação. Solicite um novo e-mail.');
+  }
+  return { user: data.user, session: data.session };
+}
+
 export async function updateCurrentPassword(newPassword) {
   const password = String(newPassword ?? '');
   if (password.length < 12) throw new Error('A nova senha deve ter pelo menos 12 caracteres.');
