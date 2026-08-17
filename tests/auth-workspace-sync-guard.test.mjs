@@ -6,8 +6,12 @@ const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 
 assert.match(sync, /AUTH_WORKSPACE_BINDING_KEY\s*=\s*'auth-workspace-binding-v1'/);
 assert.match(sync, /AUTH_QUARANTINE_KEY\s*=\s*'auth-workspace-quarantine-v1'/);
+assert.match(sync, /AUTH_LOCAL_INSPECTION_QUARANTINE_KEY\s*=\s*'auth-local-inspection-quarantine-v1'/);
 assert.match(sync, /ensureWorkspaceBinding\(config\.workspaceId\)/);
 assert.match(sync, /quarantinePendingQueues/);
+assert.match(sync, /quarantineLocalInspection/);
+assert.match(sync, /setSyncMeta\(AUTH_LOCAL_INSPECTION_QUARANTINE_KEY/);
+assert.match(sync, /deleteInspection\(inspection\.id\)/);
 assert.match(sync, /deleteSyncMeta\(DELETIONS_KEY\)/);
 assert.match(sync, /deleteSyncMeta\(EVIDENCE_DELETIONS_KEY\)/);
 assert.match(sync, /localOnlyBelongsToCurrentBinding\(local, binding\)/);
@@ -17,9 +21,11 @@ assert.match(sync, /allowedInspectionIds\.has\(inspection\.id\)/);
 assert.match(sync, /Sincronizado · \$\{quarantinedLocalCount\} registro\(s\) local\(is\) isolado\(s\)/);
 assert.match(sw, /const VERSION = '0\.9\.31';/);
 
-const unsafeLocalOnlyBranch = /if \(local && !remoteInspection\) \{[\s\S]{0,180}await upsertRemote\(remote, config, local\);/;
-assert.match(sync, unsafeLocalOnlyBranch, 'local-only branch must remain explicit and guarded');
-const branch = sync.match(unsafeLocalOnlyBranch)?.[0] || '';
+const branchMatch = sync.match(/if \(local && !remoteInspection\) \{[\s\S]*?\n      \}\n      const merged/);
+assert.ok(branchMatch, 'local-only branch must remain explicit');
+const branch = branchMatch[0];
 assert.match(branch, /!localOnlyBelongsToCurrentBinding\(local, binding\)/, 'local-only inspection must be rejected unless it belongs to the current binding');
+assert.match(branch, /await quarantineLocalInspection\(local, config\.workspaceId\)/, 'stale local-only inspection must be preserved in quarantine before removal');
+assert.match(branch, /continue;[\s\S]*await upsertRemote\(remote, config, local\)/, 'remote upsert must occur only after the guard allows the record');
 
 console.log('Authenticated workspace sync isolation checks passed.');
