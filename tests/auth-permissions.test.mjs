@@ -11,7 +11,7 @@ import {
 } from '../js/permissions.js';
 import { AUTH_CONFIG, authRolloutEnabled } from '../js/auth-config.js';
 
-assert.equal(authRolloutEnabled(), false, 'Auth must remain disabled until the server migration is explicitly activated.');
+assert.equal(authRolloutEnabled(), true, 'Auth must be enabled after the first Administrator is provisioned.');
 assert.match(AUTH_CONFIG.projectUrl, /^https:\/\/[a-z0-9-]+\.supabase\.co$/);
 assert.match(AUTH_CONFIG.publishableKey, /^sb_publishable_/);
 assert.equal(AUTH_CONFIG.publishableKey.includes('secret'), false);
