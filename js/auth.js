@@ -57,6 +57,16 @@ export async function signInWithEmailPassword(email, password) {
   return { user: data.user, session: data.session };
 }
 
+export async function updateCurrentPassword(newPassword) {
+  const password = String(newPassword ?? '');
+  if (password.length < 12) throw new Error('A nova senha deve ter pelo menos 12 caracteres.');
+  if (password.length > 4096) throw new Error('A nova senha é muito longa.');
+  const client = getAuthClient();
+  const { data, error } = await client.auth.updateUser({ password });
+  if (error || !data?.user) throw new Error('Não foi possível alterar a senha desta conta.');
+  return data.user;
+}
+
 export async function getAuthenticatedUser() {
   const client = getAuthClient();
   const { data, error } = await client.auth.getUser();
