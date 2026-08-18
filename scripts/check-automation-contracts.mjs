@@ -1,9 +1,13 @@
 import { readFile } from 'node:fs/promises';
 
-const ci = await readFile('.github/workflows/ci.yml', 'utf8');
-const e2e = await readFile('.github/workflows/mobile-actions-e2e.yml', 'utf8');
-const localE2e = await readFile('.github/workflows/local-runner-e2e.yml', 'utf8');
-const dependabot = await readFile('.github/dependabot.yml', 'utf8');
+async function readNormalized(path) {
+  return (await readFile(path, 'utf8')).replace(/\r\n/g, '\n');
+}
+
+const ci = await readNormalized('.github/workflows/ci.yml');
+const e2e = await readNormalized('.github/workflows/mobile-actions-e2e.yml');
+const localE2e = await readNormalized('.github/workflows/local-runner-e2e.yml');
+const dependabot = await readNormalized('.github/dependabot.yml');
 
 const failures = [];
 
