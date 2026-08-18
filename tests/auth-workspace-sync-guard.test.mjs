@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const sync = fs.readFileSync(new URL('../js/sync-auth.js', import.meta.url), 'utf8');
-const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+const normalizeNewlines = (text) => text.replace(/\r\n/g, '\n');
+const sync = normalizeNewlines(fs.readFileSync(new URL('../js/sync-auth.js', import.meta.url), 'utf8'));
+const sw = normalizeNewlines(fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8'));
 
 assert.match(sync, /AUTH_WORKSPACE_BINDING_KEY\s*=\s*'auth-workspace-binding-v1'/);
 assert.match(sync, /AUTH_QUARANTINE_KEY\s*=\s*'auth-workspace-quarantine-v1'/);
