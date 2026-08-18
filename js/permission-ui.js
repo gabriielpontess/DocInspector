@@ -13,8 +13,8 @@ if (authRolloutEnabled()) {
       '[data-edit-inspection]',
       '[data-update-inspection-list]',
       '[data-delete]',
-      '#restore-backup',
-      'label[for="restore-backup"]'
+      '#restore',
+      '#restore-file'
     ],
     verifyDocuments: [
       '[data-nav="inspect"]',
@@ -22,9 +22,8 @@ if (authRolloutEnabled()) {
       '#scan-document',
       '#find-pw',
       '#save-verification',
-      '#save-not-found',
-      '#confirm-scan',
-      '#add-copy',
+      '#mark-not-found',
+      '#scan-confirm',
       '[data-copy-edit]',
       '[data-copy-delete]'
     ],
@@ -34,7 +33,7 @@ if (authRolloutEnabled()) {
       '#generate-pdf',
       '#generate-xlsx',
       '#generate-word',
-      '#create-backup'
+      '#backup'
     ],
     manageUsers: [],
     manageProjectFiles: []
