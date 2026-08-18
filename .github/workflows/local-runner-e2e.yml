@@ -15,6 +15,9 @@ jobs:
     name: Local Windows Browser Gate
     runs-on: [self-hosted, Windows, X64, docinspector-e2e]
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: cmd
     steps:
       - name: Checkout
         uses: actions/checkout@v6
