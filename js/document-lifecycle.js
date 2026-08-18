@@ -2,6 +2,7 @@ import { codeIdentity, normalize, normalizeCode, normalizeRevision } from './dom
 
 const MAX_DOCUMENT_AUDIT = 1000;
 const MAX_DELETED_DOCUMENTS = 10000;
+const MANAGED_FIELDS = ['code', 'description', 'status', 'expectedRevision'];
 
 function clone(value) {
   return structuredClone(value);
@@ -54,17 +55,20 @@ export function updateDocumentMetadata(inspection, documentId, patch = {}, { act
   if (!after.description) throw new Error('Informe uma descrição para o documento.');
 
   const changes = Object.fromEntries(
-    Object.keys(after)
+    MANAGED_FIELDS
       .filter(key => before[key] !== after[key])
       .map(key => [key, { from: before[key], to: after[key] }])
   );
-  if (!Object.keys(changes).length) return document;
+  const changedFields = Object.keys(changes);
+  if (!changedFields.length) return document;
 
   document.code = after.code;
   document.description = after.description;
   document.status = after.status;
   document.expectedRevision = after.expectedRevision;
   document.sourceCode = normalizeCode(document.sourceCode) || before.code;
+  document.manualMetadataFields = [...new Set([...(document.manualMetadataFields || []), ...changedFields])]
+    .filter(field => MANAGED_FIELDS.includes(field));
   document.updatedAt = changedAt;
 
   audit(inspection, {
