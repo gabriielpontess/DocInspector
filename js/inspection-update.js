@@ -38,7 +38,7 @@ function indexExistingDocuments(documents = []) {
 function findExistingDocument(incoming, index, consumedIds) {
   const exactCandidates = (index.byCode.get(normalizeCode(incoming.code)) || [])
     .filter(document => !consumedIds.has(document.id));
-  if (exactCandidates.length === 1) return exactCandidates[0];
+  if (exactCandidates.length) return exactCandidates[0];
 
   const identity = codeIdentity(incoming.code);
   const candidates = (index.byIdentity.get(identity) || []).filter(document => !consumedIds.has(document.id));
