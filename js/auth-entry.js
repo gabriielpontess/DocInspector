@@ -148,6 +148,7 @@ async function loadApplication({ skipAuthUi = false } = {}) {
     import('./evidence-health-ui.js'),
     import('./marking-policy-ui.js'),
     import('./copy-evidence-edit-ui.js'),
+    import('./document-management-ui.js'),
     import('./ui-refinement.js'),
     import('./export-pdf-options-ui.js')
   ];
