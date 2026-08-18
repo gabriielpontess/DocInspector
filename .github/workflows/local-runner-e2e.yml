@@ -1,0 +1,42 @@
+name: Local Windows E2E Runner
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: docinspector-local-e2e
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  local-browser-gate:
+    name: Local Windows Browser Gate
+    runs-on: [self-hosted, Windows, X64, docinspector-e2e]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Install test dependency
+        run: npm install --no-audit --no-fund
+      - name: Install Playwright browsers
+        run: npx playwright install chromium webkit
+      - name: Deterministic quality gate
+        run: npm run check
+      - name: Browser interaction gate
+        run: npm run test:e2e
+      - name: Upload Playwright evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-local-windows
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14
