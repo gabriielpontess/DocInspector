@@ -133,3 +133,22 @@ export function deletedDocumentIdentities(inspection) {
   }
   return identities;
 }
+
+/**
+ * Returns the actual document objects that may own evidence, including logically
+ * deleted archives. Archived objects remain archived; they are never inserted
+ * back into inspection.documents. Deduplication by immutable id prevents the
+ * same evidence from being processed twice if a malformed payload contains both.
+ */
+export function inspectionEvidenceDocuments(inspection) {
+  if (!inspection || typeof inspection !== 'object') return [];
+  const byId = new Map();
+  for (const document of inspection.documents || []) {
+    if (document?.id && !byId.has(document.id)) byId.set(document.id, document);
+  }
+  for (const entry of inspection.deletedDocuments || []) {
+    const document = entry?.document;
+    if (document?.id && !byId.has(document.id)) byId.set(document.id, document);
+  }
+  return [...byId.values()];
+}
