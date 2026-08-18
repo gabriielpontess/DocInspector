@@ -7,6 +7,7 @@ import {
 } from '../js/domain.js';
 import {
   deleteDocumentLogically,
+  inspectionEvidenceDocuments,
   updateDocumentMetadata
 } from '../js/document-lifecycle.js';
 import { buildInspectionListUpdate } from '../js/inspection-update.js';
@@ -33,6 +34,11 @@ addFieldCopy(editable, {
   comment: 'cópia conferida',
   evidenceId: 'evidence-a1',
   evidencePath: 'workspace/inspection-1/doc-a/copy-a1.jpg'
+});
+addFieldCopy(removable, {
+  id: 'copy-b1',
+  foundRevision: 'B',
+  evidenceId: 'evidence-b1'
 });
 inspection.documents = [editable, removable];
 
@@ -64,6 +70,16 @@ assert.deepEqual(inspection.deletedDocumentIds, ['doc-b']);
 assert.equal(inspection.deletedDocuments[0].document.id, 'doc-b');
 assert.equal(inspection.deletedDocuments[0].reason, 'Documento removido da lista operacional');
 assert.equal(inspection.documentAudit.at(-1).action, 'document.deleted');
+
+const evidenceOwners = inspectionEvidenceDocuments(inspection);
+assert.deepEqual(evidenceOwners.map(item => item.id).sort(), ['doc-a', 'doc-b'], 'evidence traversal must include active and archived document owners');
+assert.equal(inspection.documents.length, 1, 'evidence traversal must never reactivate an archived document');
+const archivedOwner = evidenceOwners.find(item => item.id === 'doc-b');
+archivedOwner.fieldCopies[0].evidencePath = 'workspace/inspection-1/doc-b/copy-b1.jpg';
+assert.equal(inspection.deletedDocuments[0].document.fieldCopies[0].evidencePath, 'workspace/inspection-1/doc-b/copy-b1.jpg', 'evidence traversal must expose the archived object by reference so sync progress persists');
+inspection.documents.push(inspection.deletedDocuments[0].document);
+assert.equal(inspectionEvidenceDocuments(inspection).filter(item => item.id === 'doc-b').length, 1, 'malformed active/archive duplicates must be processed only once');
+inspection.documents.pop();
 
 const hydrated = hydrateInspection(inspection);
 assert.deepEqual(hydrated.documents.map(item => item.id), ['doc-a']);
