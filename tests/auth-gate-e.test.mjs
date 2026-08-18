@@ -21,6 +21,7 @@ assert.match(ui, /functions\.invoke\('docinspector-user-admin'/);
 assert.match(ui, /CAPABILITY\.MANAGE_USERS/);
 assert.match(permissions, /capability !== CAPABILITY\.MANAGE_USERS/);
 assert.match(entry, /import\('\.\/user-admin-ui\.js'\)/);
+assert.match(entry, /import\('\.\/document-management-ui\.js'\)/);
 assert.match(auth, /updateCurrentPassword/);
 assert.match(auth, /auth\.updateUser\(\{ password \}\)/);
 assert.match(auth, /resetPasswordForEmail/);
@@ -40,6 +41,8 @@ assert.match(permissionUi, /auth-change-password/);
 assert.match(context, /sky17-sync-config-v1/);
 assert.match(context, /readLegacyWorkspaceId/);
 assert.match(sw, /\.\/js\/user-admin-ui\.js/);
-assert.match(sw, /const VERSION = '0\.9\.36';/);
+assert.match(sw, /\.\/js\/document-management-ui\.js/);
+assert.match(sw, /\.\/js\/document-lifecycle\.js/);
+assert.match(sw, /const VERSION = '0\.9\.37';/);
 
 console.log('Auth/RBAC Gate E administration checks passed.');
