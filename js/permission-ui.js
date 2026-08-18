@@ -25,8 +25,8 @@ if (authRolloutEnabled()) {
       '#save-not-found',
       '#confirm-scan',
       '#add-copy',
-      '[data-edit-copy-evidence]',
-      '[data-remove-copy]'
+      '[data-copy-edit]',
+      '[data-copy-delete]'
     ],
     exportData: [
       '[data-export-inspection]',
