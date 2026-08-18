@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 async function seedInspection(page) {
-  await page.goto('/');
+  await page.goto('/?e2e-auth-bypass=1');
   await expect(page.locator('.topbar h1')).toHaveText('Início');
 
   await page.evaluate(async () => {
@@ -52,6 +52,15 @@ async function closeModal(dialog) {
   await expect(dialog).toHaveCount(0);
 }
 
+async function assertSeededInspection(page) {
+  await expect(page.locator('.topbar h1')).toHaveText('Início');
+  const card = page.locator('.inspection-item').filter({ hasText: 'E2E Mobile Actions' }).first();
+  await expect(card).toBeVisible();
+  await card.locator('.inspection-summary').click();
+  await expect(page.locator('.topbar h1')).toContainText('Documentos');
+  await expect(page.locator('#filter-system')).toHaveValue('AMV');
+}
+
 test('menu secundário usa Action Sheet fora do card e executa ações sem navegar', async ({ page }) => {
   const card = await seedInspection(page);
 
@@ -82,4 +91,38 @@ test('área branca do card continua abrindo Documentos', async ({ page }) => {
   await card.locator('.inspection-summary').click();
   await expect(page.locator('.topbar h1')).toContainText('Documentos');
   await expect(page.locator('#filter-system')).toHaveValue('AMV');
+});
+
+test('inspeção local persiste ao reabrir a aplicação em nova página', async ({ page, context }) => {
+  await seedInspection(page);
+  const reopenedPage = await context.newPage();
+
+  try {
+    await reopenedPage.goto(page.url(), { waitUntil: 'domcontentloaded' });
+    await assertSeededInspection(reopenedPage);
+  } finally {
+    await reopenedPage.close();
+  }
+});
+
+test('inspeção local continua disponível após reabrir o PWA offline', async ({ page, context, browserName }) => {
+  test.skip(browserName !== 'chromium', 'Playwright oferece suporte a Service Worker somente em navegadores Chromium.');
+
+  await seedInspection(page);
+  await page.evaluate(async () => {
+    if (!('serviceWorker' in navigator)) throw new Error('Service Worker indisponível no navegador de teste.');
+    await navigator.serviceWorker.ready;
+  });
+
+  const offlineUrl = page.url();
+  await context.setOffline(true);
+  const offlinePage = await context.newPage();
+
+  try {
+    await offlinePage.goto(offlineUrl, { waitUntil: 'domcontentloaded' });
+    await assertSeededInspection(offlinePage);
+  } finally {
+    await context.setOffline(false);
+    await offlinePage.close().catch(() => {});
+  }
 });
