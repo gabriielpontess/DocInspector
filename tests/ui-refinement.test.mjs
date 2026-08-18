@@ -11,9 +11,12 @@ const css = fs.readFileSync(new URL('../visual-refinement.css', import.meta.url)
 
 assert.match(index, /href="visual-refinement\.css"/, 'refinamento visual deve usar a mesma URL pré-cacheada pelo app shell offline');
 assert.match(authEntry, /import\('\.\/ui-refinement\.js'\)/, 'comportamentos de refinamento devem carregar somente após o bootstrap autenticado');
+assert.match(authEntry, /import\('\.\/document-management-ui\.js'\)/, 'gerenciamento de documentos deve carregar junto do bootstrap da aplicação');
 assert.match(index, /navigator\.serviceWorker\.getRegistration\(\)[\s\S]*registration\?\.update\(\)/, 'bootstrap deve verificar atualização do Service Worker em toda abertura online');
 assert.doesNotMatch(index, /src="js\/inspection-update-ui\.js"/, 'inspection-update-ui deve ser carregado somente pelo app principal');
-assert.match(sw, /const VERSION = '0\.9\.36';/, 'Service Worker deve usar a identidade de cache do recovery scanner-safe');
+assert.match(sw, /const VERSION = '0\.9\.37';/, 'Service Worker deve usar a identidade de cache que inclui gerenciamento de documentos');
+assert.match(sw, /\.\/js\/document-lifecycle\.js/, 'ciclo de vida de documentos deve funcionar offline');
+assert.match(sw, /\.\/js\/document-management-ui\.js/, 'UI de gerenciamento de documentos deve funcionar offline');
 assert.doesNotMatch(sw, /install[\s\S]{0,500}self\.skipWaiting\(\)/, 'install não deve trocar o worker durante trabalho ativo');
 assert.match(sw, /\.\/visual-refinement\.css/, 'refinamento visual deve continuar no shell offline');
 assert.match(sw, /\.\/js\/ui-refinement\.js/, 'navegação refinada deve funcionar offline');
