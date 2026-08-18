@@ -17,12 +17,20 @@ async function seedInspection(page) {
       responsible: 'Teste automatizado',
       location: 'Campo'
     });
-    inspection.documents = [makeDocument({
-      code: 'PW-E2E-001',
-      description: 'Documento descartável para validar ações da inspeção',
-      status: 'APROVADO',
-      expectedRevision: '0'
-    })];
+    inspection.documents = [
+      makeDocument({
+        code: 'PW-E2E-001',
+        description: 'Documento descartável para validar ações da inspeção',
+        status: 'APROVADO',
+        expectedRevision: '0'
+      }),
+      makeDocument({
+        code: 'PW-E2E-002',
+        description: 'Documento preservado para validar exclusão lógica',
+        status: 'APROVADO',
+        expectedRevision: '0'
+      })
+    ];
 
     await saveInspection(inspection);
   });
@@ -91,6 +99,56 @@ test('área branca do card continua abrindo Documentos', async ({ page }) => {
   await card.locator('.inspection-summary').click();
   await expect(page.locator('.topbar h1')).toContainText('Documentos');
   await expect(page.locator('#filter-system')).toHaveValue('AMV');
+});
+
+test('gerenciamento de documento edita metadados e exclui com tombstone sem perder o restante da lista', async ({ page }) => {
+  const card = await seedInspection(page);
+  await card.locator('.inspection-summary').click();
+  await expect(page.locator('.topbar h1')).toContainText('Documentos');
+
+  const firstRow = page.locator('tr[data-doc-row]').filter({ hasText: 'PW-E2E-001' }).first();
+  await expect(firstRow).toBeVisible();
+  await expect(firstRow.locator('[data-edit-document]')).toBeVisible();
+  await firstRow.locator('[data-edit-document]').click();
+
+  const editor = page.getByRole('dialog', { name: 'Editar documento PW-E2E-001' });
+  await expect(editor).toBeVisible();
+  await editor.locator('#manage-document-code').fill('PW-E2E-001-A');
+  await editor.locator('#manage-document-description').fill('Documento editado pelo E2E');
+  await editor.locator('#manage-document-revision').fill('A');
+  await editor.locator('#save-document-metadata').click();
+  await expect(editor).toHaveCount(0);
+
+  const editedRow = page.locator('tr[data-doc-row]').filter({ hasText: 'PW-E2E-001-A' }).first();
+  await expect(editedRow).toBeVisible();
+  await expect(editedRow).toContainText('Documento editado pelo E2E');
+  await editedRow.locator('[data-delete-document]').click();
+
+  const deleteDialog = page.getByRole('dialog', { name: 'Excluir documento PW-E2E-001-A' });
+  await expect(deleteDialog).toBeVisible();
+  await deleteDialog.locator('#delete-document-reason').fill('Removido pelo smoke E2E');
+  await deleteDialog.locator('#confirm-document-delete').click();
+  await expect(deleteDialog).toHaveCount(0);
+
+  await expect(page.locator('tr[data-doc-row]').filter({ hasText: 'PW-E2E-001-A' })).toHaveCount(0);
+  await expect(page.locator('tr[data-doc-row]').filter({ hasText: 'PW-E2E-002' })).toBeVisible();
+
+  const persisted = await page.evaluate(async () => {
+    const { listInspections } = await import('/js/db.js');
+    const inspection = (await listInspections()).find(item => item.project === 'E2E Mobile Actions');
+    return {
+      activeCodes: inspection.documents.map(item => item.code),
+      deletedDocumentIds: inspection.deletedDocumentIds,
+      deletedDocument: inspection.deletedDocuments.find(item => item.document.code === 'PW-E2E-001-A'),
+      auditActions: inspection.documentAudit.map(item => item.action)
+    };
+  });
+
+  expect(persisted.activeCodes).toEqual(['PW-E2E-002']);
+  expect(persisted.deletedDocumentIds).toHaveLength(1);
+  expect(persisted.deletedDocument?.reason).toBe('Removido pelo smoke E2E');
+  expect(persisted.auditActions).toContain('document.updated');
+  expect(persisted.auditActions).toContain('document.deleted');
 });
 
 test('inspeção local persiste ao reabrir a aplicação em nova página', async ({ page, context }) => {
