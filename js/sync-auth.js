@@ -13,6 +13,7 @@ import { hydrateInspection } from './domain.js';
 import { AUTH_CONFIG, authRolloutEnabled } from './auth-config.js';
 import { getAuthClient } from './auth.js';
 import { getAuthContext, refreshAuthContext } from './auth-context.js';
+import { processPendingDeletions } from './sync-delete-queue.js';
 
 export * from './sync.js?legacy=1';
 
@@ -175,20 +176,22 @@ async function upsertRemote(remote, config, inspection) {
 async function flushPendingDeletions(remote, config) {
   const pending = await getSyncMeta(DELETIONS_KEY, []);
   if (!pending.length) return;
-  const remaining = [];
-  for (const id of pending) {
+
+  const { remaining, firstError } = await processPendingDeletions(pending, async id => {
     const { data, error } = await remote.rpc('docinspector_delete_inspection', {
       p_workspace_id: config.workspaceId,
       p_inspection_id: id,
       p_device_id: getDeviceId()
     });
     if (error || data !== true) {
-      remaining.push(id);
-      if (error) throw error;
+      throw error || new Error('O servidor recusou a exclusão da inspeção.');
     }
-  }
+  });
+
   if (remaining.length) await setSyncMeta(DELETIONS_KEY, remaining);
   else await deleteSyncMeta(DELETIONS_KEY);
+
+  if (firstError) throw firstError;
 }
 
 async function flushPendingEvidenceDeletions(remote) {
