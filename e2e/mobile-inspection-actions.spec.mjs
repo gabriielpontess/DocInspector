@@ -52,6 +52,23 @@ async function closeModal(dialog) {
   await expect(dialog).toHaveCount(0);
 }
 
+async function reloadOfflineAndProveNavigation(page, browserName) {
+  await page.evaluate(() => {
+    window.__docinspectorOfflineReloadMarker = 'must-disappear-after-navigation';
+  });
+
+  try {
+    await page.reload({ waitUntil: 'domcontentloaded' });
+  } catch (error) {
+    const knownWebKitReloadError = browserName === 'webkit' && /WebKit encountered an internal error/i.test(String(error?.message || error));
+    if (!knownWebKitReloadError) throw error;
+  }
+
+  await expect.poll(async () => page.evaluate(() => window.__docinspectorOfflineReloadMarker ?? null), {
+    message: 'o documento deve ter sido recriado por uma navegação offline real'
+  }).toBeNull();
+}
+
 test('menu secundário usa Action Sheet fora do card e executa ações sem navegar', async ({ page }) => {
   const card = await seedInspection(page);
 
@@ -84,7 +101,7 @@ test('área branca do card continua abrindo Documentos', async ({ page }) => {
   await expect(page.locator('#filter-system')).toHaveValue('AMV');
 });
 
-test('inspeção local continua disponível após reabrir o PWA offline', async ({ page, context }) => {
+test('inspeção local continua disponível após reabrir o PWA offline', async ({ page, context, browserName }) => {
   await seedInspection(page);
   await page.evaluate(async () => {
     if (!('serviceWorker' in navigator)) throw new Error('Service Worker indisponível no navegador de teste.');
@@ -93,7 +110,7 @@ test('inspeção local continua disponível após reabrir o PWA offline', async 
 
   await context.setOffline(true);
   try {
-    await page.reload({ waitUntil: 'domcontentloaded' });
+    await reloadOfflineAndProveNavigation(page, browserName);
     await expect(page.locator('.topbar h1')).toHaveText('Início');
     const card = page.locator('.inspection-item').filter({ hasText: 'E2E Mobile Actions' }).first();
     await expect(card).toBeVisible();
