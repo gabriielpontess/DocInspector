@@ -52,23 +52,6 @@ async function closeModal(dialog) {
   await expect(dialog).toHaveCount(0);
 }
 
-async function reloadOfflineAndProveNavigation(page, browserName) {
-  await page.evaluate(() => {
-    window.__docinspectorOfflineReloadMarker = 'must-disappear-after-navigation';
-  });
-
-  try {
-    await page.reload({ waitUntil: 'domcontentloaded' });
-  } catch (error) {
-    const knownWebKitReloadError = browserName === 'webkit' && /WebKit encountered an internal error/i.test(String(error?.message || error));
-    if (!knownWebKitReloadError) throw error;
-  }
-
-  await expect.poll(async () => page.evaluate(() => window.__docinspectorOfflineReloadMarker ?? null), {
-    message: 'o documento deve ter sido recriado por uma navegação offline real'
-  }).toBeNull();
-}
-
 test('menu secundário usa Action Sheet fora do card e executa ações sem navegar', async ({ page }) => {
   const card = await seedInspection(page);
 
@@ -108,16 +91,28 @@ test('inspeção local continua disponível após reabrir o PWA offline', async 
     await navigator.serviceWorker.ready;
   });
 
+  const offlineUrl = page.url();
   await context.setOffline(true);
+  const offlinePage = await context.newPage();
+
   try {
-    await reloadOfflineAndProveNavigation(page, browserName);
-    await expect(page.locator('.topbar h1')).toHaveText('Início');
-    const card = page.locator('.inspection-item').filter({ hasText: 'E2E Mobile Actions' }).first();
+    try {
+      await offlinePage.goto(offlineUrl, { waitUntil: 'domcontentloaded' });
+    } catch (error) {
+      const knownWebKitOfflineNavigationError =
+        browserName === 'webkit' &&
+        /internal error|network process crashed|provisional load/i.test(String(error?.message || error));
+      if (!knownWebKitOfflineNavigationError) throw error;
+    }
+
+    await expect(offlinePage.locator('.topbar h1')).toHaveText('Início');
+    const card = offlinePage.locator('.inspection-item').filter({ hasText: 'E2E Mobile Actions' }).first();
     await expect(card).toBeVisible();
     await card.locator('.inspection-summary').click();
-    await expect(page.locator('.topbar h1')).toContainText('Documentos');
-    await expect(page.locator('#filter-system')).toHaveValue('AMV');
+    await expect(offlinePage.locator('.topbar h1')).toContainText('Documentos');
+    await expect(offlinePage.locator('#filter-system')).toHaveValue('AMV');
   } finally {
     await context.setOffline(false);
+    await offlinePage.close().catch(() => {});
   }
 });
