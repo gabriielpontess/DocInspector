@@ -6,11 +6,16 @@ on:
   pull_request:
     branches: [main, develop]
 
+concurrency:
+  group: docinspector-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
-  quality:
+  quality-gate:
+    name: Quality Gate
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -20,11 +25,5 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: JavaScript syntax
-        run: npm run check:syntax
-      - name: SQL validation
-        run: npm run check:sql
-      - name: Secret scan
-        run: npm run check:secrets
-      - name: Regression tests
-        run: npm test
+      - name: Deterministic quality gate
+        run: npm run check
