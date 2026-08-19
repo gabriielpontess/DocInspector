@@ -112,11 +112,17 @@ export async function registerPWA(onError) {
       }
     }
 
-const registration = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
-await registration.update().catch(() => {});
+    const registration = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+    registration.update().catch(() => {});
 
-const readyRegistration = await navigator.serviceWorker.ready;
-readyRegistration.active?.postMessage({ type: 'CACHE_EXTERNAL' });
+    // O aquecimento do cache externo é oportunista e não deve bloquear o boot.
+    // Em navegadores/ambientes onde `ready` demora ou não resolve (ex.: WebKit
+    // automatizado), a interface e seus listeners precisam continuar funcionais.
+    navigator.serviceWorker.ready
+      .then(readyRegistration => {
+        readyRegistration.active?.postMessage({ type: 'CACHE_EXTERNAL' });
+      })
+      .catch(() => {});
 
     return registration;
   } catch (error) {
