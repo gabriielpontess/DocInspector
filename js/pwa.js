@@ -102,31 +102,34 @@ export async function requestInstall() {
 export async function registerPWA(onError) {
   if (!('serviceWorker' in navigator)) return null;
 
-  try {
-    if (navigator.storage?.persisted && navigator.storage?.persist) {
-      try {
-        const persisted = await navigator.storage.persisted();
-        if (!persisted) await navigator.storage.persist();
-      } catch {
-        // Persistência reforçada é opcional; falhas aqui não devem impedir o PWA.
+  // O registro do Service Worker e a solicitação de persistência são tarefas
+  // de preparação do PWA; não podem bloquear a conclusão do boot da UI.
+  // Isso garante que listeners de mutação/sincronização sejam registrados
+  // mesmo em navegadores onde o startup do Service Worker é lento (WebKit).
+  void (async () => {
+    try {
+      if (navigator.storage?.persisted && navigator.storage?.persist) {
+        try {
+          const persisted = await navigator.storage.persisted();
+          if (!persisted) await navigator.storage.persist();
+        } catch {
+          // Persistência reforçada é opcional; falhas aqui não devem impedir o PWA.
+        }
       }
+
+      const registration = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+      registration.update().catch(() => {});
+
+      // O aquecimento do cache externo é oportunista e não deve bloquear o boot.
+      navigator.serviceWorker.ready
+        .then(readyRegistration => {
+          readyRegistration.active?.postMessage({ type: 'CACHE_EXTERNAL' });
+        })
+        .catch(() => {});
+    } catch (error) {
+      onError?.(error);
     }
+  })();
 
-    const registration = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
-    registration.update().catch(() => {});
-
-    // O aquecimento do cache externo é oportunista e não deve bloquear o boot.
-    // Em navegadores/ambientes onde `ready` demora ou não resolve (ex.: WebKit
-    // automatizado), a interface e seus listeners precisam continuar funcionais.
-    navigator.serviceWorker.ready
-      .then(readyRegistration => {
-        readyRegistration.active?.postMessage({ type: 'CACHE_EXTERNAL' });
-      })
-      .catch(() => {});
-
-    return registration;
-  } catch (error) {
-    onError?.(error);
-    return null;
-  }
+  return null;
 }
