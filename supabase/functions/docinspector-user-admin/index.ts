@@ -41,6 +41,47 @@ async function listAllUsers(admin: ReturnType<typeof createClient>) {
   return users;
 }
 
+async function ensureUserAccess(admin: ReturnType<typeof createClient>, {
+  workspaceId,
+  email,
+  displayName,
+  role,
+  addedBy
+}: {
+  workspaceId: string;
+  email: string;
+  displayName: string;
+  role: string;
+  addedBy: string;
+}) {
+  const users = await listAllUsers(admin);
+  let user = users.find(item => normalizeEmail(item.email) === email) || null;
+  let invited = false;
+
+  if (!user) {
+    const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+      data: displayName ? { display_name: displayName } : undefined
+    });
+    if (error || !data?.user) throw new Error(error?.message || 'Não foi possível enviar o convite.');
+    user = data.user;
+    invited = true;
+  }
+
+  if (displayName) {
+    const { error: profileError } = await admin
+      .from('docinspector_profiles')
+      .upsert({ user_id: user.id, display_name: displayName }, { onConflict: 'user_id' });
+    if (profileError) throw profileError;
+  }
+
+  const { error: membershipError } = await admin
+    .from('docinspector_workspace_members')
+    .upsert({ workspace_id: workspaceId, user_id: user.id, role, active: true, added_by: addedBy }, { onConflict: 'workspace_id,user_id' });
+  if (membershipError) throw membershipError;
+
+  return { invited, userId: user.id, email, role };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json(405, { error: 'Método não permitido.' });
@@ -78,6 +119,82 @@ Deno.serve(async (req: Request) => {
       return json(403, { error: 'Somente Administradores podem gerenciar usuários deste workspace.' });
     }
 
+    if (action === 'access-request-code') {
+      const { data, error } = await admin
+        .from('docinspector_workspace_access_codes')
+        .select('request_code')
+        .eq('workspace_id', workspaceId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data?.request_code) return json(404, { error: 'Código de solicitação não encontrado.' });
+      return json(200, { requestCode: data.request_code });
+    }
+
+    if (action === 'access-requests') {
+      const { data, error } = await admin
+        .from('docinspector_access_requests')
+        .select('id,email,display_name,message,status,created_at')
+        .eq('workspace_id', workspaceId)
+        .eq('status', 'PENDING')
+        .order('created_at', { ascending: true })
+        .limit(100);
+      if (error) throw error;
+      return json(200, {
+        requests: (data || []).map(item => ({
+          id: item.id,
+          email: item.email,
+          displayName: item.display_name,
+          message: item.message || '',
+          status: item.status,
+          createdAt: item.created_at
+        }))
+      });
+    }
+
+    if (action === 'resolve-access-request') {
+      const requestId = String(body?.requestId ?? '').trim();
+      const decision = String(body?.decision ?? '').trim().toUpperCase();
+      const role = normalizeRole(body?.role || 'INSPECTOR');
+      if (!isUuid(requestId)) return json(400, { error: 'Solicitação inválida.' });
+      if (!['APPROVE', 'REJECT'].includes(decision)) return json(400, { error: 'Decisão inválida.' });
+      if (decision === 'APPROVE' && !role) return json(400, { error: 'Perfil inválido.' });
+
+      const { data: request, error: requestError } = await admin
+        .from('docinspector_access_requests')
+        .select('id,email,display_name,status')
+        .eq('id', requestId)
+        .eq('workspace_id', workspaceId)
+        .maybeSingle();
+      if (requestError) throw requestError;
+      if (!request) return json(404, { error: 'Solicitação não encontrada.' });
+      if (request.status !== 'PENDING') return json(409, { error: 'Esta solicitação já foi processada.' });
+
+      let accessResult = null;
+      if (decision === 'APPROVE') {
+        accessResult = await ensureUserAccess(admin, {
+          workspaceId,
+          email: normalizeEmail(request.email),
+          displayName: String(request.display_name || '').trim().slice(0, 120),
+          role: role!,
+          addedBy: caller.id
+        });
+      }
+
+      const status = decision === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+      const { data: resolved, error: resolveError } = await admin
+        .from('docinspector_access_requests')
+        .update({ status, handled_by: caller.id, handled_at: new Date().toISOString() })
+        .eq('id', requestId)
+        .eq('workspace_id', workspaceId)
+        .eq('status', 'PENDING')
+        .select('id')
+        .maybeSingle();
+      if (resolveError) throw resolveError;
+      if (!resolved) return json(409, { error: 'Esta solicitação foi processada por outra sessão.' });
+
+      return json(200, { ok: true, status, ...(accessResult || {}) });
+    }
+
     if (action === 'list') {
       const [{ data: memberships, error: membershipsError }, { data: profiles, error: profilesError }, users] = await Promise.all([
         admin.from('docinspector_workspace_members').select('user_id,role,active,created_at').eq('workspace_id', workspaceId).order('created_at', { ascending: true }),
@@ -112,32 +229,12 @@ Deno.serve(async (req: Request) => {
       if (!email || !email.includes('@') || email.length > 254) return json(400, { error: 'Informe um e-mail válido.' });
       if (!role) return json(400, { error: 'Perfil inválido.' });
 
-      const users = await listAllUsers(admin);
-      let user = users.find(item => normalizeEmail(item.email) === email) || null;
-      let invited = false;
-
-      if (!user) {
-        const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-          data: displayName ? { display_name: displayName } : undefined
-        });
-        if (error || !data?.user) return json(400, { error: error?.message || 'Não foi possível enviar o convite.' });
-        user = data.user;
-        invited = true;
+      try {
+        const result = await ensureUserAccess(admin, { workspaceId, email, displayName, role, addedBy: caller.id });
+        return json(200, { ok: true, ...result });
+      } catch (error) {
+        return json(400, { error: error instanceof Error ? error.message : 'Não foi possível enviar o convite.' });
       }
-
-      if (displayName) {
-        const { error: profileError } = await admin
-          .from('docinspector_profiles')
-          .upsert({ user_id: user.id, display_name: displayName }, { onConflict: 'user_id' });
-        if (profileError) throw profileError;
-      }
-
-      const { error: membershipError } = await admin
-        .from('docinspector_workspace_members')
-        .upsert({ workspace_id: workspaceId, user_id: user.id, role, active: true, added_by: caller.id }, { onConflict: 'workspace_id,user_id' });
-      if (membershipError) throw membershipError;
-
-      return json(200, { ok: true, invited, userId: user.id, email, role });
     }
 
     if (action === 'update') {
