@@ -1,0 +1,54 @@
+name: Trusted Local E2E Gate
+
+on:
+  workflow_run:
+    workflows:
+      - DocInspector CI
+    types:
+      - completed
+
+concurrency:
+  group: docinspector-trusted-local-e2e-${{ github.event.workflow_run.id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  local-browser-gate:
+    name: Trusted Local Windows Browser Gate
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.pull_requests[0].base.ref == 'develop'
+    runs-on: [self-hosted, Windows, X64, docinspector-e2e]
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - name: Checkout trusted same-repository PR head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Install test dependency
+        run: npm install --no-audit --no-fund
+      - name: Install Playwright browsers
+        run: npx playwright install chromium webkit
+      - name: Browser interaction gate
+        run: npm run test:e2e
+      - name: Upload Playwright evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-trusted-local-windows-${{ github.event.workflow_run.id }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14
