@@ -6,6 +6,9 @@ on:
       - DocInspector CI
     types:
       - completed
+    branches-ignore:
+      - develop
+      - main
 
 concurrency:
   group: docinspector-trusted-local-e2e-${{ github.event.workflow_run.id }}
