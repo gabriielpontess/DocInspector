@@ -58,14 +58,20 @@ export function createInspection(meta) {
     location: normalize(meta.location),
     createdAt: now,
     updatedAt: now,
-    documents: []
+    documents: [],
+    deletedDocumentIds: [],
+    deletedDocuments: [],
+    documentAudit: []
   };
 }
 
 export function makeDocument(row) {
+  const now = new Date().toISOString();
+  const code = normalizeCode(row.code);
   return {
     id: createId(),
-    code: normalizeCode(row.code),
+    code,
+    sourceCode: normalizeCode(row.sourceCode) || code,
     description: normalize(row.description),
     status: normalize(row.status),
     expectedRevision: normalizeRevision(row.expectedRevision),
@@ -75,7 +81,9 @@ export function makeDocument(row) {
     deletedCopyIds: [],
     result: RESULT.PENDING,
     comment: '',
-    verifiedAt: null
+    verifiedAt: null,
+    createdAt: now,
+    updatedAt: now
   };
 }
 
@@ -182,10 +190,13 @@ export function hydrateDocument(document = {}) {
   const originalResult = sanitizeResult(document.result);
   const rawCopies = Array.isArray(document.fieldCopies) ? document.fieldCopies : legacyCopies(document, originalResult);
   const fieldCopies = rawCopies.map(hydrateFieldCopy).filter(copy => copy.foundRevision);
+  const code = normalizeCode(document.code);
+  const createdAt = normalize(document.createdAt) || normalize(document.updatedAt) || normalize(document.verifiedAt) || new Date().toISOString();
 
   const hydrated = {
     id: normalize(document.id) || createId(),
-    code: normalizeCode(document.code),
+    code,
+    sourceCode: normalizeCode(document.sourceCode) || code,
     description: normalize(document.description),
     status: normalize(document.status),
     expectedRevision: normalizeRevision(document.expectedRevision),
@@ -197,18 +208,60 @@ export function hydrateDocument(document = {}) {
       : [],
     result: originalResult,
     comment: normalize(document.comment),
-    verifiedAt: originalResult === RESULT.PENDING ? null : normalize(document.verifiedAt) || null
+    verifiedAt: originalResult === RESULT.PENDING ? null : normalize(document.verifiedAt) || null,
+    createdAt,
+    updatedAt: normalize(document.updatedAt) || createdAt
   };
 
   return recalculateDocument(hydrated);
 }
 
+function hydrateDeletedDocuments(entries = [], tombstones = new Set()) {
+  if (!Array.isArray(entries)) return [];
+  const byId = new Map();
+  for (const entry of entries) {
+    const document = hydrateDocument(entry?.document || {});
+    if (!document.code || !tombstones.has(document.id)) continue;
+    const normalized = {
+      document,
+      deletedAt: normalize(entry?.deletedAt) || document.updatedAt,
+      deletedBy: normalize(entry?.deletedBy) || null,
+      reason: normalize(entry?.reason) || null
+    };
+    const previous = byId.get(document.id);
+    const previousTime = Date.parse(previous?.deletedAt || '') || 0;
+    const nextTime = Date.parse(normalized.deletedAt || '') || 0;
+    if (!previous || nextTime >= previousTime) byId.set(document.id, normalized);
+  }
+  return [...byId.values()].slice(-10000);
+}
+
+function hydrateDocumentAudit(entries = []) {
+  if (!Array.isArray(entries)) return [];
+  return entries.slice(-1000).map(entry => ({
+    id: normalize(entry?.id) || createId(),
+    action: normalize(entry?.action),
+    documentId: normalize(entry?.documentId),
+    at: normalize(entry?.at) || new Date().toISOString(),
+    actor: normalize(entry?.actor) || null,
+    changes: entry?.changes && typeof entry.changes === 'object' ? structuredClone(entry.changes) : {}
+  })).filter(entry => entry.action && entry.documentId);
+}
+
 export function hydrateInspection(inspection) {
   if (!inspection || typeof inspection !== 'object') return null;
 
+  const deletedDocumentIds = new Set(
+    Array.isArray(inspection.deletedDocumentIds)
+      ? inspection.deletedDocumentIds.map(normalize).filter(Boolean)
+      : []
+  );
   const documents = Array.isArray(inspection.documents)
-    ? inspection.documents.map(hydrateDocument).filter(document => document.code)
+    ? inspection.documents
+        .map(hydrateDocument)
+        .filter(document => document.code && !deletedDocumentIds.has(document.id))
     : [];
+  const deletedDocuments = hydrateDeletedDocuments(inspection.deletedDocuments, deletedDocumentIds);
 
   return {
     id: normalize(inspection.id) || createId(),
@@ -219,7 +272,10 @@ export function hydrateInspection(inspection) {
     location: normalize(inspection.location),
     createdAt: normalize(inspection.createdAt) || new Date().toISOString(),
     updatedAt: normalize(inspection.updatedAt) || normalize(inspection.createdAt) || new Date().toISOString(),
-    documents
+    documents,
+    deletedDocumentIds: [...deletedDocumentIds].slice(-10000),
+    deletedDocuments,
+    documentAudit: hydrateDocumentAudit(inspection.documentAudit)
   };
 }
 
@@ -235,7 +291,7 @@ export function validateInspection(inspection) {
   }
   if (!normalized.documents.length) throw new Error('A inspeção não possui documentos válidos.');
   if (normalized.documents.length !== originalDocumentCount) {
-    throw new Error('A inspeção contém documentos sem Código PW válido. A restauração foi cancelada para evitar perda silenciosa de dados.');
+    throw new Error('A inspeção contém documentos sem Código PW válido ou marcados como excluídos. A restauração foi cancelada para evitar perda silenciosa de dados.');
   }
 
   const codes = new Set();
@@ -283,6 +339,7 @@ export function addFieldCopy(document, data = {}) {
   document.fieldCopies.push(copy);
   document.comment = normalize(data.documentComment ?? document.comment);
   if (document.result === RESULT.NOT_FOUND) document.result = RESULT.PENDING;
+  document.updatedAt = now;
   recalculateDocument(document);
   return copy;
 }
@@ -297,7 +354,9 @@ export function updateFieldCopy(document, copyId, data = {}) {
   copy.foundRevision = revision;
   if (Object.hasOwn(data, 'markings')) copy.markings = sanitizeMarkings(data.markings);
   if (Object.hasOwn(data, 'comment')) copy.comment = normalize(data.comment);
-  copy.updatedAt = new Date().toISOString();
+  const now = new Date().toISOString();
+  copy.updatedAt = now;
+  document.updatedAt = now;
   recalculateDocument(document);
   return copy;
 }
@@ -311,6 +370,7 @@ export function removeFieldCopy(document, copyId, { tombstone = true } = {}) {
     document.deletedCopyIds = [...new Set([...(document.deletedCopyIds || []), normalize(copyId)])].filter(Boolean).slice(-10000);
   }
   if (!document.fieldCopies.length && document.result !== RESULT.NOT_FOUND) document.result = RESULT.PENDING;
+  document.updatedAt = new Date().toISOString();
   recalculateDocument(document);
   return true;
 }
@@ -330,6 +390,7 @@ export function verifyDocument(document, foundRevision, copyCount, comment = '')
     addFieldCopy(document, { foundRevision: revision, comment: index === 0 ? comment : '', source: 'manual' });
   }
   document.comment = normalize(comment);
+  document.updatedAt = new Date().toISOString();
   return recalculateDocument(document);
 }
 
@@ -343,7 +404,9 @@ export function markNotFound(document, comment = '') {
   document.copyCount = 0;
   document.result = RESULT.NOT_FOUND;
   document.comment = normalize(comment);
-  document.verifiedAt = new Date().toISOString();
+  const now = new Date().toISOString();
+  document.verifiedAt = now;
+  document.updatedAt = now;
   return document;
 }
 
