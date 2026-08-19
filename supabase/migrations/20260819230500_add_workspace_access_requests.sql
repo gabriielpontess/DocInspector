@@ -43,7 +43,7 @@ create table public.docinspector_access_requests (
   constraint docinspector_access_requests_handled_state
     check (
       (status = 'PENDING' and handled_at is null and handled_by is null)
-      or (status <> 'PENDING' and handled_at is not null and handled_by is not null)
+      or (status <> 'PENDING' and handled_at is not null)
     )
 );
 
