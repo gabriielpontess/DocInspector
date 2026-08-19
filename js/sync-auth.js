@@ -76,11 +76,14 @@ export function mergeInspection(localInspection, remoteInspection) {
 
 function comparable(inspection) {
   const copy = structuredClone(inspection);
-  copy.documents.sort((a, b) => a.code.localeCompare(b.code));
+  copy.documents.sort((a, b) => String(a.id).localeCompare(String(b.id)));
   for (const document of copy.documents) {
     if (Array.isArray(document.fieldCopies)) document.fieldCopies.sort((a, b) => String(a.id).localeCompare(String(b.id)));
     if (Array.isArray(document.deletedCopyIds)) document.deletedCopyIds.sort((a, b) => String(a).localeCompare(String(b)));
   }
+  if (Array.isArray(copy.deletedDocumentIds)) copy.deletedDocumentIds.sort((a, b) => String(a).localeCompare(String(b)));
+  if (Array.isArray(copy.deletedDocuments)) copy.deletedDocuments.sort((a, b) => String(a?.document?.id).localeCompare(String(b?.document?.id)));
+  if (Array.isArray(copy.documentAudit)) copy.documentAudit.sort((a, b) => String(a?.id).localeCompare(String(b?.id)));
   return JSON.stringify(copy);
 }
 
@@ -208,12 +211,19 @@ function evidenceExtension(type = '') {
   return 'jpg';
 }
 
+function inspectionDocumentsIncludingArchive(inspection) {
+  const archived = (inspection.deletedDocuments || [])
+    .map(entry => entry?.document)
+    .filter(Boolean);
+  return [...(inspection.documents || []), ...archived];
+}
+
 async function syncPendingEvidence(remote, config, allowedInspectionIds) {
   const inspections = await listInspections();
   for (const inspection of inspections) {
     if (!allowedInspectionIds.has(inspection.id)) continue;
     let changed = false;
-    for (const document of inspection.documents || []) {
+    for (const document of inspectionDocumentsIncludingArchive(inspection)) {
       for (const copy of document.fieldCopies || []) {
         if (!copy.evidenceId || copy.evidencePath) continue;
         const evidence = await getEvidence(copy.evidenceId).catch(() => null);
