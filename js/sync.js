@@ -202,8 +202,6 @@ export async function testConfiguredSyncConnection() {
     throw new Error(`Banco conectado, mas o Storage de evidências não está acessível: ${storageCheck.error.message || 'falha desconhecida'}`);
   }
 
-  // Listar o bucket não prova que as políticas permitem gravar e excluir.
-  // O probe usa um PNG mínimo dentro do próprio workspace e o remove logo após.
   const probePath = `${config.workspaceId}/.health/${crypto.randomUUID()}.png`;
   const pngBytes = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='), char => char.charCodeAt(0));
   const probeBlob = new Blob([pngBytes], { type: 'image/png' });
@@ -352,8 +350,8 @@ function newestDocument(a, b) {
 
   const left = hydrateDocument(a);
   const right = hydrateDocument(b);
-  const aTime = Date.parse(left.verifiedAt || '') || 0;
-  const bTime = Date.parse(right.verifiedAt || '') || 0;
+  const aTime = Date.parse(left.updatedAt || left.verifiedAt || '') || 0;
+  const bTime = Date.parse(right.updatedAt || right.verifiedAt || '') || 0;
   const base = bTime > aTime ? right : left;
 
   const deletedCopyIds = new Set([...(left.deletedCopyIds || []), ...(right.deletedCopyIds || [])]);
@@ -365,17 +363,41 @@ function newestDocument(a, b) {
     if (!deletedCopyIds.has(copy.id)) copies.set(copy.id, newestFieldCopy(copies.get(copy.id), copy));
   }
 
-  if (copies.size || deletedCopyIds.size) {
-    const merged = hydrateDocument({
-      ...base,
-      fieldCopies: [...copies.values()],
-      deletedCopyIds: [...deletedCopyIds],
-      result: copies.size ? 'Pendente' : base.result
-    });
-    return recalculateDocument(merged);
-  }
+  const merged = hydrateDocument({
+    ...base,
+    id: left.id || right.id,
+    fieldCopies: [...copies.values()],
+    deletedCopyIds: [...deletedCopyIds],
+    result: copies.size ? 'Pendente' : base.result
+  });
+  return copies.size || deletedCopyIds.size ? recalculateDocument(merged) : merged;
+}
 
-  return bTime > aTime ? right : left;
+function mergeDeletedDocuments(local = [], remote = [], deletedIds = new Set()) {
+  const byId = new Map();
+  for (const entry of [...local, ...remote]) {
+    const id = entry?.document?.id;
+    if (!id || !deletedIds.has(id)) continue;
+    const previous = byId.get(id);
+    const previousTime = Date.parse(previous?.deletedAt || '') || 0;
+    const nextTime = Date.parse(entry?.deletedAt || '') || 0;
+    if (!previous || nextTime >= previousTime) byId.set(id, structuredClone(entry));
+  }
+  return [...byId.values()];
+}
+
+function mergeDocumentAudit(local = [], remote = []) {
+  const byId = new Map();
+  for (const event of [...local, ...remote]) {
+    if (!event?.id) continue;
+    const previous = byId.get(event.id);
+    const previousTime = Date.parse(previous?.at || '') || 0;
+    const nextTime = Date.parse(event?.at || '') || 0;
+    if (!previous || nextTime >= previousTime) byId.set(event.id, structuredClone(event));
+  }
+  return [...byId.values()]
+    .sort((a, b) => String(a.at || '').localeCompare(String(b.at || '')))
+    .slice(-1000);
 }
 
 export function mergeInspection(localInspection, remoteInspection) {
@@ -387,11 +409,27 @@ export function mergeInspection(localInspection, remoteInspection) {
   const localTime = Date.parse(local.updatedAt) || 0;
   const remoteTime = Date.parse(remote.updatedAt) || 0;
   const base = remoteTime > localTime ? remote : local;
+  const deletedDocumentIds = new Set([...(local.deletedDocumentIds || []), ...(remote.deletedDocumentIds || [])]);
 
-  const byCode = new Map();
-  for (const document of local.documents) byCode.set(document.code, document);
+  const byId = new Map();
+  for (const document of local.documents) {
+    if (!deletedDocumentIds.has(document.id)) byId.set(document.id, document);
+  }
   for (const document of remote.documents) {
-    byCode.set(document.code, newestDocument(byCode.get(document.code), document));
+    if (deletedDocumentIds.has(document.id)) continue;
+    const exact = byId.get(document.id);
+    if (exact) {
+      byId.set(document.id, newestDocument(exact, document));
+      continue;
+    }
+
+    const sameCode = [...byId.values()].filter(candidate => candidate.code === document.code);
+    if (sameCode.length === 1) {
+      const existing = sameCode[0];
+      byId.set(existing.id, newestDocument(existing, { ...document, id: existing.id }));
+    } else {
+      byId.set(document.id, document);
+    }
   }
 
   return {
@@ -399,17 +437,23 @@ export function mergeInspection(localInspection, remoteInspection) {
     id: local.id,
     createdAt: local.createdAt || remote.createdAt,
     updatedAt: new Date(Math.max(localTime, remoteTime)).toISOString(),
-    documents: [...byCode.values()]
+    documents: [...byId.values()].filter(document => !deletedDocumentIds.has(document.id)),
+    deletedDocumentIds: [...deletedDocumentIds],
+    deletedDocuments: mergeDeletedDocuments(local.deletedDocuments, remote.deletedDocuments, deletedDocumentIds),
+    documentAudit: mergeDocumentAudit(local.documentAudit, remote.documentAudit)
   };
 }
 
 function comparable(inspection) {
   const copy = structuredClone(inspection);
-  copy.documents.sort((a, b) => a.code.localeCompare(b.code));
+  copy.documents.sort((a, b) => String(a.id).localeCompare(String(b.id)));
   for (const document of copy.documents) {
     if (Array.isArray(document.fieldCopies)) document.fieldCopies.sort((a, b) => String(a.id).localeCompare(String(b.id)));
     if (Array.isArray(document.deletedCopyIds)) document.deletedCopyIds.sort((a, b) => String(a).localeCompare(String(b)));
   }
+  if (Array.isArray(copy.deletedDocumentIds)) copy.deletedDocumentIds.sort((a, b) => String(a).localeCompare(String(b)));
+  if (Array.isArray(copy.deletedDocuments)) copy.deletedDocuments.sort((a, b) => String(a?.document?.id).localeCompare(String(b?.document?.id)));
+  if (Array.isArray(copy.documentAudit)) copy.documentAudit.sort((a, b) => String(a?.id).localeCompare(String(b?.id)));
   return JSON.stringify(copy);
 }
 
@@ -502,9 +546,6 @@ async function syncPendingEvidence(remote, config) {
         const attemptedAt = new Date().toISOString();
 
         if (!evidence?.blob) {
-          // Recuperação de causa raiz: uma versão anterior podia concluir o upload
-          // e perder o vínculo local antes de persistir evidencePath. Antes de
-          // declarar perda, consultamos o Storage pelo identificador imutável da cópia.
           const folder = `${config.workspaceId}/${inspection.id}/${document.id}`;
           const { data: remoteFiles, error: listError } = await remote.storage
             .from(EVIDENCE_BUCKET)
@@ -538,10 +579,6 @@ async function syncPendingEvidence(remote, config) {
             continue;
           }
 
-          // Se não existe nem localmente nem no Storage, repetir a sincronização
-          // jamais poderá recuperar o arquivo. Mantemos o registro da cópia e
-          // explicitamos a perda da evidência, mas retiramos a referência órfã da
-          // fila para que ela não bloqueie indefinidamente toda a sincronização.
           const unavailableAt = new Date().toISOString();
           copy.evidenceUnavailableAt = unavailableAt;
           copy.evidenceUnavailableReason = 'arquivo fotográfico ausente no aparelho e no Storage';
@@ -707,9 +744,6 @@ export function syncNow({ announce = false } = {}) {
   syncRequested = true;
   if (announce) announceRequested = true;
 
-  // Single-flight: toda chamada recebe a mesma Promise e, portanto, pode
-  // aguardar a sincronização realmente terminar. Se algo mudar durante o
-  // ciclo, uma nova passagem é feita antes de resolver a Promise.
   if (activeSyncPromise) return activeSyncPromise;
 
   activeSyncPromise = (async () => {

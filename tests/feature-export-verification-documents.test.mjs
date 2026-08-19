@@ -8,9 +8,9 @@ const duplicateSource = hydrateDocument({ id:'d1', code:'PW-1', description:'NC'
 const inspection = { id:'inspection-1', name:'Teste', project:'P', system:'S', responsible:'R', location:'L', documents:[duplicateSource, structuredClone(duplicateSource), hydrateDocument({ id:'d2', code:'PW-2', description:'NF', expectedRevision:'A', result:RESULT.NOT_FOUND, fieldCopies:[] }), hydrateDocument({ id:'d3', code:'PW-3', description:'Pendente', expectedRevision:'A', result:RESULT.PENDING, fieldCopies:[] })] };
 const data = buildInspectionExportData(inspection, { includeConforming:false, includeNonconforming:true, includeNotFound:true, includePending:false, includeCopies:true });
 assert.deepEqual(data.documents.map(row => row['Código PW']), ['PW-1','PW-2']);
-assert.equal(data.documents.length, 2, 'documento duplicado por id deve produzir uma única linha');
-assert.equal(data.copies.length, 1, 'cópia do documento duplicado não pode ser repetida');
-assert.equal(data.metrics.total, 2, 'resumo deve usar a mesma coleção deduplicada');
+assert.equal(data.documents.length, 2);
+assert.equal(data.copies.length, 1);
+assert.equal(data.metrics.total, 2);
 assert.equal(data.metrics.verified, 2);
 assert.equal(data.metrics.pending, 0);
 
@@ -19,6 +19,7 @@ const report = fs.readFileSync(new URL('../js/report.js', import.meta.url), 'utf
 const word = fs.readFileSync(new URL('../js/word.js', import.meta.url), 'utf8');
 const serviceWorker = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 const index = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const authEntry = fs.readFileSync(new URL('../js/auth-entry.js', import.meta.url), 'utf8');
 const visualSystem = fs.readFileSync(new URL('../visual-system.css', import.meta.url), 'utf8');
 const visualVerify = fs.readFileSync(new URL('../visual-verify.css', import.meta.url), 'utf8');
 const visualDocuments = fs.readFileSync(new URL('../visual-documents.css', import.meta.url), 'utf8');
@@ -28,16 +29,16 @@ const markingPolicy = fs.readFileSync(new URL('../js/marking-policy-ui.js', impo
 const copyEvidenceEdit = fs.readFileSync(new URL('../js/copy-evidence-edit-ui.js', import.meta.url), 'utf8');
 
 assert.match(app, /id="copy-quantity"/);
-assert.match(app, /if \(!input \|\| input\.dataset\.bound\) return;[\s\S]{0,80}input\.dataset\.bound = '1';/, 'contador de cópias deve impedir listeners duplicados');
+assert.match(app, /if \(!input \|\| input\.dataset\.bound\) return;[\s\S]{0,80}input\.dataset\.bound = '1';/);
 assert.match(app, /data-copy-edit=/);
 assert.match(app, /id="next-document"/);
 assert.match(app, /id="clear-pw-search"/);
 assert.match(app, /Registrar por foto/);
 assert.match(app, /documents-dashboard/);
 const inspectViewSource = app.match(/function inspectView\(\)[\s\S]*?function normalizeSearchText/);
-assert.ok(inspectViewSource, 'trecho de inspectView deve ser localizado antes de validar a ausência do dashboard');
+assert.ok(inspectViewSource);
 assert.doesNotMatch(inspectViewSource[0], /global-dashboard/);
-assert.doesNotMatch(app, /querySelector\('#global-dashboard'\)/, 'referência morta ao dashboard antigo não deve retornar');
+assert.doesNotMatch(app, /querySelector\('#global-dashboard'\)/);
 assert.doesNotMatch(report, /boundedLines/);
 assert.doesNotMatch(report, /maxLines:/);
 const lineSets = [['a1','a2','a3','a4','a5'], ['b1','b2'], ['c1','c2','c3']];
@@ -51,22 +52,19 @@ assert.equal(secondChunk.done, false);
 const thirdChunk = sliceRowLineSets(lineSets, secondChunk.nextOffsets, 2);
 assert.deepEqual(thirdChunk.chunkSets, [['a5'], [], []]);
 assert.equal(thirdChunk.done, true);
-assert.equal(availableRowLines(5.6), 0, 'altura menor que a linha mínima deve forçar nova página');
-assert.equal(availableRowLines(6.99), 0, 'faixa limítrofe abaixo de 7 mm não pode aceitar uma linha');
-assert.equal(availableRowLines(7), 1, '7 mm comporta exatamente a altura mínima de uma linha');
+assert.equal(availableRowLines(5.6), 0);
+assert.equal(availableRowLines(6.99), 0);
+assert.equal(availableRowLines(7), 1);
 
-assert.match(serviceWorker, /const VERSION = '0\.9\.27';/);
+assert.match(serviceWorker, /const VERSION = '0\.9\.37';/);
 for (const asset of ['visual-system.css','visual-verify.css','visual-documents.css','visual-overlays.css','visual-responsive.css','visual-refinement.css','js/marking-policy-ui.js','js/copy-evidence-edit-ui.js','js/ui-refinement.js']) {
   assert.ok(serviceWorker.includes(`./${asset}`), `${asset} deve estar no shell offline`);
 }
 for (const asset of ['visual-system.css','visual-verify.css','visual-documents.css','visual-overlays.css','visual-responsive.css']) assert.ok(index.includes(`href="${asset}"`));
-assert.ok(
-  index.includes('href="visual-refinement.css"'),
-  'refinamento visual deve usar a mesma URL pré-cacheada pelo app shell offline'
-);
-assert.match(index, /src="js\/marking-policy-ui\.js"/);
-assert.match(index, /src="js\/copy-evidence-edit-ui\.js"/);
-assert.match(index, /src="js\/ui-refinement\.js"/);
+assert.ok(index.includes('href="visual-refinement.css"'));
+assert.match(authEntry, /import\('\.\/marking-policy-ui\.js'\)/);
+assert.match(authEntry, /import\('\.\/copy-evidence-edit-ui\.js'\)/);
+assert.match(authEntry, /import\('\.\/ui-refinement\.js'\)/);
 assert.match(markingPolicy, /new Set\(\['Amarelo', 'Vermelho'\]\)/);
 assert.match(markingPolicy, /input\.checked = false;[\s\S]*input\.disabled = true;/);
 assert.match(copyEvidenceEdit, /context\.copy\.evidenceId = evidenceId/);

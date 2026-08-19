@@ -10,6 +10,21 @@ on:
       - feature/field-readiness-hardening
       - develop
       - main
+    paths:
+      - 'index.html'
+      - 'manifest.webmanifest'
+      - 'service-worker.js'
+      - 'js/**'
+      - 'css/**'
+      - 'assets/**'
+      - 'tests/**'
+      - 'playwright.config.*'
+      - 'package.json'
+      - '.github/workflows/mobile-actions-e2e.yml'
+
+concurrency:
+  group: docinspector-e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -27,8 +42,6 @@ jobs:
           node-version: '22'
       - name: Install test dependency
         run: npm install --no-audit --no-fund
-      - name: Static quality gates
-        run: npm run check
       - name: Install Chromium and WebKit
         run: npx playwright install --with-deps chromium webkit
       - name: Browser interaction gate

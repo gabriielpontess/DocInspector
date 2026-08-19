@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const moduleSource = fs.readFileSync(new URL('../js/evidence-health-ui.js', import.meta.url), 'utf8');
-const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const authEntry = fs.readFileSync(new URL('../js/auth-entry.js', import.meta.url), 'utf8');
 const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 
 assert.match(moduleSource, /lastSyncError/, 'falha persistida de upload deve aparecer no diagnóstico');
@@ -15,7 +15,7 @@ assert.match(moduleSource, /LARGE_SOURCE_BYTES/, 'fotos grandes devem possuir gu
 assert.match(moduleSource, /MIN_FREE_STORAGE_BYTES/, 'guarda deve exigir reserva mínima de armazenamento');
 assert.match(moduleSource, /navigator\.storage\?\.estimate/, 'guarda deve usar quota real do navegador quando disponível');
 assert.match(moduleSource, /input\.id === 'camera-input' \|\| input\.hasAttribute\('data-copy-evidence-input'\)/, 'guarda de armazenamento deve cobrir câmera e foto anexada ao editar cópia');
-assert.match(html, /js\/evidence-health-ui\.js/, 'diagnóstico deve ser carregado pela aplicação');
+assert.match(authEntry, /import\('\.\/evidence-health-ui\.js'\)/, 'diagnóstico deve ser carregado pelo bootstrap autenticado');
 assert.match(sw, /\.\/js\/evidence-health-ui\.js/, 'diagnóstico deve funcionar offline');
 
 console.log('evidence-health-ui.test.mjs: OK');

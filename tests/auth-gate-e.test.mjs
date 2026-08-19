@@ -1,0 +1,45 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+
+const edge = fs.readFileSync(new URL('../supabase/functions/docinspector-user-admin/index.ts', import.meta.url), 'utf8');
+const ui = fs.readFileSync(new URL('../js/user-admin-ui.js', import.meta.url), 'utf8');
+const permissions = fs.readFileSync(new URL('../js/permissions.js', import.meta.url), 'utf8');
+const entry = fs.readFileSync(new URL('../js/auth-entry.js', import.meta.url), 'utf8');
+const auth = fs.readFileSync(new URL('../js/auth.js', import.meta.url), 'utf8');
+const context = fs.readFileSync(new URL('../js/auth-context.js', import.meta.url), 'utf8');
+const permissionUi = fs.readFileSync(new URL('../js/permission-ui.js', import.meta.url), 'utf8');
+const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+
+assert.match(edge, /SUPABASE_SERVICE_ROLE_KEY/);
+assert.match(edge, /admin\.auth\.getUser\(token\)/);
+assert.match(edge, /callerMembership\.role !== 'ADMIN'/);
+assert.match(edge, /inviteUserByEmail/);
+assert.match(edge, /docinspector_workspace_members/);
+assert.match(edge, /O último Administrador ativo não pode ser desativado ou rebaixado/);
+assert.doesNotMatch(ui, /SUPABASE_SERVICE_ROLE_KEY|service_role|sb_secret_/i);
+assert.match(ui, /functions\.invoke\('docinspector-user-admin'/);
+assert.match(ui, /CAPABILITY\.MANAGE_USERS/);
+assert.match(permissions, /capability !== CAPABILITY\.MANAGE_USERS/);
+assert.match(entry, /import\('\.\/user-admin-ui\.js'\)/);
+assert.match(auth, /updateCurrentPassword/);
+assert.match(auth, /auth\.updateUser\(\{ password \}\)/);
+assert.match(auth, /resetPasswordForEmail/);
+assert.match(auth, /detectSessionInUrl:\s*true/);
+assert.match(auth, /passwordRecoveryErrorMessage/);
+assert.match(auth, /status === 429/);
+assert.match(auth, /verifyRecoveryTokenHash/);
+assert.match(auth, /verifyOtp\(\{ token_hash: token, type: 'recovery' \}\)/);
+assert.match(entry, /auth-forgot/);
+assert.match(entry, /auth-recovery-form/);
+assert.match(entry, /PASSWORD_RECOVERY/);
+assert.match(entry, /recovery_token/);
+assert.match(entry, /auth-recovery-continue/);
+assert.match(entry, /authCallbackErrorMessage/);
+assert.match(entry, /otp_expired/);
+assert.match(permissionUi, /auth-change-password/);
+assert.match(context, /sky17-sync-config-v1/);
+assert.match(context, /readLegacyWorkspaceId/);
+assert.match(sw, /\.\/js\/user-admin-ui\.js/);
+assert.match(sw, /const VERSION = '0\.9\.37';/);
+
+console.log('Auth/RBAC Gate E administration checks passed.');
