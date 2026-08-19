@@ -1,4 +1,4 @@
-const VERSION = '0.9.36';
+const VERSION = '0.9.37';
 const CORE_CACHE = `docinspector-core-${VERSION}`;
 const RUNTIME_CACHE = `docinspector-runtime-${VERSION}`;
 const XLSX_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';

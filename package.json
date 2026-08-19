@@ -1,8 +1,8 @@
 {
   "name": "docinspector",
-  "version": "0.9.12",
+  "version": "0.10.0",
   "private": true,
-  "description": "DocInspector PWA - baseline field pilot",
+  "description": "DocInspector PWA - authenticated field-ready release",
   "scripts": {
     "test": "node scripts/run-tests.mjs",
     "test:e2e": "playwright test",

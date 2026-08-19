@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.10.0 — Autenticação, RBAC, sincronização segura e ciclo de documentos
+
+- Adicionado Supabase Auth com login, sessão persistente e recuperação de senha scanner-safe.
+- Adicionados perfis ADMIN, INSPECTOR, SUPERVISOR e FOREMAN com permissões explícitas e gestão administrativa de usuários.
+- A sincronização principal passou a operar em modo autenticado com isolamento por workspace, revalidação de membership, quarentena ao trocar vínculo e proteção contra envio acidental de registros locais pertencentes a outro contexto.
+- Evidências fotográficas permanecem em bucket privado e continuam no fluxo offline-first, incluindo reconciliação e sincronização de evidências vinculadas a documentos arquivados.
+- Corrigido o processamento de exclusões pendentes para preservar o progresso do lote após falha parcial e manter na fila somente os itens realmente não concluídos.
+- Adicionado gerenciamento seguro de documentos com edição controlada de Código PW, descrição, status e revisão esperada, exclusão lógica por tombstone, auditoria local e preservação de cópias, comentários, histórico e evidências.
+- Atualizações de planilha passam a respeitar alterações manuais e tombstones, impedindo a ressurreição silenciosa de documentos removidos.
+- Reforçada a inicialização do PWA para que Service Worker e aquecimento de cache não bloqueiem o boot da interface em WebKit/Safari móvel.
+- Mantidos atualização segura de listas, recuperação de rascunhos, diagnóstico pré-campo, backup verificável e comportamento offline-first.
+- Mantidos os refinamentos de PDF, Cópias de campo opcionais, busca de verificação global/por lista e navegação Anterior/Próximo em detalhes de documentos.
+- Pipeline de qualidade ampliado com CI determinístico, Playwright Chromium + WebKit e runner Windows self-hosted confiável para E2E de PRs internos.
+- O plano de desativação definitiva do legado anônimo permanece separado e não é aplicado neste release antes do cutover autenticado de produção.
+
 ## v0.9.12 — Relatório, verificação por lista e navegação documental
 
 - Corrigida a paginação do PDF para manter linhas normais inteiras entre páginas; somente linhas maiores que a própria área útil usam continuação controlada.
