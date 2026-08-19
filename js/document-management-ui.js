@@ -183,13 +183,13 @@ async function mountDetailActions() {
   if (token !== detailMountToken || !page.isConnected || !inspection) return;
   const matches = (inspection.documents || []).filter(item => item.code === code);
   if (matches.length !== 1) return;
-  const document = matches[0];
+  const targetDocument = matches[0];
   const actions = page.querySelector('.detail-actions');
   if (!actions) return;
   const wrapper = document.createElement('span');
   wrapper.dataset.documentManagementActions = 'true';
   wrapper.className = 'document-management-detail-actions';
-  wrapper.innerHTML = actionButtons(inspection.id, document.id);
+  wrapper.innerHTML = actionButtons(inspection.id, targetDocument.id);
   actions.prepend(wrapper);
   wrapper.querySelectorAll('[data-edit-document],[data-delete-document]').forEach(bindManagementButton);
 }
