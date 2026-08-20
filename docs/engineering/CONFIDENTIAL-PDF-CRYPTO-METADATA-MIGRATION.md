@@ -1,6 +1,8 @@
 # Confidential PDF crypto metadata — migration and rollback
 
-Migration: `20260820172000_add_confidential_pdf_crypto_metadata.sql`
+Migration applied in production: `20260820173313_add_confidential_pdf_crypto_metadata.sql`
+
+Follow-up FK index migration applied in production: `20260820173433_index_confidential_pdf_crypto_foreign_keys.sql`
 
 ## Forward compatibility
 
