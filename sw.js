@@ -26,7 +26,7 @@ const APP_SHELL = [
   './manifest.webmanifest', './assets/icon.svg', './assets/icon-180.png', './assets/icon-192.png', './assets/icon-512.png',
   './assets/icon-maskable-192.png', './assets/icon-maskable-512.png', './js/app.js', './js/db.js', './js/domain.js', './js/document-lifecycle.js', './js/document-management-ui.js',
   './js/auth-config.js', './js/auth.js', './js/auth-context.js', './js/auth-entry.js', './js/access-request.js', './js/access-request-admin-ui.js', './js/permissions.js', './js/permission-ui.js', './js/user-admin-ui.js', './js/sync-auth.js', './js/sync-delete-queue.js',
-  './js/confidential-crypto.js', './js/confidential-storage.js', './js/confidential-offline.js', './js/confidential-viewer.js',
+  './js/confidential-crypto.js', './js/confidential-e2ee-ui.js', './js/confidential-keyring.js', './js/confidential-offline-key.js', './js/confidential-rotation.js', './js/confidential-storage.js', './js/confidential-offline.js', './js/confidential-viewer.js',
   './vendor/pdfjs/pdf.min.mjs', './vendor/pdfjs/pdf.worker.min.mjs',
   './js/inspection-update.js', './js/inspection-update-ui.js', './js/field-recovery-ui.js', './js/evidence-health-ui.js',
   './js/marking-policy-ui.js', './js/copy-evidence-edit-ui.js', './js/ui-refinement.js', './js/export-pdf-options-ui.js', './js/pwa.js', './js/report.js', './js/sync.js', './js/sync.js?legacy=1', './js/ui.js', './js/xlsx.js', './js/vision.js', './js/word.js'
@@ -74,8 +74,6 @@ self.addEventListener('fetch', event => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
 
-  // Confidential PDF bytes are stored only in the dedicated IndexedDB vault.
-  // Never allow .dipdf ciphertext to enter generic CacheStorage.
   if (isConfidentialCiphertextRequest(url)) return;
 
   if (request.mode === 'navigate') {
