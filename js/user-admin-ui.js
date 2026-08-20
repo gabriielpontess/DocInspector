@@ -176,6 +176,7 @@ function mount() {
 
 function start() {
   mount();
+  window.addEventListener('docinspector:user-admin-refresh', () => loadMembers());
   observer = new MutationObserver(() => mount());
   observer.observe(document.body, { childList: true, subtree: true });
 }

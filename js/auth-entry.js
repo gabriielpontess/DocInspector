@@ -9,9 +9,11 @@ import {
   verifyRecoveryTokenHash
 } from './auth.js';
 import { clearAuthContext, resolveAuthContext } from './auth-context.js';
+import { submitAccessRequest } from './access-request.js';
 
 const app = document.querySelector('#app');
 const RECOVERY_REQUEST_KEY = 'docinspector-recovery-requested-v1';
+let accessRequestOpenedAt = 0;
 
 function esc(value) {
   return String(value ?? '')
@@ -87,9 +89,42 @@ function renderAuthShell({ message = '', messageType = 'error', busy = false, em
           <label>Senha<input id="auth-password" type="password" autocomplete="current-password" maxlength="4096" required></label>
           <div id="auth-message" class="auth-message ${message ? messageType : ''}" ${message ? '' : 'hidden'}>${esc(message)}</div>
           <button id="auth-submit" class="auth-submit" type="submit" ${busy ? 'disabled' : ''}>${busy ? 'Entrando…' : 'Entrar'}</button>
-          <button id="auth-forgot" class="auth-recovery-link" type="button" ${busy ? 'disabled' : ''}>Esqueci minha senha</button>
+          <div class="auth-secondary-actions">
+            <button id="auth-forgot" class="auth-recovery-link" type="button" ${busy ? 'disabled' : ''}>Esqueci minha senha</button>
+            <span aria-hidden="true">•</span>
+            <button id="auth-request-access" class="auth-recovery-link" type="button" ${busy ? 'disabled' : ''}>Solicitar cadastro</button>
+          </div>
         </form>
         <div class="auth-note">A primeira validação neste aparelho requer conexão com a internet. Depois disso, o trabalho local pode continuar offline conforme o perfil já validado.</div>
+      </section>
+    </main>`;
+}
+
+function renderAccessRequest({ message = '', messageType = 'error', busy = false, email = '', displayName = '', requestCode = '', note = '' } = {}) {
+  if (!busy) accessRequestOpenedAt = Date.now();
+  app.innerHTML = `
+    <main class="auth-screen">
+      <section class="auth-card auth-access-request-card" aria-labelledby="access-request-title">
+        <div class="auth-brand">
+          <img src="assets/icon.svg" alt="" aria-hidden="true">
+          <div><strong><span>Doc</span>Inspector</strong><small>Solicitação de acesso</small></div>
+        </div>
+        <div class="auth-copy">
+          <span class="auth-kicker">NOVO ACESSO</span>
+          <h1 id="access-request-title">Solicitar cadastro</h1>
+          <p>Envie uma solicitação ao administrador do workspace. Nenhuma conta ou permissão é criada automaticamente.</p>
+        </div>
+        <form id="access-request-form" novalidate>
+          <label>Nome<input id="access-request-name" type="text" autocomplete="name" minlength="2" maxlength="120" value="${esc(displayName)}" required></label>
+          <label>E-mail<input id="access-request-email" type="email" autocomplete="email" maxlength="254" value="${esc(email)}" required></label>
+          <label>Código do workspace<input id="access-request-code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" maxlength="14" value="${esc(requestCode)}" placeholder="Ex.: A1B2C3D4E5F6" required></label>
+          <label>Observação <span class="auth-optional">opcional</span><textarea id="access-request-message" maxlength="500" rows="3" placeholder="Informe equipe, função ou contexto do acesso.">${esc(note)}</textarea></label>
+          <label class="auth-honeypot" aria-hidden="true">Website<input id="access-request-website" type="text" tabindex="-1" autocomplete="off"></label>
+          <div class="auth-message ${message ? messageType : ''}" ${message ? '' : 'hidden'}>${esc(message)}</div>
+          <button id="access-request-submit" class="auth-submit" type="submit" ${busy ? 'disabled' : ''}>${busy ? 'Enviando…' : 'Enviar solicitação'}</button>
+          <button id="access-request-back" class="auth-back-link" type="button" ${busy ? 'disabled' : ''}>Voltar para entrar</button>
+        </form>
+        <div class="auth-note">O código do workspace é fornecido pelo Administrador. Após a aprovação, você receberá o convite de acesso no e-mail informado.</div>
       </section>
     </main>`;
 }
@@ -153,7 +188,7 @@ async function loadApplication({ skipAuthUi = false } = {}) {
     import('./export-pdf-options-ui.js')
   ];
   if (!skipAuthUi) {
-    modules.push(import('./permission-ui.js'), import('./user-admin-ui.js'));
+    modules.push(import('./permission-ui.js'), import('./user-admin-ui.js'), import('./access-request-admin-ui.js'));
   }
   await Promise.all(modules);
 }
@@ -183,6 +218,56 @@ async function waitForRecoverySession() {
       if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && session?.user) finish(session);
     });
     window.setTimeout(() => finish(null), 5000);
+  });
+}
+
+function bindAccessRequest() {
+  document.querySelector('#access-request-back')?.addEventListener('click', () => {
+    const email = document.querySelector('#access-request-email')?.value || '';
+    renderAuthShell({ email });
+    bindLogin();
+    requestAnimationFrame(() => document.querySelector('#auth-email')?.focus());
+  });
+
+  document.querySelector('#access-request-form')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const displayName = document.querySelector('#access-request-name')?.value || '';
+    const email = document.querySelector('#access-request-email')?.value || '';
+    const requestCode = document.querySelector('#access-request-code')?.value || '';
+    const note = document.querySelector('#access-request-message')?.value || '';
+    const website = document.querySelector('#access-request-website')?.value || '';
+    const elapsedMs = Math.max(0, Date.now() - accessRequestOpenedAt);
+
+    if (displayName.trim().length < 2) {
+      renderAccessRequest({ message: 'Informe seu nome.', email, displayName, requestCode, note });
+      bindAccessRequest();
+      return;
+    }
+    if (!email.trim() || !email.includes('@')) {
+      renderAccessRequest({ message: 'Informe um e-mail válido.', email, displayName, requestCode, note });
+      bindAccessRequest();
+      return;
+    }
+    if (requestCode.replace(/[^0-9a-f]/gi, '').length !== 12) {
+      renderAccessRequest({ message: 'Informe o código de 12 caracteres fornecido pelo Administrador.', email, displayName, requestCode, note });
+      bindAccessRequest();
+      return;
+    }
+
+    renderAccessRequest({ busy: true, email, displayName, requestCode, note });
+    try {
+      await submitAccessRequest({ email, displayName, requestCode, message: note, website, elapsedMs });
+      renderAuthShell({
+        message: 'Solicitação enviada. O Administrador do workspace precisa aprovar o pedido antes de você receber o convite.',
+        messageType: 'success',
+        email
+      });
+      bindLogin();
+      requestAnimationFrame(() => document.querySelector('#auth-password')?.focus());
+    } catch (error) {
+      renderAccessRequest({ message: error?.message || 'Não foi possível enviar a solicitação.', email, displayName, requestCode, note });
+      bindAccessRequest();
+    }
   });
 }
 
@@ -269,6 +354,13 @@ function bindLogin() {
       renderAuthShell({ message: error?.message || 'Não foi possível enviar a recuperação.', email });
       bindLogin();
     }
+  });
+
+  document.querySelector('#auth-request-access')?.addEventListener('click', () => {
+    const email = document.querySelector('#auth-email')?.value || '';
+    renderAccessRequest({ email });
+    bindAccessRequest();
+    requestAnimationFrame(() => document.querySelector('#access-request-name')?.focus());
   });
 }
 
