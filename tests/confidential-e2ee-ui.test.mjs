@@ -36,10 +36,10 @@ assert.match(permissionUi, /catalog\.before\(card\)/);
 assert.match(permissionUi, /#confidential-documents-card/);
 assert.match(permissionUi, /\.documents-catalog/);
 
+assert.match(permissions, /MANAGE_PROJECT_FILES:\s*'MANAGE_PROJECT_FILES'/);
 assert.match(permissions, /\[ROLE\.INSPECTOR\]: INSPECTOR_ACCESS/);
 assert.match(permissions, /capability !== CAPABILITY\.MANAGE_USERS/);
 assert.match(permissions, /\[ROLE\.SUPERVISOR\]: READ_AND_COMMENT/);
 assert.match(permissions, /\[ROLE\.FOREMAN\]: READ_AND_COMMENT/);
-assert.match(permissions, /CAPABILITY\.MANAGE_PROJECT_FILES/);
 
 console.log('Confidential E2EE runtime UI regression checks passed.');
