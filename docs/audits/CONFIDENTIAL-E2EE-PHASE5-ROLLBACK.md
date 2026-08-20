@@ -10,6 +10,8 @@ The migration also hardens backup UPDATE so a deactivated member cannot change i
 
 Initial Workspace Key creation is performed by `public.docinspector_initialize_workspace_crypto(uuid, integer, bytea)`. The browser generates WK plaintext and RSA-wraps it to the ADMIN before calling the RPC. The function receives only ciphertext, verifies the caller is an active ADMIN with the referenced active public key, serializes concurrent initialization with a transaction advisory lock, and atomically creates both the active WK metadata row and the ADMIN envelope. The backend never receives WK plaintext.
 
+The Supabase Security Advisor reports `authenticated_security_definer_function_executable` for these two RPCs. This is an expected, reviewed warning: signed-in clients are intentionally allowed to invoke them, while the functions themselves enforce the active ADMIN authorization boundary. `anon` has no EXECUTE privilege. Any future change to those internal checks must treat the advisor warning as security-sensitive rather than suppressing it.
+
 ## Rollback
 
 Application rollback is non-destructive: disable the Phase 5 provisioning/grant UI and preserve all public keys, encrypted private-key backups, WK metadata and envelopes. The ADMIN helper RPCs can be dropped after the UI is disabled if necessary.

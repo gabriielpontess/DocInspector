@@ -42,7 +42,7 @@ assert.match(keyring, /unlocked\.bytes\.fill\(0\)/);
 assert.doesNotMatch(keyring, /localStorage\.setItem\([^\n]*Recovery|sessionStorage\.setItem\([^\n]*Recovery/i);
 assert.doesNotMatch(keyring, /service[_-]?role/i);
 
-const migration = await readFile('supabase/migrations/20260820191500_fix_confidential_recovery_and_key_targets.sql', 'utf8');
+const migration = await readFile('supabase/migrations/20260820192916_fix_confidential_recovery_and_key_targets.sql', 'utf8');
 assert.match(migration, /octet_length\(hkdf_salt\) = 16/);
 assert.match(migration, /docinspector_crypto_key_targets/);
 assert.match(migration, /docinspector_initialize_workspace_crypto/);
