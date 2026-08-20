@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const migration = await readFile(
-  'supabase/migrations/20260820173313_add_confidential_pdf_crypto_metadata.sql',
+  'supabase/migrations/20260820172000_add_confidential_pdf_crypto_metadata.sql',
   'utf8'
 );
 
