@@ -1,5 +1,19 @@
 # Migrações Supabase — DocInspector
 
+## Solicitação de acesso — feature em homologação
+
+- Migração: `20260819230500_add_workspace_access_requests.sql`.
+- Adiciona `docinspector_workspace_access_codes` e `docinspector_access_requests` sem alterar payloads, inspeções, evidências ou tombstones existentes.
+- Mantém as novas tabelas sem grants diretos para `anon`/`authenticated`; leitura e escrita ocorrem apenas pelas Edge Functions previstas.
+- Todo workspace existente recebe um código no backfill e workspaces criados depois da migração recebem código por trigger interno.
+- Pedidos usam os estados `PENDING`, `PROCESSING`, `APPROVED` e `REJECTED`. `PROCESSING` é um claim transitório com token e TTL para impedir dois ADMINs de executar provisionamento simultaneamente e permitir recuperação após falha parcial.
+- O índice parcial garante no máximo um pedido ativo (`PENDING`/`PROCESSING`) por e-mail e workspace.
+- `supabase/config.toml` deixa somente `docinspector-access-request` sem verificação JWT no gateway; a função pública continua validando origem, código do workspace e controles antiabuso. `docinspector-user-admin` permanece com JWT obrigatório e valida membership ADMIN no servidor.
+
+### Compatibilidade e rollback
+
+A migração é aditiva e não modifica o fluxo legado `anon`, que continua sob o bloqueio de cutover já definido pelo projeto. Antes de qualquer ativação com dados reais, o rollback técnico pode remover o trigger, a função interna de seed e as duas tabelas novas. Depois que pedidos reais existirem, não eliminar as tabelas para fazer rollback: desabilite/reverta o endpoint público e preserve `docinspector_access_requests` como trilha de auditoria até uma migração explícita de retenção.
+
 ## Schema 6 — DocInspector v0.6.4
 
 - Mantém as tabelas, workspaces, inspeções, tombstones e bucket do schema 5.

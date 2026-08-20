@@ -27,9 +27,9 @@
 .auth-kicker { color: #9b741d; font-size: 11px; font-weight: 800; letter-spacing: .12em; }
 .auth-copy h1 { margin: 7px 0 8px; font-size: clamp(27px, 7vw, 36px); line-height: 1.05; color: #071a31; }
 .auth-copy p { margin: 0 0 26px; color: #657386; line-height: 1.55; }
-#auth-form, #auth-recovery-form { display: grid; gap: 16px; }
-#auth-form label, #auth-recovery-form label { display: grid; gap: 7px; color: #26384d; font-size: 13px; font-weight: 700; }
-#auth-form input, #auth-recovery-form input {
+#auth-form, #auth-recovery-form, #access-request-form { display: grid; gap: 16px; }
+#auth-form label, #auth-recovery-form label, #access-request-form label { display: grid; gap: 7px; color: #26384d; font-size: 13px; font-weight: 700; }
+#auth-form input, #auth-recovery-form input, #access-request-form input, #access-request-form textarea {
   width: 100%;
   min-height: 48px;
   border: 1px solid #cfd6df;
@@ -41,7 +41,8 @@
   font-size: 16px;
   outline: none;
 }
-#auth-form input:focus, #auth-recovery-form input:focus { border-color: #9b741d; box-shadow: 0 0 0 3px rgba(192, 148, 47, .14); }
+#access-request-form textarea { min-height: 88px; resize: vertical; line-height: 1.45; }
+#auth-form input:focus, #auth-recovery-form input:focus, #access-request-form input:focus, #access-request-form textarea:focus { border-color: #9b741d; box-shadow: 0 0 0 3px rgba(192, 148, 47, .14); }
 .auth-submit {
   min-height: 48px;
   border: 0;
@@ -54,7 +55,7 @@
   cursor: pointer;
 }
 .auth-submit:disabled { opacity: .62; cursor: wait; }
-.auth-recovery-link {
+.auth-recovery-link, .auth-back-link {
   justify-self: center;
   border: 0;
   padding: 2px 4px;
@@ -65,8 +66,11 @@
   font-weight: 700;
   cursor: pointer;
 }
-.auth-recovery-link:hover { text-decoration: underline; }
-.auth-recovery-link:disabled { opacity: .55; cursor: wait; }
+.auth-recovery-link:hover, .auth-back-link:hover { text-decoration: underline; }
+.auth-recovery-link:disabled, .auth-back-link:disabled { opacity: .55; cursor: wait; }
+.auth-secondary-actions { display: flex; justify-content: center; align-items: center; gap: 8px; color: #9aa4b0; }
+.auth-optional { color: #7a8797; font-weight: 500; }
+.auth-honeypot { position: absolute !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; }
 .auth-message { border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.4; }
 .auth-message.error { background: #fff1f0; border: 1px solid #f2c4bf; color: #8a281f; }
 .auth-message.success { background: #edf8f0; border: 1px solid #bddfc5; color: #245b31; }
@@ -120,7 +124,8 @@
 .settings-user-admin { grid-column: 1 / -1; }
 .user-admin-invite { display: grid; grid-template-columns: 1fr 1.35fr minmax(180px,.7fr) auto; gap: 10px; align-items: end; margin-top: 16px; }
 .user-admin-invite .field { min-width: 0; }
-.user-admin-invite input, .user-admin-invite select, .user-admin-member-controls select {
+.user-admin-invite input, .user-admin-invite select, .user-admin-member-controls select,
+.user-admin-access-request-actions select {
   width: 100%; min-height: 42px; border: 1px solid #cfd6df; border-radius: 10px; padding: 8px 10px; background: #fff; color: #10233b; font: inherit;
 }
 .user-admin-message { margin: 12px 0; padding: 10px 12px; border-radius: 10px; font-size: 13px; }
@@ -136,10 +141,29 @@
 .user-admin-member-controls { display: grid; grid-template-columns: minmax(150px,1fr) auto auto; gap: 8px; align-items: center; }
 .user-admin-active { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #405166; }
 
+.user-admin-access-panel { margin-top: 22px; padding-top: 22px; border-top: 1px solid #e1e6ec; }
+.user-admin-access-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.user-admin-access-head h3 { margin: 4px 0 0; color: #10233b; font-size: 18px; }
+.user-admin-request-code { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 12px 14px; border: 1px dashed #c7b16e; border-radius: 12px; background: #fffaf0; }
+.user-admin-request-code > div { display: grid; gap: 2px; }
+.user-admin-request-code small { color: #766322; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.user-admin-request-code strong { color: #071a31; font-size: 18px; letter-spacing: .08em; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.user-admin-access-requests { display: grid; gap: 10px; margin-top: 14px; }
+.user-admin-access-request { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 16px; align-items: start; padding: 14px; border: 1px solid #e1e6ec; border-radius: 12px; background: #fff; }
+.user-admin-access-request-copy { min-width: 0; display: grid; gap: 3px; }
+.user-admin-access-request-copy strong { color: #10233b; }
+.user-admin-access-request-copy span { color: #5f6f82; font-size: 13px; overflow-wrap: anywhere; }
+.user-admin-access-request-copy small { color: #7a8797; font-size: 11px; }
+.user-admin-access-request-copy p { margin: 6px 0 0; color: #405166; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.user-admin-access-request-actions { display: grid; grid-template-columns: minmax(150px,1fr) auto auto; gap: 8px; align-items: end; }
+.user-admin-access-request-actions label { display: grid; gap: 5px; color: #405166; font-size: 11px; font-weight: 700; }
+.user-admin-access-empty { display: grid; gap: 3px; padding: 14px; border: 1px dashed #d5dbe2; border-radius: 12px; color: #647386; background: #fafbfc; }
+.user-admin-access-empty strong { color: #405166; }
+
 @media (max-width: 900px) {
   .user-admin-invite { grid-template-columns: 1fr 1fr; }
-  .user-admin-member { grid-template-columns: 1fr; }
-  .user-admin-member-controls { grid-template-columns: 1fr auto auto; }
+  .user-admin-member, .user-admin-access-request { grid-template-columns: 1fr; }
+  .user-admin-member-controls, .user-admin-access-request-actions { grid-template-columns: 1fr auto auto; }
 }
 
 @media (max-width: 600px) {
@@ -149,5 +173,8 @@
   .auth-account-actions { flex-direction: column; }
   .auth-password-form { padding: 19px; }
   .auth-password-actions { display: grid; grid-template-columns: 1fr; }
-  .user-admin-invite, .user-admin-member-controls { grid-template-columns: 1fr; }
+  .auth-secondary-actions { flex-wrap: wrap; }
+  .user-admin-invite, .user-admin-member-controls, .user-admin-access-request-actions { grid-template-columns: 1fr; }
+  .user-admin-request-code { align-items: stretch; flex-direction: column; }
+  .user-admin-request-code .btn { width: 100%; }
 }

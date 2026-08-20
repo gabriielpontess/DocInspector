@@ -126,12 +126,23 @@ test('gerenciamento de documento edita metadados e exclui com tombstone sem perd
 
   const deleteDialog = page.getByRole('dialog', { name: 'Excluir documento PW-E2E-001-A' });
   await expect(deleteDialog).toBeVisible();
-  await deleteDialog.locator('#delete-document-reason').fill('Removido pelo smoke E2E');
+  const deleteReason = deleteDialog.locator('#delete-document-reason');
+  await deleteReason.fill('Removido pelo smoke E2E');
+  await expect(deleteReason).toHaveValue('Removido pelo smoke E2E');
   await deleteDialog.locator('#confirm-document-delete').click();
   await expect(deleteDialog).toHaveCount(0);
 
   await expect(page.locator('tr[data-doc-row]').filter({ hasText: 'PW-E2E-001-A' })).toHaveCount(0);
   await expect(page.locator('tr[data-doc-row]').filter({ hasText: 'PW-E2E-002' })).toBeVisible();
+
+  await expect.poll(async () => page.evaluate(async () => {
+    const { listInspections } = await import('/js/db.js');
+    const inspection = (await listInspections()).find(item => item.project === 'E2E Mobile Actions');
+    return inspection?.deletedDocuments.find(item => item.document.code === 'PW-E2E-001-A')?.reason || null;
+  }), {
+    message: 'motivo da exclusão deve estar persistido antes da asserção final',
+    timeout: 5000
+  }).toBe('Removido pelo smoke E2E');
 
   const persisted = await page.evaluate(async () => {
     const { listInspections } = await import('/js/db.js');

@@ -1,4 +1,4 @@
-const VERSION = '0.9.37';
+const VERSION = '0.9.40';
 const CORE_CACHE = `docinspector-core-${VERSION}`;
 const RUNTIME_CACHE = `docinspector-runtime-${VERSION}`;
 const XLSX_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
@@ -15,11 +15,19 @@ function isOcrRuntimeAsset(url) {
   );
 }
 
+function isConfidentialCiphertextRequest(url) {
+  const pathname = String(url.pathname || '').toLowerCase();
+  return pathname.endsWith('.dipdf') ||
+    (url.hostname.endsWith('.supabase.co') && pathname.includes('/docinspector-confidential-pdfs/'));
+}
+
 const APP_SHELL = [
   './', './index.html', './styles.css', './visual-system.css', './visual-verify.css', './visual-documents.css', './visual-overlays.css', './visual-responsive.css', './visual-refinement.css', './auth.css',
   './manifest.webmanifest', './assets/icon.svg', './assets/icon-180.png', './assets/icon-192.png', './assets/icon-512.png',
   './assets/icon-maskable-192.png', './assets/icon-maskable-512.png', './js/app.js', './js/db.js', './js/domain.js', './js/document-lifecycle.js', './js/document-management-ui.js',
-  './js/auth-config.js', './js/auth.js', './js/auth-context.js', './js/auth-entry.js', './js/permissions.js', './js/permission-ui.js', './js/user-admin-ui.js', './js/sync-auth.js', './js/sync-delete-queue.js',
+  './js/auth-config.js', './js/auth.js', './js/auth-context.js', './js/auth-entry.js', './js/access-request.js', './js/access-request-admin-ui.js', './js/permissions.js', './js/permission-ui.js', './js/user-admin-ui.js', './js/sync-auth.js', './js/sync-delete-queue.js',
+  './js/confidential-crypto.js', './js/confidential-storage.js', './js/confidential-offline.js', './js/confidential-viewer.js',
+  './vendor/pdfjs/pdf.min.mjs', './vendor/pdfjs/pdf.worker.min.mjs',
   './js/inspection-update.js', './js/inspection-update-ui.js', './js/field-recovery-ui.js', './js/evidence-health-ui.js',
   './js/marking-policy-ui.js', './js/copy-evidence-edit-ui.js', './js/ui-refinement.js', './js/export-pdf-options-ui.js', './js/pwa.js', './js/report.js', './js/sync.js', './js/sync.js?legacy=1', './js/ui.js', './js/xlsx.js', './js/vision.js', './js/word.js'
 ];
@@ -65,6 +73,10 @@ self.addEventListener('fetch', event => {
   const request = event.request;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
+
+  // Confidential PDF bytes are stored only in the dedicated IndexedDB vault.
+  // Never allow .dipdf ciphertext to enter generic CacheStorage.
+  if (isConfidentialCiphertextRequest(url)) return;
 
   if (request.mode === 'navigate') {
     event.respondWith((async () => {

@@ -1,0 +1,6 @@
+create index if not exists docinspector_member_public_keys_user_idx on public.docinspector_member_public_keys(user_id);
+create index if not exists docinspector_project_documents_created_by_idx on public.docinspector_project_documents(created_by);
+create index if not exists docinspector_project_documents_workspace_key_idx on public.docinspector_project_documents(workspace_id, workspace_key_version);
+create index if not exists docinspector_workspace_crypto_keys_created_by_idx on public.docinspector_workspace_crypto_keys(created_by);
+create index if not exists docinspector_workspace_key_envelopes_created_by_idx on public.docinspector_workspace_key_envelopes(created_by);
+create index if not exists docinspector_workspace_key_envelopes_member_key_idx on public.docinspector_workspace_key_envelopes(workspace_id, member_user_id, member_key_version);
