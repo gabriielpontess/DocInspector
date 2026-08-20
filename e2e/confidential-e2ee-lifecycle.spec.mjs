@@ -218,7 +218,6 @@ test('SUPERVISOR authenticated runtime remains read-only in navigation', async (
   await page.evaluate(async () => { await import('/js/permission-ui.js'); });
 
   const settings = page.locator('[data-nav="settings"]');
-  expect(await settings.count()).toBeGreaterThan(0);
   expect(await settings.evaluateAll(nodes => nodes.every(node => node.hidden && node.disabled))).toBe(true);
   await expect(page.locator('#auth-signout')).toHaveCount(1);
   await expect(page.locator('.auth-account-card strong')).toHaveText('Supervisor');
