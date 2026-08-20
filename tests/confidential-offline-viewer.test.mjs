@@ -72,7 +72,8 @@ const container = fixtureContainer();
 assert.deepEqual(assertDipdfCiphertext(container), container);
 const record = prepareConfidentialCacheRecord({ document, container });
 assert.equal(record.document.id, fileId);
-assert.equal(record.container.type, 'application/octet-stream');
+assert.ok(record.container instanceof ArrayBuffer, 'ciphertext offline deve usar ArrayBuffer compatível com WebKit IndexedDB');
+assert.equal(record.container.byteLength, container.byteLength);
 assert.equal('plaintext' in record, false);
 assert.equal('metadata' in record, false);
 assert.equal(JSON.stringify(record).includes('projeto-secreto.pdf'), false);
@@ -134,4 +135,3 @@ console.log('Confidential PDF offline viewer regression checks passed.');
 
 const mobileWorkflow = await readFile('.github/workflows/mobile-actions-e2e.yml', 'utf8');
 assert.match(mobileWorkflow, /'sw\.js'/);
-

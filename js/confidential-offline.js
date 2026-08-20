@@ -140,7 +140,9 @@ export function prepareConfidentialCacheRecord({ document, container, cachedAt =
       return value;
     })(),
     document: safeDocument,
-    container: new Blob([bytes], { type: MIME }),
+    // ArrayBuffer is structured-clone compatible in WebKit IndexedDB. Keep
+    // ciphertext binary and avoid Blob/File persistence incompatibilities.
+    container: bytes.slice().buffer,
     cachedAt: String(cachedAt)
   };
 }
@@ -207,7 +209,9 @@ export async function cacheConfidentialCiphertext(input) {
 
 async function hydrateRecord(record) {
   if (!record) return null;
-  const container = new Uint8Array(await record.container.arrayBuffer());
+  const container = record.container instanceof Blob
+    ? new Uint8Array(await record.container.arrayBuffer())
+    : asBytes(record.container, 'DIPDF1').slice();
   assertDipdfCiphertext(container);
   return { document: { ...record.document }, container, cachedAt: record.cachedAt };
 }
