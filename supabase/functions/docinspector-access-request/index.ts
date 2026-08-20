@@ -29,7 +29,11 @@ function corsHeaders(origin: string) {
 function json(status: number, body: unknown, origin: string) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders(origin), 'Content-Type': 'application/json; charset=utf-8' }
+    headers: {
+      ...corsHeaders(origin),
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store'
+    }
   });
 }
 
@@ -101,24 +105,26 @@ Deno.serve(async (req: Request) => {
     }
 
     const workspaceId = accessCode.workspace_id;
-    const { data: pending, error: pendingError } = await admin
+    const { data: activeRequest, error: activeRequestError } = await admin
       .from('docinspector_access_requests')
-      .select('id')
+      .select('id,status')
       .eq('workspace_id', workspaceId)
       .eq('email', email)
-      .eq('status', 'PENDING')
+      .in('status', ['PENDING', 'PROCESSING'])
       .maybeSingle();
 
-    if (pendingError) throw pendingError;
+    if (activeRequestError) throw activeRequestError;
 
-    if (pending?.id) {
-      const { error: updateError } = await admin
-        .from('docinspector_access_requests')
-        .update({ display_name: displayName, message, source_origin: origin })
-        .eq('id', pending.id)
-        .eq('status', 'PENDING');
-      if (updateError) throw updateError;
-      return json(202, { ok: true, updated: true }, origin);
+    if (activeRequest?.id) {
+      if (activeRequest.status === 'PENDING') {
+        const { error: updateError } = await admin
+          .from('docinspector_access_requests')
+          .update({ display_name: displayName, message, source_origin: origin })
+          .eq('id', activeRequest.id)
+          .eq('status', 'PENDING');
+        if (updateError) throw updateError;
+      }
+      return json(202, { ok: true, updated: activeRequest.status === 'PENDING' }, origin);
     }
 
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -144,6 +150,10 @@ Deno.serve(async (req: Request) => {
         source_origin: origin
       });
 
+    if (insertError?.code === '23505') {
+      // A concurrent request already created the active row. Treat the submission as idempotently accepted.
+      return json(202, { ok: true, deduplicated: true }, origin);
+    }
     if (insertError) throw insertError;
     return json(202, { ok: true }, origin);
   } catch (error) {

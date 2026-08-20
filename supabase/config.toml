@@ -1,0 +1,5 @@
+[functions.docinspector-access-request]
+verify_jwt = false
+
+[functions.docinspector-user-admin]
+verify_jwt = true
