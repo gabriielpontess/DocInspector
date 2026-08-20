@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const migrationPath = 'supabase/migrations/20260820222500_guard_confidential_member_deactivation.sql';
+const migrationPath = 'supabase/migrations/20260820224147_guard_confidential_member_deactivation.sql';
 const migration = await readFile(migrationPath, 'utf8');
 const userAdminUi = await readFile('js/user-admin-ui.js', 'utf8');
 const permissionUi = await readFile('js/permission-ui.js', 'utf8');
