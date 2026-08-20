@@ -8,9 +8,13 @@ import {
   grantWorkspaceKeyToMember,
   listWorkspaceCryptoTargets,
   recoverConfidentialMemberKey,
-  unlockConfidentialWorkspaceKey,
   unwrapConfidentialWorkspaceKeyBytes
 } from './confidential-keyring.js';
+import {
+  cacheCurrentWorkspaceEnvelope,
+  hasCachedWorkspaceEnvelope,
+  unlockConfidentialWorkspaceKeyResilient
+} from './confidential-offline-key.js';
 import {
   deleteConfidentialDocument,
   listConfidentialDocuments,
@@ -99,13 +103,19 @@ async function refreshKeyCard() {
   if (!statusNode || !actions) return null;
   const context = contextOrThrow();
   if (!navigator.onLine) {
-    statusNode.className = 'field-readiness-result warning';
-    statusNode.textContent = 'Offline: o estado remoto das chaves não pode ser atualizado. PDFs já preparados para offline continuam disponíveis quando a WK puder ser desbloqueada localmente.';
+    const cachedEnvelope = await hasCachedWorkspaceEnvelope({ workspaceId: context.workspaceId }).catch(() => false);
+    statusNode.className = `field-readiness-result ${cachedEnvelope ? 'success' : 'warning'}`;
+    statusNode.textContent = cachedEnvelope
+      ? 'Offline: MEK local e envelope cifrado da WK estão disponíveis neste aparelho.'
+      : 'Offline: o envelope da Workspace Key ainda não foi preparado neste aparelho. Conecte-se uma vez para habilitar abertura offline após reinício.';
     actions.innerHTML = '';
     return null;
   }
   try {
     const status = await getConfidentialKeyStatus({ workspaceId: context.workspaceId });
+    if (status.cryptoReady) {
+      await cacheCurrentWorkspaceEnvelope({ workspaceId: context.workspaceId, status }).catch(() => {});
+    }
     statusNode.className = `field-readiness-result ${status.cryptoReady ? 'success' : 'warning'}`;
     statusNode.textContent = keyStatusText(status);
     const buttons = [];
@@ -291,7 +301,7 @@ function bindUpload() {
     try {
       busy = true;
       setButtonBusy(button, true, 'Cifrando e enviando…');
-      const unlocked = await unlockConfidentialWorkspaceKey({ workspaceId: context.workspaceId });
+      const unlocked = await unlockConfidentialWorkspaceKeyResilient({ workspaceId: context.workspaceId });
       const bytes = new Uint8Array(await file.arrayBuffer());
       try {
         const uploaded = await uploadConfidentialPdf({
@@ -326,7 +336,8 @@ function bindDocumentActions(documents) {
       try {
         setButtonBusy(button, true, 'Baixando ciphertext…');
         await resolveConfidentialCiphertext(documentRecord, { preferCache: false });
-        showToast('Ciphertext salvo no cofre offline deste aparelho.', 'success');
+        await cacheCurrentWorkspaceEnvelope({ workspaceId: documentRecord.workspace_id }).catch(() => {});
+        showToast('Ciphertext e envelope da WK salvos para uso offline neste aparelho.', 'success');
         await refreshDocuments();
       } catch (error) {
         showToast(error?.message || 'Não foi possível manter este PDF offline.', 'error');
@@ -362,15 +373,15 @@ async function openViewer(documentRecord, button) {
   let opened = null;
   try {
     setButtonBusy(button, true, 'Desbloqueando…');
-    const unlocked = await unlockConfidentialWorkspaceKey({ workspaceId: context.workspaceId });
-    if (Number(documentRecord.workspace_key_version) !== Number(unlocked.keyVersion)) {
-      throw new Error(`Este PDF usa WK v${documentRecord.workspace_key_version}; atualize/retome a rotação antes de abri-lo neste aparelho.`);
-    }
+    const unlocked = await unlockConfidentialWorkspaceKeyResilient({
+      workspaceId: context.workspaceId,
+      keyVersion: Number(documentRecord.workspace_key_version)
+    });
     opened = await openConfidentialPdfForViewer({ document: documentRecord, workspaceKey: unlocked.key, preferCache: true });
     const modal = openModal(`
       <div class="modal-head"><div><span class="section-kicker">PDF CONFIDENCIAL</span><h2>${escapeHtml(opened.metadata?.title || opened.metadata?.filename || 'Documento')}</h2></div></div>
       <p>${escapeHtml(opened.metadata?.description || '')}</p>
-      <div class="subtitle">${escapeHtml(opened.metadata?.filename || '')} · ${opened.viewer.numPages} página(s) · fonte: ${escapeHtml(opened.source)}</div>
+      <div class="subtitle">${escapeHtml(opened.metadata?.filename || '')} · ${opened.viewer.numPages} página(s) · fonte: ${escapeHtml(opened.source)} · chave: ${escapeHtml(unlocked.source || 'local')}</div>
       <div class="actions"><button class="btn" id="confidential-prev-page" type="button">Anterior</button><span id="confidential-page-label" class="subtitle"></span><button class="btn" id="confidential-next-page" type="button">Próxima</button></div>
       <div style="overflow:auto;max-height:70dvh"><canvas id="confidential-pdf-canvas" aria-label="Página do PDF confidencial"></canvas></div>
     `, { label: 'Visualizador de PDF confidencial' });
