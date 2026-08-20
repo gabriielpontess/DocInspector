@@ -8,11 +8,16 @@ const corsHeaders = {
 };
 
 const ROLES = new Set(['ADMIN', 'INSPECTOR', 'SUPERVISOR', 'FOREMAN']);
+const ACCESS_REQUEST_PROCESSING_TTL_MS = 10 * 60 * 1000;
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store'
+    }
   });
 }
 
@@ -29,6 +34,10 @@ function isUuid(value: unknown) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value ?? ''));
 }
 
+function isUniqueViolation(error: unknown) {
+  return Boolean(error && typeof error === 'object' && 'code' in error && String((error as { code?: unknown }).code || '') === '23505');
+}
+
 async function listAllUsers(admin: ReturnType<typeof createClient>) {
   const users = [];
   for (let page = 1; page <= 10; page += 1) {
@@ -39,6 +48,191 @@ async function listAllUsers(admin: ReturnType<typeof createClient>) {
     if (batch.length < 1000) break;
   }
   return users;
+}
+
+async function ensureUserAccess(admin: ReturnType<typeof createClient>, {
+  workspaceId,
+  email,
+  displayName,
+  role,
+  addedBy
+}: {
+  workspaceId: string;
+  email: string;
+  displayName: string;
+  role: string;
+  addedBy: string;
+}) {
+  const users = await listAllUsers(admin);
+  let user = users.find(item => normalizeEmail(item.email) === email) || null;
+  let invited = false;
+
+  if (!user) {
+    const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+      data: displayName ? { display_name: displayName } : undefined
+    });
+    if (data?.user) {
+      user = data.user;
+      invited = true;
+    } else {
+      // Another admin operation may have created/invited the same address after our initial lookup.
+      const refreshedUsers = await listAllUsers(admin);
+      user = refreshedUsers.find(item => normalizeEmail(item.email) === email) || null;
+      if (!user) throw new Error(error?.message || 'Não foi possível enviar o convite.');
+    }
+  }
+
+  if (displayName) {
+    const { error: profileError } = await admin
+      .from('docinspector_profiles')
+      .upsert({ user_id: user.id, display_name: displayName }, { onConflict: 'user_id' });
+    if (profileError) throw profileError;
+  }
+
+  const { error: membershipError } = await admin
+    .from('docinspector_workspace_members')
+    .upsert({ workspace_id: workspaceId, user_id: user.id, role, active: true, added_by: addedBy }, { onConflict: 'workspace_id,user_id' });
+  if (membershipError) throw membershipError;
+
+  return { invited, userId: user.id, email, role };
+}
+
+async function ensureWorkspaceAccessCode(admin: ReturnType<typeof createClient>, workspaceId: string) {
+  const readCode = () => admin
+    .from('docinspector_workspace_access_codes')
+    .select('request_code')
+    .eq('workspace_id', workspaceId)
+    .maybeSingle();
+
+  let { data, error } = await readCode();
+  if (error) throw error;
+  if (data?.request_code) return data.request_code;
+
+  const { error: insertError } = await admin
+    .from('docinspector_workspace_access_codes')
+    .insert({ workspace_id: workspaceId });
+  if (insertError && !isUniqueViolation(insertError)) throw insertError;
+
+  ({ data, error } = await readCode());
+  if (error) throw error;
+  if (!data?.request_code) throw new Error('Código de solicitação não encontrado.');
+  return data.request_code;
+}
+
+function staleProcessingBefore() {
+  return new Date(Date.now() - ACCESS_REQUEST_PROCESSING_TTL_MS).toISOString();
+}
+
+async function requeueStaleAccessRequests(
+  admin: ReturnType<typeof createClient>,
+  workspaceId: string,
+  requestId = ''
+) {
+  let query = admin
+    .from('docinspector_access_requests')
+    .update({
+      status: 'PENDING',
+      handled_by: null,
+      handled_at: null,
+      processing_token: null,
+      processing_started_at: null
+    })
+    .eq('workspace_id', workspaceId)
+    .eq('status', 'PROCESSING')
+    .lt('processing_started_at', staleProcessingBefore());
+
+  if (requestId) query = query.eq('id', requestId);
+  const { error } = await query;
+  if (error) throw error;
+}
+
+async function claimAccessRequest(admin: ReturnType<typeof createClient>, {
+  workspaceId,
+  requestId,
+  callerId
+}: {
+  workspaceId: string;
+  requestId: string;
+  callerId: string;
+}) {
+  await requeueStaleAccessRequests(admin, workspaceId, requestId);
+
+  const processingToken = crypto.randomUUID();
+  const { data: request, error } = await admin
+    .from('docinspector_access_requests')
+    .update({
+      status: 'PROCESSING',
+      handled_by: callerId,
+      handled_at: null,
+      processing_token: processingToken,
+      processing_started_at: new Date().toISOString()
+    })
+    .eq('id', requestId)
+    .eq('workspace_id', workspaceId)
+    .eq('status', 'PENDING')
+    .select('id,email,display_name,status')
+    .maybeSingle();
+
+  if (error) throw error;
+  return request ? { request, processingToken } : null;
+}
+
+async function releaseAccessRequestClaim(admin: ReturnType<typeof createClient>, {
+  workspaceId,
+  requestId,
+  processingToken
+}: {
+  workspaceId: string;
+  requestId: string;
+  processingToken: string;
+}) {
+  const { error } = await admin
+    .from('docinspector_access_requests')
+    .update({
+      status: 'PENDING',
+      handled_by: null,
+      handled_at: null,
+      processing_token: null,
+      processing_started_at: null
+    })
+    .eq('id', requestId)
+    .eq('workspace_id', workspaceId)
+    .eq('status', 'PROCESSING')
+    .eq('processing_token', processingToken);
+  if (error) throw error;
+}
+
+async function finalizeAccessRequest(admin: ReturnType<typeof createClient>, {
+  workspaceId,
+  requestId,
+  processingToken,
+  callerId,
+  status
+}: {
+  workspaceId: string;
+  requestId: string;
+  processingToken: string;
+  callerId: string;
+  status: 'APPROVED' | 'REJECTED';
+}) {
+  const { data, error } = await admin
+    .from('docinspector_access_requests')
+    .update({
+      status,
+      handled_by: callerId,
+      handled_at: new Date().toISOString(),
+      processing_token: null,
+      processing_started_at: null
+    })
+    .eq('id', requestId)
+    .eq('workspace_id', workspaceId)
+    .eq('status', 'PROCESSING')
+    .eq('processing_token', processingToken)
+    .select('id')
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) throw new Error('A solicitação perdeu o claim antes da finalização.');
 }
 
 Deno.serve(async (req: Request) => {
@@ -78,6 +272,85 @@ Deno.serve(async (req: Request) => {
       return json(403, { error: 'Somente Administradores podem gerenciar usuários deste workspace.' });
     }
 
+    if (action === 'access-request-code') {
+      const requestCode = await ensureWorkspaceAccessCode(admin, workspaceId);
+      return json(200, { requestCode });
+    }
+
+    if (action === 'access-requests') {
+      await requeueStaleAccessRequests(admin, workspaceId);
+      const { data, error } = await admin
+        .from('docinspector_access_requests')
+        .select('id,email,display_name,message,status,created_at')
+        .eq('workspace_id', workspaceId)
+        .eq('status', 'PENDING')
+        .order('created_at', { ascending: true })
+        .limit(100);
+      if (error) throw error;
+      return json(200, {
+        requests: (data || []).map(item => ({
+          id: item.id,
+          email: item.email,
+          displayName: item.display_name,
+          message: item.message || '',
+          status: item.status,
+          createdAt: item.created_at
+        }))
+      });
+    }
+
+    if (action === 'resolve-access-request') {
+      const requestId = String(body?.requestId ?? '').trim();
+      const decision = String(body?.decision ?? '').trim().toUpperCase();
+      const role = normalizeRole(body?.role || 'INSPECTOR');
+      if (!isUuid(requestId)) return json(400, { error: 'Solicitação inválida.' });
+      if (!['APPROVE', 'REJECT'].includes(decision)) return json(400, { error: 'Decisão inválida.' });
+      if (decision === 'APPROVE' && !role) return json(400, { error: 'Perfil inválido.' });
+
+      const claim = await claimAccessRequest(admin, { workspaceId, requestId, callerId: caller.id });
+      if (!claim) {
+        const { data: current, error: currentError } = await admin
+          .from('docinspector_access_requests')
+          .select('status')
+          .eq('id', requestId)
+          .eq('workspace_id', workspaceId)
+          .maybeSingle();
+        if (currentError) throw currentError;
+        if (!current) return json(404, { error: 'Solicitação não encontrada.' });
+        return json(409, { error: 'Esta solicitação já está sendo processada ou foi concluída.' });
+      }
+
+      const { request, processingToken } = claim;
+      try {
+        let accessResult = null;
+        if (decision === 'APPROVE') {
+          accessResult = await ensureUserAccess(admin, {
+            workspaceId,
+            email: normalizeEmail(request.email),
+            displayName: String(request.display_name || '').trim().slice(0, 120),
+            role: role!,
+            addedBy: caller.id
+          });
+        }
+
+        const status = decision === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+        await finalizeAccessRequest(admin, {
+          workspaceId,
+          requestId,
+          processingToken,
+          callerId: caller.id,
+          status
+        });
+
+        return json(200, { ok: true, status, ...(accessResult || {}) });
+      } catch (error) {
+        await releaseAccessRequestClaim(admin, { workspaceId, requestId, processingToken }).catch(releaseError => {
+          console.error('docinspector-user-admin release-access-request-claim', releaseError);
+        });
+        throw error;
+      }
+    }
+
     if (action === 'list') {
       const [{ data: memberships, error: membershipsError }, { data: profiles, error: profilesError }, users] = await Promise.all([
         admin.from('docinspector_workspace_members').select('user_id,role,active,created_at').eq('workspace_id', workspaceId).order('created_at', { ascending: true }),
@@ -112,32 +385,12 @@ Deno.serve(async (req: Request) => {
       if (!email || !email.includes('@') || email.length > 254) return json(400, { error: 'Informe um e-mail válido.' });
       if (!role) return json(400, { error: 'Perfil inválido.' });
 
-      const users = await listAllUsers(admin);
-      let user = users.find(item => normalizeEmail(item.email) === email) || null;
-      let invited = false;
-
-      if (!user) {
-        const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-          data: displayName ? { display_name: displayName } : undefined
-        });
-        if (error || !data?.user) return json(400, { error: error?.message || 'Não foi possível enviar o convite.' });
-        user = data.user;
-        invited = true;
+      try {
+        const result = await ensureUserAccess(admin, { workspaceId, email, displayName, role, addedBy: caller.id });
+        return json(200, { ok: true, ...result });
+      } catch (error) {
+        return json(400, { error: error instanceof Error ? error.message : 'Não foi possível enviar o convite.' });
       }
-
-      if (displayName) {
-        const { error: profileError } = await admin
-          .from('docinspector_profiles')
-          .upsert({ user_id: user.id, display_name: displayName }, { onConflict: 'user_id' });
-        if (profileError) throw profileError;
-      }
-
-      const { error: membershipError } = await admin
-        .from('docinspector_workspace_members')
-        .upsert({ workspace_id: workspaceId, user_id: user.id, role, active: true, added_by: caller.id }, { onConflict: 'workspace_id,user_id' });
-      if (membershipError) throw membershipError;
-
-      return json(200, { ok: true, invited, userId: user.id, email, role });
     }
 
     if (action === 'update') {
