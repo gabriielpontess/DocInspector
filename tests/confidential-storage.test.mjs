@@ -98,7 +98,7 @@ await assert.rejects(
 wkBytes.fill(0);
 
 const migration = await readFile(
-  'supabase/migrations/20260820180000_add_confidential_pdf_storage_policies.sql',
+  'supabase/migrations/20260820175432_add_confidential_pdf_storage_policies.sql',
   'utf8'
 );
 assert.match(migration, /docinspector_enforce_confidential_document_limits/i);
