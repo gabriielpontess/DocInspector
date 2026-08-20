@@ -98,6 +98,14 @@ assert.match(migration, /d\.status = 'ACTIVE'[\s\S]*d\.workspace_key_version <> 
 assert.match(migration, /not exists \([\s\S]*docinspector_workspace_key_envelopes e/);
 assert.doesNotMatch(migration, /storage\.objects\s+(set|update|delete|insert)/i);
 
+const indexMigration = await readFile('supabase/migrations/20260820195500_index_confidential_rotation_foreign_keys.sql', 'utf8');
+assert.match(indexMigration, /docinspector_workspace_key_rotations_from_key_idx/);
+assert.match(indexMigration, /\(workspace_id, from_key_version\)/);
+assert.match(indexMigration, /docinspector_workspace_key_rotations_removed_user_idx/);
+assert.match(indexMigration, /\(removed_user_id\)/);
+assert.match(indexMigration, /docinspector_workspace_key_rotations_started_by_idx/);
+assert.match(indexMigration, /\(started_by\)/);
+
 oldBytes.fill(0);
 newBytes.fill(0);
 fileKeyBytes.fill(0);
