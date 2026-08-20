@@ -76,7 +76,7 @@ assert.match(runtime, /newWorkspaceKeyBytes\.fill\(0\)/);
 assert.doesNotMatch(runtime, /\.storage\b/);
 assert.doesNotMatch(runtime, /service[_-]?role/i);
 
-const migrationPath = 'supabase/migrations/20260820195000_add_confidential_member_removal_rotation.sql';
+const migrationPath = 'supabase/migrations/20260820195245_add_confidential_member_removal_rotation.sql';
 const migration = await readFile(migrationPath, 'utf8');
 assert.match(migration, /private\.docinspector_workspace_key_rotations/);
 assert.match(migration, /docinspector_block_confidential_upload_during_rotation/);

@@ -2,6 +2,14 @@
 
 Phase 6 implements member removal as an online security event followed by resumable Workspace Key (WK) rotation. The removed membership is deactivated before the next WK version is created. The browser then distributes the new WK only as RSA-OAEP ciphertext and rewraps each existing FEK locally from the old WK to the new WK. The `.dipdf` Storage object is not changed or re-uploaded.
 
+## Production migration
+
+Production registered this change as `20260820195245_add_confidential_member_removal_rotation`. The repository migration filename must remain aligned with that exact version so future migration tooling does not attempt to replay the DDL.
+
+The migration creates only rotation metadata/RPC infrastructure. No real member removal or WK rotation was executed during deployment; `private.docinspector_workspace_key_rotations` remained empty after verification.
+
+The Supabase Security Advisor reports `authenticated_security_definer_function_executable` for the four Phase 6 RPCs. These warnings are expected and reviewed: signed-in clients intentionally invoke the functions, while every RPC performs an explicit `auth.uid()` check, requires active ADMIN membership in the requested workspace, uses an empty `search_path`, is revoked from PUBLIC/anon, and grants EXECUTE only to `authenticated`. Any future modification to those authorization checks is security-sensitive and requires re-running the advisor.
+
 ## Rotation invariants
 
 - only an active ADMIN may start, resume or finish a rotation;
