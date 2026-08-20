@@ -14,6 +14,7 @@ on:
       - 'index.html'
       - 'manifest.webmanifest'
       - 'service-worker.js'
+      - 'sw.js'
       - 'js/**'
       - 'css/**'
       - 'assets/**'
