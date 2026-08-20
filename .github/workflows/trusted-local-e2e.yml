@@ -47,7 +47,7 @@ jobs:
         run: npm run test:e2e
       - name: Upload Playwright evidence
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-trusted-local-windows-${{ github.event.workflow_run.id }}
           path: |
