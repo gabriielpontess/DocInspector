@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 
 const source = await readFile('js/confidential-e2ee-ui.js', 'utf8');
 const permissionUi = await readFile('js/permission-ui.js', 'utf8');
+const permissions = await readFile('js/permissions.js', 'utf8');
 
 for (const symbol of [
   'enrollConfidentialMember',
@@ -28,6 +29,17 @@ assert.match(source, /MutationObserver/);
 assert.doesNotMatch(source, /localStorage\.setItem\([^\n]*(recovery|secret|plaintext|workspace.?key)/i);
 assert.doesNotMatch(source, /sessionStorage\.setItem\([^\n]*(recovery|secret|plaintext|workspace.?key)/i);
 assert.doesNotMatch(source, /service[_-]?role/i);
-assert.match(permissionUi, /import ['\"]\.\/confidential-e2ee-ui\.js['\"]/);
+
+assert.match(permissionUi, /mount as mountConfidentialE2eeUi/);
+assert.match(permissionUi, /mountConfidentialE2eeUi\(\)/);
+assert.match(permissionUi, /catalog\.before\(card\)/);
+assert.match(permissionUi, /#confidential-documents-card/);
+assert.match(permissionUi, /\.documents-catalog/);
+
+assert.match(permissions, /\[ROLE\.INSPECTOR\]: INSPECTOR_ACCESS/);
+assert.match(permissions, /capability !== CAPABILITY\.MANAGE_USERS/);
+assert.match(permissions, /\[ROLE\.SUPERVISOR\]: READ_AND_COMMENT/);
+assert.match(permissions, /\[ROLE\.FOREMAN\]: READ_AND_COMMENT/);
+assert.match(permissions, /CAPABILITY\.MANAGE_PROJECT_FILES/);
 
 console.log('Confidential E2EE runtime UI regression checks passed.');
