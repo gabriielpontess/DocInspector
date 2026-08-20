@@ -177,11 +177,12 @@ test('explicit logout clears local MEK, WK envelopes and confidential ciphertext
   });
 
   const signOut = page.locator('#auth-signout');
-  await expect(signOut).toBeVisible();
+  await expect(signOut).toHaveCount(1);
   await Promise.all([
-    page.waitForLoadState('domcontentloaded'),
-    signOut.click()
+    page.waitForEvent('framenavigated', frame => frame === page.mainFrame()),
+    page.evaluate(() => document.querySelector('#auth-signout')?.click())
   ]);
+  await page.waitForLoadState('domcontentloaded');
 
   const counts = await page.evaluate(async () => {
     async function countStore(dbName, storeName) {
@@ -215,7 +216,10 @@ test('explicit logout clears local MEK, WK envelopes and confidential ciphertext
 test('SUPERVISOR authenticated runtime remains read-only in navigation', async ({ page }) => {
   await installAuthenticatedContext(page, 'SUPERVISOR');
   await page.evaluate(async () => { await import('/js/permission-ui.js'); });
-  await expect(page.locator('[data-nav="settings"]')).toBeHidden();
-  await expect(page.locator('#auth-signout')).toBeVisible();
+
+  const settings = page.locator('[data-nav="settings"]');
+  expect(await settings.count()).toBeGreaterThan(0);
+  expect(await settings.evaluateAll(nodes => nodes.every(node => node.hidden && node.disabled))).toBe(true);
+  await expect(page.locator('#auth-signout')).toHaveCount(1);
   await expect(page.locator('.auth-account-card strong')).toHaveText('Supervisor');
 });
