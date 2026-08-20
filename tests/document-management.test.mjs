@@ -57,6 +57,18 @@ assert.equal(editable.fieldCopies[0].comment, 'cópia conferida', 'metadata edit
 assert.equal(inspection.documentAudit.at(-1).action, 'document.updated');
 assert.deepEqual(Object.keys(inspection.documentAudit.at(-1).changes).sort(), ['code', 'description', 'expectedRevision']);
 
+assert.throws(
+  () => updateDocumentMetadata(inspection, 'doc-b', { code: 'PW-001-REV' }),
+  /Já existe um documento/i,
+  'exact duplicate PW codes must remain blocked'
+);
+
+assert.throws(
+  () => updateDocumentMetadata(inspection, 'doc-a', { description: '   ' }),
+  /descrição/i,
+  'blank document descriptions must remain blocked'
+);
+
 assert.throws(() => updateDocumentMetadata(inspection, 'doc-b', { code: 'PW001REV' }), /ambíguo/i, 'ambiguous OCR identities must remain blocked');
 
 const deleted = deleteDocumentLogically(inspection, 'doc-b', {
@@ -70,6 +82,12 @@ assert.deepEqual(inspection.deletedDocumentIds, ['doc-b']);
 assert.equal(inspection.deletedDocuments[0].document.id, 'doc-b');
 assert.equal(inspection.deletedDocuments[0].reason, 'Documento removido da lista operacional');
 assert.equal(inspection.documentAudit.at(-1).action, 'document.deleted');
+
+assert.throws(
+  () => deleteDocumentLogically(inspection, 'doc-a'),
+  /pelo menos um documento ativo/i,
+  'logical deletion must not remove the last active document'
+);
 
 const evidenceOwners = inspectionEvidenceDocuments(inspection);
 assert.deepEqual(evidenceOwners.map(item => item.id).sort(), ['doc-a', 'doc-b'], 'evidence traversal must include active and archived document owners');
