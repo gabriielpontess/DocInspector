@@ -1,4 +1,4 @@
-import './confidential-e2ee-ui.js';
+import { mount as mountConfidentialE2eeUi } from './confidential-e2ee-ui.js';
 import { authRolloutEnabled } from './auth-config.js';
 import { clearAuthContext, getAuthContext } from './auth-context.js';
 import { signOutCurrentSession, updateCurrentPassword } from './auth.js';
@@ -152,6 +152,13 @@ if (authRolloutEnabled()) {
     document.documentElement.classList.toggle('role-readonly', !can(role, CAPABILITY.MANAGE_INSPECTIONS));
   }
 
+  function ensureConfidentialDocumentsPlacement() {
+    mountConfidentialE2eeUi();
+    const catalog = document.querySelector('.documents-catalog');
+    const card = document.querySelector('#confidential-documents-card');
+    if (catalog && card && card.nextElementSibling !== catalog) catalog.before(card);
+  }
+
   function applyPermissions() {
     applyCapability(CAPABILITY.MANAGE_INSPECTIONS, SELECTORS.manageInspections);
     applyCapability(CAPABILITY.VERIFY_DOCUMENTS, SELECTORS.verifyDocuments);
@@ -164,6 +171,7 @@ if (authRolloutEnabled()) {
       hideSelector('.inspection-more-menu');
     }
 
+    ensureConfidentialDocumentsPlacement();
     ensureAccountBlock();
     enforceViewAccess();
   }
