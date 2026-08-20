@@ -18,6 +18,7 @@ on:
       - 'css/**'
       - 'assets/**'
       - 'tests/**'
+      - 'e2e/**'
       - 'playwright.config.*'
       - 'package.json'
       - '.github/workflows/mobile-actions-e2e.yml'
