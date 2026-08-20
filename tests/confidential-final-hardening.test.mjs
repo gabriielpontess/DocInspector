@@ -22,8 +22,9 @@ assert.match(migration, /m\.role = 'ADMIN'/);
 assert.match(migration, /m\.active/);
 
 assert.match(userAdminUi, /removeMemberAndRotateWorkspaceKey/);
-assert.match(userAdminUi, /current\.active\s*&&\s*!active/);
-assert.match(userAdminUi, /return;/, 'secure removal branch must return before generic membership update');
+assert.match(userAdminUi, /wasActive\s*&&\s*!active/);
+assert.match(userAdminUi, /if \(!removed\) return \{ changed: false, removed: false \};\s*return \{ changed: true, removed: true \};/s,
+  'secure removal branch must return before generic membership update');
 
 assert.match(permissionUi, /clearLocalConfidentialKeys\(\)/);
 assert.match(permissionUi, /clearAllConfidentialCiphertext\(\)/);
