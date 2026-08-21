@@ -17,7 +17,6 @@ export const CONFIDENTIAL_PDF_BUCKET = 'docinspector-confidential-pdfs';
 export const CONFIDENTIAL_PDF_MIME = 'application/octet-stream';
 export const CONFIDENTIAL_PDF_MAX_PLAINTEXT_BYTES = 20 * 1024 * 1024;
 export const CONFIDENTIAL_PDF_CHUNK_BYTES = 1024 * 1024;
-export const CONFIDENTIAL_PDF_MAX_FILES_PER_INSPECTION = 10;
 export const CONFIDENTIAL_PDF_MAX_AGGREGATE_BYTES = 200 * 1024 * 1024;
 
 const MAGIC = new TextEncoder().encode(`${PDF_CONTAINER_VERSION}\n`);
@@ -37,6 +36,11 @@ function requireUuid(value, label) {
   const normalized = String(value ?? '').trim().toLowerCase();
   if (!UUID_RE.test(normalized)) throw new Error(`${label} inválido.`);
   return normalized;
+}
+
+function optionalUuid(value, label) {
+  if (value === null || value === undefined || String(value).trim() === '') return null;
+  return requireUuid(value, label);
 }
 
 function requirePositiveInteger(value, label) {
@@ -336,16 +340,34 @@ function requireOnlineAuthContext(workspaceId) {
   return context;
 }
 
-export async function listConfidentialDocuments({ workspaceId, inspectionId }) {
+export async function getConfidentialPdfConfig({ workspaceId }) {
   requireOnlineAuthContext(workspaceId);
   const client = getAuthClient();
   const { data, error } = await client
+    .from('docinspector_confidential_pdf_config')
+    .select('max_files_per_inspection')
+    .eq('singleton_key', 'global')
+    .single();
+  if (error || !data) throw new Error('Não foi possível carregar a configuração de PDFs confidenciais.');
+  const maxFilesPerInspection = Number(data.max_files_per_inspection);
+  requirePositiveInteger(maxFilesPerInspection, 'max_files_per_inspection');
+  return { maxFilesPerInspection };
+}
+
+export async function listConfidentialDocuments({ workspaceId, inspectionId, documentId } = {}) {
+  requireOnlineAuthContext(workspaceId);
+  const client = getAuthClient();
+  let query = client
     .from('docinspector_project_documents')
     .select('*')
     .eq('workspace_id', requireUuid(workspaceId, 'workspaceId'))
     .eq('inspection_id', requireUuid(inspectionId, 'inspectionId'))
-    .eq('status', 'ACTIVE')
-    .order('created_at', { ascending: true });
+    .eq('status', 'ACTIVE');
+  if (documentId !== undefined) {
+    const normalizedDocumentId = optionalUuid(documentId, 'documentId');
+    query = normalizedDocumentId ? query.eq('document_id', normalizedDocumentId) : query.is('document_id', null);
+  }
+  const { data, error } = await query.order('created_at', { ascending: true });
   if (error) throw new Error('Não foi possível listar os PDFs confidenciais.');
   return data || [];
 }
@@ -353,6 +375,7 @@ export async function listConfidentialDocuments({ workspaceId, inspectionId }) {
 export async function uploadConfidentialPdf({
   workspaceId,
   inspectionId,
+  documentId = null,
   plaintext,
   filename,
   title = '',
@@ -374,6 +397,7 @@ export async function uploadConfidentialPdf({
   const client = getAuthClient();
   const row = {
     ...encrypted.document,
+    document_id: optionalUuid(documentId, 'documentId'),
     created_by: context.userId,
     status: 'UPLOADING'
   };
