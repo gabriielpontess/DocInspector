@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const migrationPath = 'supabase/migrations/20260821111500_add_confidential_pdf_document_linking.sql';
-const migration = await readFile(migrationPath, 'utf8');
+const rollbackPath = 'docs/engineering/CONFIDENTIAL-PDF-DOCUMENT-LINKING-MIGRATION.md';
+const [migration, rollback] = await Promise.all([
+  readFile(migrationPath, 'utf8'),
+  readFile(rollbackPath, 'utf8')
+]);
 
 // document_id is deliberately nullable and semantic-only while inspection documents live in JSONB.
 assert.match(
@@ -45,4 +49,12 @@ for (const forbidden of [
   assert.doesNotMatch(migration, new RegExp(forbidden.replace('.', '\\.'), 'i'));
 }
 
-console.log('Confidential PDF document-linking schema regression checks passed.');
+// Rule 4: rollback is explicit, ordered and preserves encrypted material.
+assert.match(rollback, /Revert the frontend/i);
+assert.match(rollback, /listed and opened by `inspection_id`/i);
+assert.match(rollback, /Restore the previous `private\.docinspector_enforce_confidential_document_limits\(\)`/i);
+assert.match(rollback, /Drop index `public\.docinspector_project_documents_document_idx`/i);
+assert.match(rollback, /Drop column `public\.docinspector_project_documents\.document_id`/i);
+assert.match(rollback, /must not alter ciphertext, FEK\/WK material, metadata ciphertext, hashes, object paths or Storage objects/i);
+
+console.log('Confidential PDF document-linking schema/rollback regression checks passed.');
