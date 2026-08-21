@@ -2,7 +2,9 @@
 
 ## Scope of this migration
 
-Migration: `supabase/migrations/20260821111500_add_confidential_pdf_document_linking.sql`.
+Migration: `supabase/migrations/20260821112748_add_confidential_pdf_document_linking.sql`.
+
+Production migration history version: `20260821112748` (`add_confidential_pdf_document_linking`). The repository filename intentionally matches the version recorded by Supabase when the approved migration was applied.
 
 This migration is additive with respect to existing E2EE document rows:
 
@@ -34,7 +36,7 @@ from public.docinspector_confidential_pdf_config
 where singleton_key = 'global';
 ```
 
-Authenticated clients have read-only access. They receive no INSERT/UPDATE/DELETE grant on this table.
+Authenticated clients have read-only access. They receive no INSERT/UPDATE/DELETE grant on this table. There is intentionally no RPC or ADMIN UI for changing this value; operational changes remain manual through SQL/Dashboard by the project owner.
 
 A future increase, after storage capacity has been explicitly approved, is configuration/DML only and does not require another schema migration:
 
@@ -55,6 +57,8 @@ Before applying this migration to production:
 3. Record current row counts for `docinspector_project_documents` and confirm existing rows are readable by `inspection_id`.
 4. Confirm no deployment in the same window modifies E2EE ciphertext, key rotation, Storage paths or the inspection JSON model.
 5. Review the migration SQL and regression test results from the feature branch.
+
+This gate was satisfied before the production application on 2026-08-21: the DocInspector CI (`npm run check`) and Mobile Inspection Actions E2E workflows were both green. Post-DDL validation confirmed the nullable UUID column, partial index, RLS-enabled singleton config at value `10`, and SELECT-only access for `authenticated`.
 
 ## Rollback order
 
