@@ -36,6 +36,16 @@ function assertOnline() {
   }
 }
 
+export async function isReadableSkyrailPdfBlob(blob) {
+  if (!(blob instanceof Blob) || blob.size < 5) return false;
+  try {
+    const prefix = new Uint8Array(await blob.slice(0, 5).arrayBuffer());
+    return new TextDecoder().decode(prefix) === '%PDF-';
+  } catch {
+    return false;
+  }
+}
+
 export async function cacheSingleSkyrailDocument(document) {
   assertOnline();
   const remote = normalizeSkyrailDocument(document);
@@ -69,7 +79,8 @@ export async function syncSkyrailDocuments(workspaceId, { onProgress = null } = 
       phase: 'document'
     });
 
-    if (documentNeedsDownload(local, remote)) {
+    const readableLocalPdf = await isReadableSkyrailPdfBlob(local?.blob);
+    if (documentNeedsDownload(local, remote) || !readableLocalPdf) {
       const blob = await downloadSkyrailPdf(remote.file_path);
       await putCachedSkyrailDocument({
         ...remote,
@@ -80,11 +91,8 @@ export async function syncSkyrailDocuments(workspaceId, { onProgress = null } = 
       continue;
     }
 
-    await putCachedSkyrailDocument({
-      ...remote,
-      blob: local.blob,
-      downloaded_at: local.downloaded_at
-    });
+    // Não regrave o mesmo Blob no IndexedDB. Em WebKit/Safari isso pode
+    // invalidar a referência de um Blob já persistido e causar NotFoundError.
     reused += 1;
   }
 
@@ -104,7 +112,7 @@ export async function syncSkyrailDocuments(workspaceId, { onProgress = null } = 
 export async function ensureSkyrailDocumentOffline(documentId) {
   const cached = await getCachedSkyrailDocument(documentId);
   if (!cached) throw new Error('Documento não encontrado na biblioteca local.');
-  if (cached.blob) return cached;
+  if (await isReadableSkyrailPdfBlob(cached.blob)) return cached;
   return cacheSingleSkyrailDocument(cached);
 }
 
