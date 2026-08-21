@@ -18,16 +18,17 @@ assert.match(storage, /listConfidentialDocuments\(\{ workspaceId, inspectionId, 
 assert.doesNotMatch(storage, /metadata:\s*\{[^}]*documentId/is);
 assert.doesNotMatch(storage, /metadataAad\([^)]*documentId/i);
 
-// Batch upload must require a review screen before any file bytes are read for encryption/upload.
+// Selection only opens the review flow. File bytes are consumed inside the upload routine,
+// which is invoked only by the explicit confirmation button in the review modal.
 assert.match(linkingUi, /input\.multiple = true/);
+assert.match(linkingUi, /input\.onchange\s*=\s*\(\)\s*=>\s*\{[\s\S]*?openBatchReview\(files\)/);
 assert.match(linkingUi, /matchConfidentialPdfBatch/);
 assert.match(linkingUi, /REVISÃO OBRIGATÓRIA/);
 assert.match(linkingUi, /Confirmar vínculos e enviar/);
 assert.match(linkingUi, /data-confidential-document-select/);
 assert.match(linkingUi, /Não vinculado/);
-const reviewPosition = linkingUi.indexOf('Confirmar vínculos e enviar');
-const bytesPosition = linkingUi.indexOf('file.arrayBuffer()');
-assert.ok(reviewPosition >= 0 && bytesPosition > reviewPosition, 'Os bytes só devem ser lidos após o fluxo de revisão/confirmar.');
+assert.match(linkingUi, /#confirm-confidential-batch-upload['"]?\)\?\.addEventListener\('click',[\s\S]*?uploadReviewedBatch\(/);
+assert.match(linkingUi, /async function uploadReviewedBatch[\s\S]*?file\.arrayBuffer\(\)[\s\S]*?uploadConfidentialPdf\(/);
 
 // UI preflight consumes the same runtime config and keeps the aggregate cap independent.
 assert.match(linkingUi, /getConfidentialPdfConfig/);
