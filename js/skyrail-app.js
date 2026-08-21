@@ -321,7 +321,7 @@ async function openViewer(document) {
       </div>
       <div class="skyrail-canvas-wrap"><canvas id="skyrail-pdf-canvas"></canvas></div>
     </section>`;
-  document.body.append(backdrop);
+  globalThis.document.body.append(backdrop);
 
   backdrop.addEventListener('click', event => {
     const action = event.target.closest('[data-viewer-action]')?.dataset.viewerAction;
