@@ -7,6 +7,7 @@ import {
   normalizeSkyrailDocument,
   sortSkyrailDocuments
 } from '../js/skyrail-model.js';
+import { isReadableSkyrailPdfBlob } from '../js/skyrail-sync.js';
 
 const baseDocument = {
   id: '00000000-0000-4000-8000-000000000001',
@@ -31,10 +32,13 @@ const offlineDocument = normalizeSkyrailDocument({
   downloaded_at: '2026-08-21T12:05:00.000Z'
 });
 
-assert.equal(documentNeedsDownload(offlineDocument, baseDocument), false, 'revisão e arquivo iguais devem reutilizar o PDF local');
+assert.equal(documentNeedsDownload(offlineDocument, baseDocument), false, 'documento idêntico deve reutilizar o PDF local');
 assert.equal(documentNeedsDownload(offlineDocument, { ...baseDocument, revision: 'G' }), true, 'nova revisão deve baixar novamente');
 assert.equal(documentNeedsDownload(offlineDocument, { ...baseDocument, file_path: 'workspace/document/file-g.pdf' }), true, 'novo objeto deve baixar novamente');
+assert.equal(documentNeedsDownload(offlineDocument, { ...baseDocument, updated_at: '2026-08-21T12:30:00.000Z' }), true, 'metadados atualizados devem renovar o cache local');
 assert.equal(documentNeedsDownload({ ...offlineDocument, blob: null }, baseDocument), true, 'documento sem blob local deve baixar');
+assert.equal(await isReadableSkyrailPdfBlob(offlineDocument.blob), true, 'PDF local legível deve ser reconhecido');
+assert.equal(await isReadableSkyrailPdfBlob(new Blob(['not-a-pdf'])), false, 'blob inválido deve forçar novo download');
 
 assert.equal(matchesSkyrailDocument(baseDocument, { query: '17-vp' }), true);
 assert.equal(matchesSkyrailDocument(baseDocument, { query: 'layout geral' }), true);
@@ -72,11 +76,15 @@ assert.doesNotMatch(app, /download=|navigator\.share|Compartilhar|Exportar/, 'V1
 assert.match(api, /byd-skyrail-documents/);
 assert.match(api, /\.from\('documents'\)/);
 assert.match(api, /\.eq\('active', true\)/);
+assert.match(api, /findSkyrailDocumentByCode/);
+assert.match(api, /return updateSkyrailDocument\(existing/, 'código já existente deve atualizar em vez de criar duplicata');
 assert.match(api, /crypto\.randomUUID\(\).*\.pdf/s, 'substituição de PDF deve usar novo objeto imutável');
 assert.doesNotMatch(api, /service_role|secretKey|serviceRole/);
 
 assert.match(sync, /listActiveSkyrailDocuments/);
 assert.match(sync, /documentNeedsDownload/);
+assert.match(sync, /isReadableSkyrailPdfBlob/);
+assert.match(sync, /Não regrave o mesmo Blob no IndexedDB/);
 assert.match(sync, /removeCachedSkyrailDocumentsNotIn/);
 assert.match(sync, /setSkyrailLastSync/);
 
