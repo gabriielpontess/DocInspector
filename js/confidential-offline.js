@@ -19,6 +19,7 @@ const DOCUMENT_FIELDS = Object.freeze([
   'id',
   'workspace_id',
   'inspection_id',
+  'document_id',
   'object_path',
   'crypto_version',
   'workspace_key_version',
