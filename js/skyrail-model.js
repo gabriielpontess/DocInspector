@@ -45,7 +45,8 @@ export function sortSkyrailDocuments(documents = []) {
 export function documentNeedsDownload(localDocument, remoteDocument) {
   if (!localDocument?.blob) return true;
   return text(localDocument.file_path) !== text(remoteDocument?.file_path) ||
-    text(localDocument.revision) !== text(remoteDocument?.revision);
+    text(localDocument.revision) !== text(remoteDocument?.revision) ||
+    text(localDocument.updated_at) !== text(remoteDocument?.updated_at);
 }
 
 export function matchesSkyrailDocument(document, { query = '', discipline = 'ALL' } = {}) {
