@@ -1,4 +1,5 @@
 import './confidential-e2ee-ui.js';
+import './confidential-pdf-linking-ui.js';
 import { authRolloutEnabled } from './auth-config.js';
 import { clearAuthContext, getAuthContext } from './auth-context.js';
 import { signOutCurrentSession, updateCurrentPassword } from './auth.js';
