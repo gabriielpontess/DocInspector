@@ -1,4 +1,5 @@
 const VERSION = '0.9.40';
+// BYD Skyrail V1 hotfix 2026-08-21: force app-shell refresh without changing the legacy cache identity contract.
 const CORE_CACHE = `docinspector-core-${VERSION}`;
 const RUNTIME_CACHE = `docinspector-runtime-${VERSION}`;
 const XLSX_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
@@ -21,6 +22,10 @@ function isConfidentialCiphertextRequest(url) {
     (url.hostname.endsWith('.supabase.co') && pathname.includes('/docinspector-confidential-pdfs/'));
 }
 
+function navigationFallbackKey(url) {
+  return String(url.pathname || '').endsWith('/skyrail.html') ? './skyrail.html' : './index.html';
+}
+
 const APP_SHELL = [
   './', './index.html', './styles.css', './visual-system.css', './visual-verify.css', './visual-documents.css', './visual-overlays.css', './visual-responsive.css', './visual-refinement.css', './auth.css',
   './manifest.webmanifest', './assets/icon.svg', './assets/icon-180.png', './assets/icon-192.png', './assets/icon-512.png',
@@ -29,7 +34,8 @@ const APP_SHELL = [
   './js/confidential-crypto.js', './js/confidential-storage.js', './js/confidential-offline.js', './js/confidential-viewer.js',
   './vendor/pdfjs/pdf.min.mjs', './vendor/pdfjs/pdf.worker.min.mjs',
   './js/inspection-update.js', './js/inspection-update-ui.js', './js/field-recovery-ui.js', './js/evidence-health-ui.js',
-  './js/marking-policy-ui.js', './js/copy-evidence-edit-ui.js', './js/ui-refinement.js', './js/export-pdf-options-ui.js', './js/pwa.js', './js/report.js', './js/sync.js', './js/sync.js?legacy=1', './js/ui.js', './js/xlsx.js', './js/vision.js', './js/word.js'
+  './js/marking-policy-ui.js', './js/copy-evidence-edit-ui.js', './js/ui-refinement.js', './js/export-pdf-options-ui.js', './js/pwa.js', './js/report.js', './js/sync.js', './js/sync.js?legacy=1', './js/ui.js', './js/xlsx.js', './js/vision.js', './js/word.js',
+  './skyrail.html', './skyrail.css', './js/skyrail-app.js', './js/skyrail-model.js', './js/skyrail-db.js', './js/skyrail-api.js', './js/skyrail-sync.js', './js/skyrail-pdf-viewer.js'
 ];
 
 async function cacheExternalAssets() {
@@ -80,15 +86,16 @@ self.addEventListener('fetch', event => {
 
   if (request.mode === 'navigate') {
     event.respondWith((async () => {
+      const fallbackKey = navigationFallbackKey(url);
       try {
         const response = await fetch(request);
         if (response.ok) {
           const cache = await caches.open(RUNTIME_CACHE);
-          await cache.put('./index.html', response.clone());
+          await cache.put(fallbackKey, response.clone());
         }
         return response;
       } catch {
-        return (await caches.match('./index.html')) || Response.error();
+        return (await caches.match(fallbackKey)) || Response.error();
       }
     })());
     return;
