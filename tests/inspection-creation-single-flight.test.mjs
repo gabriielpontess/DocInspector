@@ -69,13 +69,9 @@ for (const [label, source] of [['legado', legacySyncSource], ['autenticado', aut
     `o sync ${label} deve reenviar o mesmo inspection.id, preservando a chave idempotente`);
 }
 
-function normalizedSql(source) {
-  return source.toLowerCase().replace(/\s+/g, ' ');
-}
-
+const rpcIdempotencyPattern = /on\s+conflict\s*\(\s*workspace_id\s*,\s*id\s*\)\s*do\s+update/i;
 for (const [label, source] of [['legado', legacySql], ['autenticado', authSql]]) {
-  const sql = normalizedSql(source);
-  assert.ok(sql.includes('on conflict (workspace_id, id) do update'),
+  assert.match(source, rpcIdempotencyPattern,
     `o RPC ${label} deve permanecer idempotente pela chave (workspace_id, id)`);
 }
 
