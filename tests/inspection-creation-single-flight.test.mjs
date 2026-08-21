@@ -11,11 +11,12 @@ gate.release(token);
 assert.equal(gate.has(token), false, 'a submissão deve ser liberada ao terminar');
 assert.equal(gate.enter(token), true, 'uma tentativa posterior deve poder ser executada');
 
-const [guardSource, authConfigSource, appSource, uiSource, legacySyncSource, authSyncSource, legacySql, authSql] = await Promise.all([
+const [guardSource, authConfigSource, appSource, uiSource, swSource, legacySyncSource, authSyncSource, legacySql, authSql] = await Promise.all([
   readFile('js/inspection-creation-guard.js', 'utf8'),
   readFile('js/auth-config.js', 'utf8'),
   readFile('js/app.js', 'utf8'),
   readFile('js/ui.js', 'utf8'),
+  readFile('sw.js', 'utf8'),
   readFile('js/sync.js', 'utf8'),
   readFile('js/sync-auth.js', 'utf8'),
   readFile('SUPABASE-SETUP.sql', 'utf8'),
@@ -24,6 +25,8 @@ const [guardSource, authConfigSource, appSource, uiSource, legacySyncSource, aut
 
 assert.match(authConfigSource, /import\s+['"]\.\/inspection-creation-guard\.js['"]/,
   'o guard deve carregar antes da aplicação tanto no modo autenticado quanto no legado');
+assert.match(swSource, /['"]\.\/js\/inspection-creation-guard\.js['"]/,
+  'dependência de boot deve integrar o APP_SHELL para reabertura PWA offline');
 assert.match(guardSource, /#new-inspection-hero/,
   'a abertura do modal também deve rejeitar uma segunda abertura concorrente');
 assert.match(guardSource, /#read-file,\s*#finish-import/,
