@@ -61,6 +61,18 @@ async function removeObjectBestEffort(path) {
   }
 }
 
+async function findSkyrailDocumentByCode(workspaceId, code) {
+  const { data, error } = await getAuthClient()
+    .from('documents')
+    .select(DOCUMENT_COLUMNS)
+    .eq('workspace_id', workspaceId)
+    .eq('code', code)
+    .maybeSingle();
+
+  if (error) throw new Error('Não foi possível validar o código do documento.');
+  return normalizeSkyrailDocument(data);
+}
+
 export async function listActiveSkyrailDocuments(workspaceId) {
   const id = requireWorkspaceId(workspaceId);
   const { data, error } = await getAuthClient()
@@ -100,6 +112,17 @@ export async function createSkyrailDocument({ workspaceId, code, title, discipli
   const id = requireWorkspaceId(workspaceId);
   const pdf = validatePdf(file);
   const payload = documentPayload({ code, title, discipline, revision, active });
+
+  // Na V1 o código identifica o documento. Se ele já existir, trate o envio
+  // como atualização para evitar upload órfão seguido de conflito 409.
+  const existing = await findSkyrailDocumentByCode(id, payload.code);
+  if (existing) {
+    return updateSkyrailDocument(existing, {
+      ...payload,
+      file: pdf
+    });
+  }
+
   const documentId = crypto.randomUUID();
   const filePath = newObjectPath(id, documentId);
   const updatedAt = new Date().toISOString();
