@@ -56,7 +56,7 @@ const [html, app, api, sync, serviceWorker, migration] = await Promise.all([
   readFile('js/skyrail-api.js', 'utf8'),
   readFile('js/skyrail-sync.js', 'utf8'),
   readFile('sw.js', 'utf8'),
-  readFile('supabase/migrations/20260821140600_add_byd_skyrail_v1_documents.sql', 'utf8')
+  readFile('supabase/migrations/20260821142648_add_byd_skyrail_v1_documents.sql', 'utf8')
 ]);
 
 assert.match(html, /BYD Skyrail/);
