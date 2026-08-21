@@ -38,31 +38,24 @@ assert.match(guardSource, /button\.disabled\s*\|\|\s*!submitGate\.enter\(button\
 assert.match(uiSource, /button\.disabled\s*=\s*true/,
   'setButtonBusy deve continuar desabilitando o controle durante operações assíncronas');
 
-const prepareImportBody = appSource.slice(
-  appSource.indexOf('async function prepareImport'),
-  appSource.indexOf('function mappingModal')
-);
-assert.ok(prepareImportBody.indexOf("setButtonBusy(button, true, 'Lendo planilha…')") >= 0,
-  'a leitura da planilha deve sinalizar busy antes do await');
-assert.ok(
-  prepareImportBody.indexOf("setButtonBusy(button, true, 'Lendo planilha…')") < prepareImportBody.indexOf('await readWorkbook(file)'),
-  'o botão Continuar deve ser bloqueado antes da leitura assíncrona'
-);
+const prepareStart = appSource.indexOf('async function prepareImport');
+const prepareBusy = appSource.indexOf("setButtonBusy(button, true, 'Lendo planilha…')", prepareStart);
+const workbookAwait = appSource.indexOf('await readWorkbook(file)', prepareStart);
+assert.ok(prepareStart >= 0 && prepareBusy >= prepareStart,
+  'a leitura da planilha deve sinalizar busy');
+assert.ok(workbookAwait > prepareBusy,
+  'o botão Continuar deve ser bloqueado antes da leitura assíncrona');
 
-const finishImportBody = appSource.slice(
-  appSource.indexOf('async function finishImport'),
-  appSource.indexOf('async function openInspection')
-);
-assert.ok(finishImportBody.indexOf("setButtonBusy(button, true, 'Criando…')") >= 0,
+const finishStart = appSource.indexOf('async function finishImport');
+const finishBusy = appSource.indexOf("setButtonBusy(button, true, 'Criando…')", finishStart);
+const createInspectionCall = appSource.indexOf('const inspection = createInspection(meta)', finishStart);
+const saveInspectionCall = appSource.indexOf('await saveInspection(inspection)', createInspectionCall);
+assert.ok(finishStart >= 0 && finishBusy >= finishStart,
   'a criação deve sinalizar busy');
-assert.ok(
-  finishImportBody.indexOf("setButtonBusy(button, true, 'Criando…')") < finishImportBody.indexOf('const inspection = createInspection(meta)'),
-  'o botão Criar inspeção deve ser bloqueado antes de gerar o id da inspeção'
-);
-assert.ok(
-  finishImportBody.indexOf('const inspection = createInspection(meta)') < finishImportBody.indexOf('await saveInspection(inspection)'),
-  'a mesma instância/id criada no client deve ser persistida localmente antes da sincronização'
-);
+assert.ok(createInspectionCall > finishBusy,
+  'o botão Criar inspeção deve ser bloqueado antes de gerar o id da inspeção');
+assert.ok(saveInspectionCall > createInspectionCall,
+  'a mesma instância/id criada no client deve ser persistida localmente antes da sincronização');
 
 for (const [label, source] of [['legado', legacySyncSource], ['autenticado', authSyncSource]]) {
   assert.match(source, /p_inspection_id:\s*inspection\.id/,
