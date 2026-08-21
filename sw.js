@@ -1,4 +1,5 @@
 const VERSION = '0.9.40';
+// BYD Skyrail V1 hotfix 2026-08-21: force app-shell refresh without changing the legacy cache identity contract.
 const CORE_CACHE = `docinspector-core-${VERSION}`;
 const RUNTIME_CACHE = `docinspector-runtime-${VERSION}`;
 const XLSX_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
