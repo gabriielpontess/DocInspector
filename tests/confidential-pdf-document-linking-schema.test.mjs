@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const migrationPath = 'supabase/migrations/20260821111500_add_confidential_pdf_document_linking.sql';
+const migrationPath = 'supabase/migrations/20260821112748_add_confidential_pdf_document_linking.sql';
 const rollbackPath = 'docs/engineering/CONFIDENTIAL-PDF-DOCUMENT-LINKING-MIGRATION.md';
 const [migration, rollback] = await Promise.all([
   readFile(migrationPath, 'utf8'),
