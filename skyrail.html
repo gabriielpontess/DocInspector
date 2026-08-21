@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#101820">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="BYD Skyrail — biblioteca oficial de documentos para consulta em campo.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="BYD Skyrail">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
+  <link rel="stylesheet" href="skyrail.css">
+  <title>BYD Skyrail</title>
+</head>
+<body>
+  <noscript>O BYD Skyrail precisa de JavaScript habilitado para funcionar.</noscript>
+  <div id="skyrail-app" class="skyrail-root" aria-live="polite"></div>
+  <div id="skyrail-toast" class="skyrail-toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.js" crossorigin="anonymous"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+  </script>
+  <script type="module" src="js/skyrail-app.js"></script>
+</body>
+</html>
