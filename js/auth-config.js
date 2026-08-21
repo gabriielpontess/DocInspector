@@ -1,3 +1,5 @@
+import './inspection-creation-guard.js';
+
 // Supabase publishable credentials identify the public application client.
 // They are not privileged secrets. Authorization must always be enforced by
 // authenticated-user checks plus server-side RLS/RPC policies.
