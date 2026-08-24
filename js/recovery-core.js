@@ -24,8 +24,19 @@ export function restoredArchiveIds(inspection) {
 
 export function listRestorableDeletedDocuments(inspection) {
   const alreadyRestored = restoredArchiveIds(inspection);
+  const activeIdentities = new Set(
+    (inspection?.documents || [])
+      .map(document => codeIdentity(document?.code))
+      .filter(Boolean)
+  );
   return (inspection?.deletedDocuments || [])
-    .filter(entry => entry?.document?.id && !alreadyRestored.has(entry.document.id))
+    .filter(entry => {
+      const archivedId = entry?.document?.id;
+      const identity = codeIdentity(entry?.document?.code);
+      return archivedId
+        && !alreadyRestored.has(archivedId)
+        && (!identity || !activeIdentities.has(identity));
+    })
     .map(entry => clone(entry));
 }
 
