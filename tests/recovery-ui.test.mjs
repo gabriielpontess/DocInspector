@@ -90,6 +90,9 @@ assert.doesNotMatch(ui, /^import .*confidential-e2ee-ui/m, 'UI confidencial pesa
 assert.doesNotMatch(ui, /^import .*confidential-pdf-linking-ui/m, 'linking UI não deve virar dependência estática do boot offline');
 assert.match(ui, /import\('\.\/confidential-e2ee-ui\.js'\)/, 'refresh online pode carregar a UI confidencial dinamicamente');
 assert.match(ui, /import\('\.\/confidential-pdf-linking-ui\.js'\)/, 'refresh online pode carregar linking dinamicamente');
+assert.match(ui, /label && label\.textContent !== 'Excluir documento'/, 'observer não deve reescrever o mesmo rótulo de documento e gerar feedback loop');
+assert.match(ui, /button\.textContent !== 'Excluir PDF'/, 'observer não deve reescrever o mesmo rótulo de PDF e gerar feedback loop');
+assert.match(ui, /button\.title !== title/, 'atributos de refinamento devem ser atualizados somente quando mudarem');
 assert.match(index, /src="js\/recovery-ui\.js"/, 'recovery UI deve carregar no app');
 assert.match(sw, /\.\/js\/recovery-core\.js/, 'core de recuperação deve estar no app shell');
 assert.match(sw, /\.\/js\/recovery-ui\.js/, 'UI de recuperação deve estar no app shell');
