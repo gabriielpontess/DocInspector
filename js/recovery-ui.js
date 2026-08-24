@@ -344,10 +344,11 @@ function interceptPdfDeleteClicks() {
 }
 
 function enhanceDocumentDeleteLabels() {
+  const title = 'Excluir o documento da inspeção (não exclui apenas o PDF)';
   document.querySelectorAll('[data-delete-document]').forEach(button => {
     const label = button.querySelector('span');
-    if (label) label.textContent = 'Excluir documento';
-    button.title = 'Excluir o documento da inspeção (não exclui apenas o PDF)';
+    if (label && label.textContent !== 'Excluir documento') label.textContent = 'Excluir documento';
+    if (button.title !== title) button.title = title;
   });
 }
 
@@ -378,9 +379,10 @@ function enhanceLinkedPdfRows() {
 function enhanceConfidentialCatalog() {
   const context = getAuthContext();
   if (!context || !can(context.role, CAPABILITY.MANAGE_PROJECT_FILES)) return;
+  const title = 'Mover somente este PDF para a lixeira';
   document.querySelectorAll('[data-confidential-delete]').forEach(button => {
-    button.textContent = 'Excluir PDF';
-    button.title = 'Mover somente este PDF para a lixeira';
+    if (button.textContent !== 'Excluir PDF') button.textContent = 'Excluir PDF';
+    if (button.title !== title) button.title = title;
   });
   const actions = document.querySelector('#confidential-documents-actions');
   if (!actions) return;
