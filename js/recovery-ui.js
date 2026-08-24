@@ -3,8 +3,6 @@ import { getAuthContext } from './auth-context.js';
 import { getInspection, listInspections, saveInspection } from './db.js';
 import { CAPABILITY, can } from './permissions.js';
 import { deleteCachedConfidentialCiphertext } from './confidential-offline.js';
-import { refreshAll as refreshConfidentialCatalog } from './confidential-e2ee-ui.js';
-import { mountDetailPdfSection } from './confidential-pdf-linking-ui.js';
 import { syncNow } from './sync.js';
 import { escapeHtml, formatDate, openModal, setButtonBusy, showToast } from './ui.js';
 import {
@@ -127,7 +125,12 @@ async function restorePdf(record) {
 }
 
 async function refreshPdfSurfaces() {
-  await refreshConfidentialCatalog().catch(() => {});
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+  const [{ refreshAll }, { mountDetailPdfSection }] = await Promise.all([
+    import('./confidential-e2ee-ui.js'),
+    import('./confidential-pdf-linking-ui.js')
+  ]);
+  await refreshAll().catch(() => {});
   await mountDetailPdfSection({ force: true }).catch(() => {});
 }
 
@@ -263,7 +266,7 @@ async function restoreDeletedDocument(inspectionId, archivedDocumentId) {
 }
 
 async function openDocumentTrash() {
-  const context = contextOrThrow(CAPABILITY.MANAGE_DOCUMENTS);
+  contextOrThrow(CAPABILITY.MANAGE_DOCUMENTS);
   const inspections = await listInspections();
   const entries = inspections.flatMap(inspection =>
     listRestorableDeletedDocuments(inspection).map(entry => ({ inspection, entry }))
@@ -302,7 +305,6 @@ async function openDocumentTrash() {
       }
     });
   });
-  void context;
 }
 
 async function handlePdfSoftDelete(fileId, button) {
