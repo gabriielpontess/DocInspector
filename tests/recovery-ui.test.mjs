@@ -63,6 +63,14 @@ assert.ok(restored.inspection.documentAudit.some(event => event.action === 'docu
 assert.deepEqual(listRestorableDeletedDocuments(restored.inspection), [], 'documento já restaurado não pode reaparecer como restaurável');
 assert.throws(() => buildRestoredDocumentGeneration(restored.inspection, archivedId, { newDocumentId: restoredId }), /já foi restaurado|não encontrado/i);
 
+const staleMergedArchive = structuredClone(restored.inspection);
+staleMergedArchive.deletedDocuments.push(structuredClone(inspection.deletedDocuments[0]));
+assert.deepEqual(
+  listRestorableDeletedDocuments(staleMergedArchive),
+  [],
+  'arquivo antigo reintroduzido por merge não pode reaparecer na lixeira após a nova geração ativa'
+);
+
 const deletePatch = buildPdfSoftDeletePatch('2026-08-24T12:00:00.000Z');
 assert.deepEqual(deletePatch, { status: 'DELETED', deleted_at: '2026-08-24T12:00:00.000Z' });
 assert.deepEqual(buildPdfRestorePatch(), { status: 'ACTIVE', deleted_at: null });
@@ -78,6 +86,10 @@ assert.match(ui, /Excluir documento/, 'ação destrutiva do documento deve ter r
 assert.match(ui, /Lixeira de PDFs/, 'interface deve oferecer recuperação de PDFs');
 assert.match(ui, /Lixeira de documentos/, 'interface deve oferecer recuperação de documentos');
 assert.doesNotMatch(ui, /storage\.from\(CONFIDENTIAL_BUCKET\)\.remove/, 'exclusão comum não deve remover ciphertext remoto');
+assert.doesNotMatch(ui, /^import .*confidential-e2ee-ui/m, 'UI confidencial pesada não deve virar dependência estática do boot offline');
+assert.doesNotMatch(ui, /^import .*confidential-pdf-linking-ui/m, 'linking UI não deve virar dependência estática do boot offline');
+assert.match(ui, /import\('\.\/confidential-e2ee-ui\.js'\)/, 'refresh online pode carregar a UI confidencial dinamicamente');
+assert.match(ui, /import\('\.\/confidential-pdf-linking-ui\.js'\)/, 'refresh online pode carregar linking dinamicamente');
 assert.match(index, /src="js\/recovery-ui\.js"/, 'recovery UI deve carregar no app');
 assert.match(sw, /\.\/js\/recovery-core\.js/, 'core de recuperação deve estar no app shell');
 assert.match(sw, /\.\/js\/recovery-ui\.js/, 'UI de recuperação deve estar no app shell');
