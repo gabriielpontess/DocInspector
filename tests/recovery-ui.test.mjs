@@ -58,7 +58,7 @@ assert.equal(restored.restoredDocument.id, restoredId, 'restauração deve criar
 assert.equal(restored.restoredDocument.fieldCopies[0].id, copyId, 'cópias de campo devem manter identidade');
 assert.equal(restored.restoredDocument.fieldCopies[0].evidencePath, 'workspace/inspection/old-document/copy.jpg', 'evidencePath existente deve ser preservado');
 assert.ok(restored.inspection.deletedDocumentIds.includes(archivedId), 'UUID antigo deve permanecer tombstonado');
-assert.equal(restored.inspection.deletedDocuments.some(item => item.document?.id === archivedId), false, 'arquivo local restaurado deve sair da lixeira');
+assert.equal(restored.inspection.deletedDocuments.some(item => item.document?.id === archivedId), true, 'snapshot arquivado deve permanecer preservado como histórico');
 assert.ok(restored.inspection.documentAudit.some(event => event.action === 'document.restored' && event.changes?.restoredFromDocumentId === archivedId), 'auditoria deve ligar nova geração ao UUID tombstonado');
 assert.deepEqual(listRestorableDeletedDocuments(restored.inspection), [], 'documento já restaurado não pode reaparecer como restaurável');
 assert.throws(() => buildRestoredDocumentGeneration(restored.inspection, archivedId, { newDocumentId: restoredId }), /já foi restaurado|não encontrado/i);
