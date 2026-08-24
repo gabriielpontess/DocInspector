@@ -57,9 +57,10 @@ function assertNoActiveCodeConflict(inspection, archivedDocument) {
  * Restaura o conteúdo arquivado como uma nova geração interna.
  *
  * O UUID tombstonado permanece em deletedDocumentIds para que aparelhos antigos
- * não possam ressuscitar/apagar a geração anterior durante o merge. O chamador
- * deve relincar referências externas (PDFs confidenciais) do UUID antigo para o
- * novo UUID antes de persistir a inspeção restaurada.
+ * não possam ressuscitar/apagar a geração anterior durante o merge. O snapshot
+ * arquivado também permanece em deletedDocuments como trilha histórica, mas deixa
+ * de ser oferecido como restaurável. O chamador deve relincar referências externas
+ * (PDFs confidenciais) do UUID antigo para o novo UUID antes de persistir a inspeção.
  */
 export function buildRestoredDocumentGeneration(inspection, archivedDocumentId, {
   newDocumentId = null,
@@ -84,9 +85,8 @@ export function buildRestoredDocumentGeneration(inspection, archivedDocumentId, 
 
   const next = clone(inspection);
   next.documents = [...(next.documents || []), restored];
-  // O tombstone antigo é mantido; o payload arquivado local pode sair da lixeira.
   next.deletedDocumentIds = [...new Set([...(next.deletedDocumentIds || []), archivedId])];
-  next.deletedDocuments = (next.deletedDocuments || []).filter(item => item?.document?.id !== archivedId);
+  next.deletedDocuments = [...(next.deletedDocuments || [])];
   next.documentAudit = [...(next.documentAudit || []), {
     id: createId(),
     action: 'document.restored',
