@@ -111,13 +111,13 @@ async function deleteDocument(inspectionId, documentId) {
   const copyCount = document.fieldCopies?.length || 0;
   const modal = openModal(`
     <div class="modal-header">
-      <div><span class="section-kicker">EXCLUSÃO LÓGICA</span><h2>Excluir ${escapeHtml(document.code)}?</h2><p class="subtitle">O documento sai da lista ativa, mas seu histórico permanece preservado para sincronização e auditoria.</p></div>
+      <div><span class="section-kicker">EXCLUSÃO LÓGICA DO DOCUMENTO</span><h2>Excluir documento ${escapeHtml(document.code)}?</h2><p class="subtitle">Esta ação remove o documento da lista ativa. PDFs vinculados não são excluídos por esta ação, e o histórico do documento permanece preservado para recuperação, sincronização e auditoria.</p></div>
       <button class="icon-button" data-close-document-delete type="button" aria-label="Fechar">${icon('close')}</button>
     </div>
     <div class="alert">${copyCount ? `Este documento possui ${copyCount} ${copyCount === 1 ? 'cópia de campo registrada' : 'cópias de campo registradas'}. Esses dados e as evidências não serão apagados.` : 'O documento será tombstonado para não reaparecer automaticamente em uma atualização da planilha.'}</div>
     <div class="field"><label for="delete-document-reason">Motivo (opcional)</label><textarea id="delete-document-reason" rows="3" placeholder="Ex.: removido da lista operacional"></textarea></div>
     <div class="modal-message" data-document-management-message hidden></div>
-    <div class="actions modal-actions"><button class="btn" data-close-document-delete type="button">Cancelar</button><button class="btn btn-danger" id="confirm-document-delete" type="button">Excluir da lista ativa</button></div>
+    <div class="actions modal-actions"><button class="btn" data-close-document-delete type="button">Cancelar</button><button class="btn btn-danger" id="confirm-document-delete" type="button">Excluir documento da lista ativa</button></div>
   `, { label: `Excluir documento ${document.code}` });
 
   modal.querySelectorAll('[data-close-document-delete]').forEach(button => button.addEventListener('click', () => modal.closeModal()));
@@ -125,7 +125,7 @@ async function deleteDocument(inspectionId, documentId) {
     const button = event.currentTarget;
     const message = modal.querySelector('[data-document-management-message]');
     try {
-      setButtonBusy(button, true, 'Excluindo…');
+      setButtonBusy(button, true, 'Excluindo documento…');
       await saveLogicalDeletion(inspectionId, documentId, modal.querySelector('#delete-document-reason')?.value || '');
       showToast('Documento removido da lista ativa com histórico preservado.');
       modal.closeModal();
@@ -142,7 +142,7 @@ async function deleteDocument(inspectionId, documentId) {
 
 function actionButtons(inspectionId, documentId, { compact = false } = {}) {
   const compactClass = compact ? ' btn-compact' : '';
-  return `<button class="btn${compactClass}" data-edit-document="${escapeHtml(documentId)}" data-document-inspection="${escapeHtml(inspectionId)}" type="button">${icon('edit')}<span>Editar</span></button><button class="btn btn-danger${compactClass}" data-delete-document="${escapeHtml(documentId)}" data-document-inspection="${escapeHtml(inspectionId)}" type="button">${icon('trash')}<span>Excluir</span></button>`;
+  return `<button class="btn${compactClass}" data-edit-document="${escapeHtml(documentId)}" data-document-inspection="${escapeHtml(inspectionId)}" type="button">${icon('edit')}<span>Editar</span></button><button class="btn btn-danger${compactClass}" data-delete-document="${escapeHtml(documentId)}" data-document-inspection="${escapeHtml(inspectionId)}" type="button" title="Excluir o documento da inspeção (não exclui apenas o PDF)">${icon('trash')}<span>Excluir documento</span></button>`;
 }
 
 function bindManagementButton(button) {
