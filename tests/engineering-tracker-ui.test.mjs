@@ -9,9 +9,10 @@ const css = fs.readFileSync(new URL('../engineering-tracker.css', import.meta.ur
 assert.match(index, /href="engineering-tracker\.css"/);
 assert.match(index, /src="js\/engineering-tracker-ui\.js"/);
 assert.match(sw, /\.\/engineering-tracker\.css/);
+assert.match(sw, /\.\/visual-hardening\.css/);
 assert.match(sw, /\.\/js\/engineering-tracker-core\.js/);
 assert.match(sw, /\.\/js\/engineering-tracker-ui\.js/);
-assert.match(sw, /const VERSION = '0\.9\.46';/);
+assert.match(sw, /const VERSION = '0\.9\.47';/);
 
 assert.match(ui, /modal\.querySelector\('\.modal'\)\?\.classList\.add\('engineering-tracker-modal'\)/,
   'dimensionamento deve ser aplicado ao painel do diálogo, nunca ao backdrop');
@@ -26,6 +27,7 @@ assert.match(ui, /data-engineering-summary-oldest/);
 assert.match(ui, /data-engineering-elapsed/);
 assert.match(ui, /CONCURRENT_MODIFICATION/);
 
+assert.match(css, /^@import url\('\.\/visual-hardening\.css'\);/);
 assert.match(css, /\.engineering-tracker-modal\s*\{/);
 assert.match(css, /@media \(max-width: 767px\)[\s\S]*repeat\(5, minmax\(0, 1fr\)\)/,
   'navegação móvel deve reservar uma coluna real para Engenharia');
