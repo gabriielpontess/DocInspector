@@ -1,6 +1,13 @@
 import { codeIdentity, documentMarkings, makeDocument, metrics } from './domain.js';
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
+const HEADER_SCAN_LIMIT = 100;
+const HEADER_FIELD_PATTERNS = Object.freeze([
+  [/codigo\s*pw/, /^pw$/, /^codigo$/, /^codigo\s+(?:do\s+)?documento$/, /^document(?:\s+code)?$/],
+  [/descricao/, /description/, /^titulo$/],
+  [/status/, /situacao/],
+  [/revisao/, /revision/, /^rev\.?$/]
+]);
 
 function ensureXLSX() {
   if (!window.XLSX) {
@@ -15,6 +22,56 @@ function normalizeHeader(value) {
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
     .toLowerCase();
+}
+
+function nonEmptyCells(row) {
+  return Array.isArray(row)
+    ? row.map(value => String(value ?? '').trim()).filter(Boolean)
+    : [];
+}
+
+function semanticHeaderScore(row) {
+  const cells = nonEmptyCells(row).map(normalizeHeader);
+  return HEADER_FIELD_PATTERNS.reduce((score, patterns) => (
+    score + (cells.some(cell => patterns.some(pattern => pattern.test(cell))) ? 1 : 0)
+  ), 0);
+}
+
+export function detectHeaderRowIndex(matrix) {
+  if (!Array.isArray(matrix) || !matrix.length) return -1;
+
+  const candidates = matrix.slice(0, HEADER_SCAN_LIMIT).map((row, index) => ({
+    index,
+    semanticScore: semanticHeaderScore(row),
+    nonEmptyCount: nonEmptyCells(row).length
+  })).filter(candidate => candidate.nonEmptyCount > 0);
+
+  if (!candidates.length) return -1;
+
+  const semanticCandidates = candidates
+    .filter(candidate => candidate.semanticScore >= 2)
+    .sort((a, b) =>
+      b.semanticScore - a.semanticScore ||
+      b.nonEmptyCount - a.nonEmptyCount ||
+      a.index - b.index
+    );
+
+  if (semanticCandidates.length) return semanticCandidates[0].index;
+
+  const structuralCandidates = candidates
+    .filter(candidate => candidate.nonEmptyCount >= 2)
+    .sort((a, b) => b.nonEmptyCount - a.nonEmptyCount || a.index - b.index);
+
+  return structuralCandidates[0]?.index ?? candidates[0].index;
+}
+
+function isSyntheticHeader(value) {
+  return /^__EMPTY(?:_\d+)?$/i.test(String(value ?? '').trim());
+}
+
+function collectImportHeaders(rows) {
+  return [...new Set(rows.flatMap(row => Object.keys(row || {})))]
+    .filter(header => String(header).trim() && !isSyntheticHeader(header));
 }
 
 export async function readWorkbook(file) {
@@ -34,7 +91,17 @@ export async function readWorkbook(file) {
   if (!sheetName) throw new Error('A planilha não possui abas válidas.');
 
   const sheet = workbook.Sheets[sheetName];
+  const matrix = XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    defval: '',
+    raw: false,
+    blankrows: true
+  });
+  const headerRowIndex = detectHeaderRowIndex(matrix);
+  if (headerRowIndex < 0) throw new Error('Não foi possível identificar os cabeçalhos da planilha.');
+
   const rows = XLSX.utils.sheet_to_json(sheet, {
+    range: headerRowIndex,
     defval: '',
     raw: false,
     blankrows: false
@@ -42,10 +109,10 @@ export async function readWorkbook(file) {
 
   if (!rows.length) throw new Error('A planilha não contém registros.');
 
-  const headers = Object.keys(rows[0]).filter(header => String(header).trim());
+  const headers = collectImportHeaders(rows);
   if (!headers.length) throw new Error('Não foi possível identificar os cabeçalhos da planilha.');
 
-  return { rows, headers, sheetName };
+  return { rows, headers, sheetName, headerRowIndex };
 }
 
 export function mapRows(rows, mapping) {
