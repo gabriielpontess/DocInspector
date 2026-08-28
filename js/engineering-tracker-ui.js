@@ -223,7 +223,7 @@ export async function openEngineeringTracker() {
       ${rows.length ? rows.map(row => rowHtml(row, editable)).join('') : '<div class="card empty"><div><strong>Nenhuma pendência Amarelo/Vermelho.</strong><small>Quando uma cópia de campo receber uma dessas marcações, o documento aparecerá aqui.</small></div></div>'}
     </div>
   `, { label: 'Acompanhamento de Engenharia' });
-  modal.classList.add('engineering-tracker-modal');
+  modal.querySelector('.modal')?.classList.add('engineering-tracker-modal');
 
   modal.querySelectorAll('[data-engineering-row]').forEach(row => bindRow(modal, row));
   modal.querySelectorAll('[data-engineering-search],[data-engineering-filter-marking],[data-engineering-filter-status]').forEach(control => {
