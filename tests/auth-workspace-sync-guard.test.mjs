@@ -20,7 +20,7 @@ assert.match(sync, /createdAt >= boundAt/);
 assert.match(sync, /quarantinedLocalCount \+= 1/);
 assert.match(sync, /allowedInspectionIds\.has\(inspection\.id\)/);
 assert.match(sync, /Sincronizado · \$\{quarantinedLocalCount\} registro\(s\) local\(is\) isolado\(s\)/);
-assert.match(sw, /const VERSION = '0\.9\.46';/);
+assert.match(sw, /const VERSION = '0\.9\.47';/);
 
 const cycle = sync.match(/async function performSyncCycle\(\) \{[\s\S]*?\n\}/)?.[0] || '';
 const refreshIndex = cycle.indexOf('await refreshAuthContext()');
