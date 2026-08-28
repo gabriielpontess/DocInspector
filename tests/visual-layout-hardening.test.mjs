@@ -31,6 +31,11 @@ assert.match(refinement, /\.modal:has\(#save-copy-edit\)[\s\S]*overflow:\s*hidde
 assert.match(index, /\.modal:has\(#generate-pdf\)[\s\S]*overflow:\s*hidden/,
   'o contrato deve proteger contra regressão da regra inline de clipping');
 
+assert.match(responsive, /\.home-summary\s*\{\s*margin-inline:\s*calc\(var\(--space-3\) \* -1\)/,
+  'a antiga sangria mobile deve continuar coberta explicitamente como causa de overflow');
+assert.match(hardening, /@media \(max-width: 430px\)[\s\S]*\.home-summary[\s\S]*margin-inline:\s*0 !important;[\s\S]*max-width:\s*100%/,
+  'o scroller da Home deve permanecer fisicamente contido na viewport');
+
 assert.match(hardening, /\.toast,[\s\S]*overflow-wrap:\s*anywhere/,
   'mensagens longas devem quebrar linha');
 assert.match(hardening, /\.user-admin-access-head\s*\{\s*flex-wrap:\s*wrap;/,
