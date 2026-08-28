@@ -40,6 +40,6 @@ assert.match(permissionUi, /auth-change-password/);
 assert.match(context, /sky17-sync-config-v1/);
 assert.match(context, /readLegacyWorkspaceId/);
 assert.match(sw, /\.\/js\/user-admin-ui\.js/);
-assert.match(sw, /const VERSION = '0\.9\.41';/);
+assert.match(sw, /const VERSION = '0\.9\.43';/);
 
 console.log('Auth/RBAC Gate E administration checks passed.');
