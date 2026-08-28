@@ -1,0 +1,119 @@
+.engineering-tracker-modal {
+  width: min(1180px, calc(100vw - 32px));
+  max-height: min(92dvh, 920px);
+  overflow: auto;
+}
+.engineering-modal-head { align-items: flex-start; }
+.engineering-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+.engineering-summary .metric { min-height: 96px; padding: 14px; }
+.engineering-summary .metric span { color: var(--muted); font-size: .76rem; font-weight: 760; text-transform: uppercase; }
+.engineering-summary .metric strong { display: block; margin-top: 6px; font-size: 1.6rem; }
+.engineering-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(160px, .7fr));
+  gap: 10px;
+  align-items: end;
+  margin: 14px 0;
+}
+.engineering-result-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0 8px;
+}
+.engineering-result-head small { color: var(--muted); }
+.engineering-list { display: grid; gap: 12px; }
+.engineering-item {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+.engineering-item[hidden] { display: none !important; }
+.engineering-item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.engineering-item-copy { display: grid; gap: 3px; min-width: 0; }
+.engineering-item-copy > strong { font-size: 1rem; overflow-wrap: anywhere; }
+.engineering-item-copy > span { color: var(--text); }
+.engineering-item-copy > small { color: var(--muted); }
+.engineering-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 3px; }
+.engineering-marking {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: .72rem;
+  font-weight: 760;
+}
+.engineering-marking > span { width: 9px; height: 9px; border-radius: 50%; }
+.engineering-marking.red { color: #8f2830; background: #fff5f5; border-color: #efc9cb; }
+.engineering-marking.red > span { background: #d84149; }
+.engineering-marking.yellow { color: #7e6514; background: #fff9dc; border-color: #ead778; }
+.engineering-marking.yellow > span { background: #e8c928; }
+.engineering-status-copy {
+  flex: 0 0 auto;
+  max-width: 250px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: var(--navy-800);
+  background: var(--blue-soft);
+  font-size: .78rem;
+  font-weight: 760;
+  text-align: right;
+}
+.engineering-fields {
+  display: grid;
+  grid-template-columns: minmax(160px, .55fr) minmax(160px, .55fr) minmax(240px, 1.3fr);
+  gap: 10px;
+}
+.engineering-actions { display: flex; justify-content: flex-end; }
+.engineering-audit {
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+}
+.engineering-audit summary { cursor: pointer; color: var(--text); font-weight: 700; }
+.engineering-audit-list { display: grid; gap: 8px; margin: 10px 0 0; padding-left: 20px; }
+.engineering-audit-list li { padding-left: 2px; }
+.engineering-audit-list li strong,
+.engineering-audit-list li span,
+.engineering-audit-list li small { display: block; }
+.engineering-audit-list li span,
+.engineering-audit-list li small { font-size: .75rem; color: var(--muted); }
+
+@media (max-width: 767px) {
+  .mobile-nav:has([data-engineering-launcher]) { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .mobile-nav [data-engineering-launcher] { min-width: 0; padding-inline: 1px; font-size: .63rem; }
+  .mobile-nav [data-engineering-launcher] .nav-icon { width: 20px; height: 20px; font-size: 17px; }
+  .engineering-tracker-modal { width: min(100%, calc(100vw - 18px)); padding-inline: 12px; }
+  .engineering-modal-head { display: grid; gap: 10px; }
+  .engineering-modal-head .btn { width: 100%; }
+  .engineering-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .engineering-toolbar,
+  .engineering-fields { grid-template-columns: 1fr; }
+  .engineering-item-head { display: grid; gap: 10px; }
+  .engineering-status-copy { max-width: none; width: 100%; text-align: left; }
+  .engineering-actions .btn { width: 100%; }
+  .engineering-result-head { display: grid; gap: 2px; }
+}
+
+@media (max-width: 350px) {
+  .mobile-nav [data-engineering-launcher] { font-size: 9.5px; }
+  .engineering-summary { grid-template-columns: 1fr 1fr; }
+}
