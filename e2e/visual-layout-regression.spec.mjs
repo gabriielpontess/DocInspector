@@ -2,6 +2,13 @@ import { test, expect } from '@playwright/test';
 
 const LONG_TOKEN = 'PW-EXTREMAMENTE-LONGO-SEM-ESPACOS-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789-REVISAO-CRITICA';
 const LONG_TEXT = 'Descrição operacional propositalmente extensa para validar quebra de linha, crescimento vertical dos cards e legibilidade em telas estreitas. '.repeat(4);
+const NAV_VIEW = Object.freeze({
+  'Início': 'home',
+  'Verificar': 'inspect',
+  'Documentos': 'docs',
+  'Dados': 'settings',
+  'Dados e backup': 'settings'
+});
 
 test.setTimeout(120_000);
 
@@ -94,7 +101,9 @@ async function openInspectionActions(page) {
 }
 
 async function clickVisibleNav(page, label) {
-  const button = page.locator('button:visible').filter({ hasText: new RegExp(`^${label}$`) }).first();
+  const view = NAV_VIEW[label];
+  expect(view, `Navegação sem contrato para ${label}`).toBeTruthy();
+  const button = page.locator(`[data-nav="${view}"]:visible`).first();
   await expect(button).toBeVisible();
   await button.click();
 }
