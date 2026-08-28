@@ -5,17 +5,25 @@ let queued = false;
 
 function retirePdfUploadControls(root = document) {
   const button = root.querySelector?.(UPLOAD_BUTTON);
-  if (button && (!button.hidden || !button.disabled)) {
+  if (button) {
     button.hidden = true;
     button.disabled = true;
     button.setAttribute('aria-hidden', 'true');
     button.tabIndex = -1;
+    // `.btn { display: inline-flex; }` pode sobrescrever o comportamento visual
+    // nativo de `hidden` em alguns navegadores. Como este controle foi
+    // aposentado, garantimos que ele permaneça realmente fora da interface.
+    button.style.setProperty('display', 'none', 'important');
   }
 
   const input = root.querySelector?.(UPLOAD_INPUT);
-  if (input && !input.disabled) {
+  if (input) {
+    input.hidden = true;
     input.disabled = true;
+    input.setAttribute('aria-hidden', 'true');
+    input.tabIndex = -1;
     input.value = '';
+    input.style.setProperty('display', 'none', 'important');
   }
 
   const actions = root.querySelector?.('#confidential-documents-actions');
