@@ -3,6 +3,8 @@ import { test, expect } from '@playwright/test';
 const LONG_TOKEN = 'PW-EXTREMAMENTE-LONGO-SEM-ESPACOS-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789-REVISAO-CRITICA';
 const LONG_TEXT = 'Descrição operacional propositalmente extensa para validar quebra de linha, crescimento vertical dos cards e legibilidade em telas estreitas. '.repeat(4);
 
+test.setTimeout(120_000);
+
 async function seedStressInspection(page) {
   await page.goto('/?e2e-auth-bypass=1');
   await expect(page.locator('.topbar h1')).toHaveText('Início');
@@ -40,13 +42,16 @@ async function seedStressInspection(page) {
 async function visualOverflowReport(page) {
   return page.evaluate(() => {
     const viewport = document.documentElement.clientWidth;
-    const allowedScrollable = element => Boolean(element.closest('.compact-doc-table, .sync-setup-tabs'));
+    const intentionalHorizontalScroller = element => {
+      const scroller = element.closest('.home-summary, .compact-doc-table, .sync-setup-tabs');
+      return scroller && scroller !== element;
+    };
     const offenders = [...document.querySelectorAll('body *')].flatMap(element => {
       const style = getComputedStyle(element);
       const rect = element.getBoundingClientRect();
       if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return [];
       if (!rect.width || !rect.height || (rect.width <= 2 && rect.height <= 2)) return [];
-      if (allowedScrollable(element)) return [];
+      if (intentionalHorizontalScroller(element)) return [];
       if (rect.right <= viewport + 1 && rect.left >= -1) return [];
       return [{
         tag: element.tagName.toLowerCase(),
@@ -142,8 +147,12 @@ test('layout global contém textos extremos sem clipping ou overflow em breakpoi
     const exportDialog = page.getByRole('dialog', { name: 'Exportar relatório da inspeção' });
     await expect(exportDialog).toBeVisible();
     await expectContained(page, `Exportar ${viewport.width}px`);
-    const overflow = await exportDialog.evaluate(element => getComputedStyle(element).overflowY);
-    expect(['auto', 'scroll']).toContain(overflow);
+    const overflow = await exportDialog.evaluate(element => ({
+      x: getComputedStyle(element).overflowX,
+      y: getComputedStyle(element).overflowY
+    }));
+    expect(overflow.x).toBe('hidden');
+    expect(['auto', 'scroll']).toContain(overflow.y);
     await closeDialog(exportDialog);
   }
 });

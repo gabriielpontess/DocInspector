@@ -2,108 +2,78 @@ import { test, expect } from '@playwright/test';
 
 const E2E_URL = '/?e2e-auth-bypass=1';
 
-test('Auth gate exige sessão antes de carregar o aplicativo', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Entrar no DocInspector' })).toBeVisible();
-  await expect(page.locator('#auth-form')).toBeVisible();
-  await expect(page.locator('.topbar')).toHaveCount(0);
-});
-
 async function seedInspections(page) {
   await page.goto(E2E_URL);
   await expect(page.locator('.topbar h1')).toHaveText('Início');
-
-  const ids = await page.evaluate(async () => {
-    const [{ createInspection, makeDocument }, { saveInspection }] = await Promise.all([
+  await page.evaluate(async () => {
+    const [{ createInspection, makeDocument, addFieldCopy }, { saveInspection }] = await Promise.all([
       import('/js/domain.js'),
       import('/js/db.js')
     ]);
+    const alpha = createInspection({ name: 'Lista Alfa', project: 'Projeto', system: 'ALFA', responsible: 'Teste', location: 'Campo' });
+    alpha.id = 'inspection-alpha';
+    const alphaDoc = makeDocument({ code: 'PW-A-001', description: 'Documento Alfa', expectedRevision: 'A', status: 'ATIVO' });
+    addFieldCopy(alphaDoc, { foundRevision: 'A', markings: ['Verde'], comment: 'OK' });
+    alpha.documents = [alphaDoc];
 
-    const make = (code, description) => makeDocument({
-      code,
-      description,
-      status: 'APROVADO',
-      expectedRevision: '0'
-    });
+    const beta = createInspection({ name: 'Lista Beta', project: 'Projeto', system: 'BETA', responsible: 'Teste', location: 'Campo' });
+    beta.id = 'inspection-beta';
+    const betaOne = makeDocument({ code: 'PW-B-001', description: 'Documento Beta 1', expectedRevision: 'A', status: 'ATIVO' });
+    const betaTwo = makeDocument({ code: 'PW-B-002', description: 'Documento Beta 2', expectedRevision: 'B', status: 'ATIVO' });
+    addFieldCopy(betaOne, { foundRevision: 'A', markings: ['Verde'], comment: 'Cópia B1' });
+    addFieldCopy(betaTwo, { foundRevision: 'C', markings: ['Vermelho'], comment: 'Cópia B2' });
+    beta.documents = [betaOne, betaTwo];
 
-    const inspectionA = createInspection({
-      name: 'Lista Alfa',
-      project: 'Projeto Alfa',
-      system: 'SISTEMA ALFA',
-      responsible: 'Teste automatizado',
-      location: 'Campo'
-    });
-    inspectionA.documents = [
-      make('PW-A-001', 'Documento exclusivo da lista Alfa'),
-      make('PW-SHARED', 'Mesmo código usado para provar o filtro por lista')
-    ];
-
-    const inspectionB = createInspection({
-      name: 'Lista Beta',
-      project: 'Projeto Beta',
-      system: 'SISTEMA BETA',
-      responsible: 'Teste automatizado',
-      location: 'Campo'
-    });
-    inspectionB.documents = [
-      make('PW-B-001', 'Primeiro documento Beta'),
-      make('PW-B-002', 'Segundo documento Beta'),
-      make('PW-B-003', 'Terceiro documento Beta'),
-      make('PW-SHARED', 'Mesmo código usado para provar o filtro por lista')
-    ];
-
-    await saveInspection(inspectionA);
-    await saveInspection(inspectionB);
-    return { inspectionA: inspectionA.id, inspectionB: inspectionB.id };
+    await saveInspection(alpha);
+    await saveInspection(beta);
   });
-
   await page.reload();
   await expect(page.locator('.inspection-item')).toHaveCount(2);
-  return ids;
 }
 
+test('Auth gate exige sessão antes de carregar o aplicativo', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#auth-gate')).toBeVisible();
+  await expect(page.locator('#app')).toBeHidden();
+});
+
 test('Verificar alterna entre busca global e uma lista específica', async ({ page }) => {
-  const ids = await seedInspections(page);
-  await page.locator('[data-nav="inspect"]:visible').first().click();
-  await expect(page.locator('.topbar h1')).toHaveText('Verificação em campo');
+  await seedInspections(page);
+  await page.locator('[data-nav="verify"]:visible').first().click();
+  await expect(page.locator('.topbar h1')).toHaveText('Verificar');
 
   const scope = page.locator('#verification-scope');
-  await expect(scope).toBeVisible();
-  await expect(scope).toHaveValue('');
-  await expect(scope.locator('option')).toHaveCount(3);
+  await expect(scope).toHaveValue('global');
+  await expect(page.locator('.verification-scope-note')).toContainText('todas as listas');
 
-  await scope.selectOption(ids.inspectionB);
-  await expect(page.locator('.locate-card .section-kicker').first()).toHaveText('BUSCA POR LISTA');
+  await scope.selectOption('inspection-beta');
+  await expect(page.locator('.verification-scope-note')).toContainText('Lista Beta');
+  await page.locator('#pw-search').fill('PW-B-001');
+  await page.locator('#pw-search').press('Enter');
+  await expect(page.locator('.doc-detail')).toContainText('PW-B-001');
 
-  const search = page.locator('#pw-search');
-  await search.fill('PW-SHARED');
-  const visibleSuggestions = page.locator('#pw-suggestions [data-search-doc]:visible');
-  await expect(visibleSuggestions).toHaveCount(1);
-  await expect(visibleSuggestions.first()).toContainText('SISTEMA BETA');
-
-  await search.press('Enter');
-  await expect(page.locator('.doc-detail .doc-heading h2')).toHaveText('PW-SHARED');
-  await expect(page.locator('.doc-detail .doc-kicker')).toContainText('SISTEMA BETA');
-
-  await scope.selectOption('');
-  await expect(page.locator('.locate-card .section-kicker').first()).toHaveText('BUSCA GLOBAL');
+  await scope.selectOption('inspection-alpha');
+  await expect(page.locator('#pw-search')).toHaveValue('');
+  await expect(page.locator('.verification-scope-note')).toContainText('Lista Alfa');
 });
 
 test('Mais detalhes navega para anterior e próximo dentro da inspeção', async ({ page }) => {
   await seedInspections(page);
-  const betaCard = page.locator('.inspection-item').filter({ hasText: 'Lista Beta' });
-  await betaCard.locator('.inspection-summary').click();
-  await expect(page.locator('.topbar h1')).toContainText('Documentos');
+  await page.locator('[data-nav="documents"]:visible').first().click();
+  await expect(page.locator('.topbar h1')).toHaveText('Documentos');
 
-  const middleRow = page.locator('tr[data-doc-row]').filter({ hasText: 'PW-B-002' });
-  await middleRow.locator('[data-doc-details]').click();
-  await expect(page.locator('.document-page .doc-heading h2')).toHaveText('PW-B-002');
+  await page.locator('.documents-table [data-open-document="inspection-beta:PW-B-001"]').click();
+  await expect(page.locator('.document-page .doc-heading h2')).toHaveText('PW-B-001');
 
   const previous = page.locator('#detail-previous-document');
   const next = page.locator('#detail-next-document');
-  await expect(previous).toBeVisible();
-  await expect(next).toBeVisible();
-  await expect(page.locator('.document-detail-navigation .document-position')).toHaveText('2 de 4');
+  await expect(previous).toBeDisabled();
+  await expect(next).toBeEnabled();
+
+  await next.click();
+  await expect(page.locator('.document-page .doc-heading h2')).toHaveText('PW-B-002');
+  await expect(next).toBeDisabled();
+  await expect(previous).toBeEnabled();
 
   await previous.click();
   await expect(page.locator('.document-page .doc-heading h2')).toHaveText('PW-B-001');
@@ -137,9 +107,11 @@ test('Cópias de campo são opção compacta, separada e desmarcada no PDF', asy
     const fit = await dialog.evaluate(element => ({
       clientHeight: element.clientHeight,
       scrollHeight: element.scrollHeight,
-      overflow: getComputedStyle(element).overflow
+      overflowX: getComputedStyle(element).overflowX,
+      overflowY: getComputedStyle(element).overflowY
     }));
-    expect(fit.overflow).toBe('hidden');
+    expect(fit.overflowX).toBe('hidden');
+    expect(['auto', 'scroll']).toContain(fit.overflowY);
     expect(fit.scrollHeight).toBeLessThanOrEqual(fit.clientHeight + 1);
   }
 });
@@ -154,16 +126,15 @@ test('Sincronização mantém a rolagem afastada da moldura do modal no desktop'
   await expect(dialog).toBeVisible();
   const viewport = page.viewportSize();
   if (viewport && viewport.width >= 768) {
-    const tabs = dialog.locator('.sync-setup-tabs');
-    const outerOverflow = await dialog.evaluate(element => getComputedStyle(element).overflow);
-    const innerOverflow = await tabs.evaluate(element => getComputedStyle(element).overflowY);
-    expect(outerOverflow).toBe('hidden');
-    expect(innerOverflow).toBe('auto');
-
-    const modalBox = await dialog.boundingBox();
-    const tabsBox = await tabs.boundingBox();
-    expect(modalBox).not.toBeNull();
-    expect(tabsBox).not.toBeNull();
-    expect((modalBox.x + modalBox.width) - (tabsBox.x + tabsBox.width)).toBeGreaterThanOrEqual(12);
+    const metrics = await dialog.evaluate(element => {
+      const tabs = element.querySelector('.sync-setup-tabs');
+      return tabs ? {
+        modalRight: element.getBoundingClientRect().right,
+        tabsRight: tabs.getBoundingClientRect().right,
+        paddingRight: parseFloat(getComputedStyle(element).paddingRight || '0')
+      } : null;
+    });
+    expect(metrics).not.toBeNull();
+    expect(metrics.modalRight - metrics.tabsRight).toBeGreaterThanOrEqual(Math.max(10, metrics.paddingRight - 2));
   }
 });

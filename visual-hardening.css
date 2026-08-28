@@ -152,3 +152,12 @@
 
   .user-admin-access-head { align-items: flex-start; }
 }
+
+@media (max-width: 430px) {
+  /* O resumo da Home pode rolar horizontalmente, mas o próprio scroller deve permanecer dentro da viewport. */
+  .home-summary {
+    margin-inline: 0 !important;
+    width: 100%;
+    max-width: 100%;
+  }
+}
