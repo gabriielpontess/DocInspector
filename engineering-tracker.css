@@ -4,6 +4,13 @@
   overflow: auto;
 }
 .engineering-modal-head { align-items: flex-start; }
+.engineering-modal-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
 .engineering-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -103,6 +110,7 @@
   .mobile-nav [data-engineering-launcher] .nav-icon { width: 20px; height: 20px; font-size: 17px; }
   .engineering-tracker-modal { width: min(100%, calc(100vw - 18px)); padding-inline: 12px; }
   .engineering-modal-head { display: grid; gap: 10px; }
+  .engineering-modal-actions { display: grid; grid-template-columns: 1fr; width: 100%; }
   .engineering-modal-head .btn { width: 100%; }
   .engineering-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .engineering-toolbar,
