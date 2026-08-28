@@ -72,13 +72,15 @@ function auditHtml(inspection, documentId) {
 function rowHtml(row, editable) {
   const { inspection, document, markings, engineering } = row;
   const status = engineeringStatus(engineering);
+  const elapsed = engineeringElapsedDays(engineering, todayDate());
   const disabled = editable ? '' : 'disabled';
   return `<article class="engineering-item" data-engineering-row
       data-inspection-id="${escapeHtml(inspection.id)}"
       data-document-id="${escapeHtml(document.id)}"
       data-code="${escapeHtml(document.code.toLowerCase())}"
       data-markings="${escapeHtml(markings.join('|'))}"
-      data-engineering-status="${status}">
+      data-engineering-status="${status}"
+      data-engineering-elapsed="${elapsed ?? ''}">
     <div class="engineering-item-head">
       <div class="engineering-item-copy">
         <div class="engineering-badges">${markingBadges(markings)}</div>
@@ -104,11 +106,28 @@ function summaryHtml(rows) {
   const awaiting = rows.filter(row => row.status === 'AWAITING_RETURN').length;
   const oldest = rows.filter(row => row.status === 'AWAITING_RETURN').reduce((max, row) => Math.max(max, row.elapsedDays || 0), 0);
   return `<div class="engineering-summary">
-    <div class="card metric"><span>Vermelho</span><strong>${red}</strong></div>
-    <div class="card metric"><span>Amarelo</span><strong>${yellow}</strong></div>
-    <div class="card metric"><span>Sem retorno</span><strong>${awaiting}</strong></div>
-    <div class="card metric"><span>Maior espera</span><strong>${oldest} d</strong></div>
+    <div class="card metric"><span>Vermelho</span><strong data-engineering-summary-red>${red}</strong></div>
+    <div class="card metric"><span>Amarelo</span><strong data-engineering-summary-yellow>${yellow}</strong></div>
+    <div class="card metric"><span>Sem retorno</span><strong data-engineering-summary-awaiting>${awaiting}</strong></div>
+    <div class="card metric"><span>Maior espera</span><strong data-engineering-summary-oldest>${oldest} d</strong></div>
   </div>`;
+}
+
+function setSummaryValue(modal, selector, value) {
+  const target = modal.querySelector(selector);
+  if (target) target.textContent = value;
+}
+
+function refreshSummaryInPlace(modal) {
+  const rows = [...modal.querySelectorAll('[data-engineering-row]')];
+  const red = rows.filter(row => String(row.dataset.markings || '').split('|').includes('Vermelho')).length;
+  const yellow = rows.filter(row => String(row.dataset.markings || '').split('|').includes('Amarelo')).length;
+  const awaitingRows = rows.filter(row => row.dataset.engineeringStatus === 'AWAITING_RETURN');
+  const oldest = awaitingRows.reduce((max, row) => Math.max(max, Number(row.dataset.engineeringElapsed) || 0), 0);
+  setSummaryValue(modal, '[data-engineering-summary-red]', String(red));
+  setSummaryValue(modal, '[data-engineering-summary-yellow]', String(yellow));
+  setSummaryValue(modal, '[data-engineering-summary-awaiting]', String(awaitingRows.length));
+  setSummaryValue(modal, '[data-engineering-summary-oldest]', `${oldest} d`);
 }
 
 function applyFilters(modal) {
@@ -136,13 +155,21 @@ async function persistEngineeringState(inspectionId, documentId, state) {
     try {
       await saveInspection(inspection);
       syncNow({ announce: false }).catch(() => {});
-      return currentEngineeringState(inspection, documentId);
+      return { inspection, engineering: currentEngineeringState(inspection, documentId) };
     } catch (error) {
       lastError = error;
       if (error?.code !== 'CONCURRENT_MODIFICATION' || attempt > 0) throw error;
     }
   }
   throw lastError || new Error('Não foi possível salvar o acompanhamento de Engenharia.');
+}
+
+function refreshAuditInPlace(row, inspection, documentId) {
+  const audit = row.querySelector('.engineering-audit');
+  if (!audit) return;
+  const wasOpen = audit.open;
+  audit.innerHTML = `<summary>Histórico deste documento</summary>${auditHtml(inspection, documentId)}`;
+  audit.open = wasOpen;
 }
 
 function bindRow(modal, row) {
@@ -159,9 +186,12 @@ function bindRow(modal, row) {
         note: row.querySelector('[data-engineering-note]')?.value || ''
       };
       const saved = await persistEngineeringState(row.dataset.inspectionId, row.dataset.documentId, state);
-      row.dataset.engineeringStatus = engineeringStatus(saved);
+      row.dataset.engineeringStatus = engineeringStatus(saved.engineering);
+      row.dataset.engineeringElapsed = String(engineeringElapsedDays(saved.engineering, todayDate()) ?? '');
       const status = row.querySelector('[data-engineering-status-copy]');
-      if (status) status.textContent = statusLabel(saved);
+      if (status) status.textContent = statusLabel(saved.engineering);
+      refreshAuditInPlace(row, saved.inspection, row.dataset.documentId);
+      refreshSummaryInPlace(modal);
       showToast('Acompanhamento de Engenharia salvo no histórico.', 'success');
       applyFilters(modal);
     } catch (error) {
