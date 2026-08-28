@@ -210,7 +210,10 @@ export async function openEngineeringTracker() {
   const modal = openModal(`
     <div class="modal-head engineering-modal-head">
       <div><span class="section-kicker">ENGENHARIA</span><h2>Documentos Amarelo / Vermelho</h2><p class="subtitle">Localize pendências, registre o envio à Engenharia e acompanhe há quanto tempo cada documento está sem retorno.</p></div>
-      <button class="btn" data-open-document-history type="button">Histórico de documentos</button>
+      <div class="engineering-modal-actions">
+        ${editable ? '<button class="btn" data-open-document-history type="button">Histórico de documentos</button>' : ''}
+        <button class="btn" data-close-engineering type="button">Fechar</button>
+      </div>
     </div>
     ${summaryHtml(rows)}
     <div class="engineering-toolbar">
@@ -229,6 +232,7 @@ export async function openEngineeringTracker() {
   modal.querySelectorAll('[data-engineering-search],[data-engineering-filter-marking],[data-engineering-filter-status]').forEach(control => {
     control.addEventListener(control.tagName === 'INPUT' ? 'input' : 'change', () => applyFilters(modal));
   });
+  modal.querySelector('[data-close-engineering]')?.addEventListener('click', () => modal.closeModal());
   modal.querySelector('[data-open-document-history]')?.addEventListener('click', () => {
     modal.closeModal();
     void openDocumentTrash().catch(error => showToast(error?.message || 'Não foi possível abrir o histórico de documentos.', 'error'));
