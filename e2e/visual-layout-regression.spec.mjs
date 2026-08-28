@@ -2,6 +2,13 @@ import { test, expect } from '@playwright/test';
 
 const LONG_TOKEN = 'PW-EXTREMAMENTE-LONGO-SEM-ESPACOS-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789-REVISAO-CRITICA';
 const LONG_TEXT = 'Descrição operacional propositalmente extensa para validar quebra de linha, crescimento vertical dos cards e legibilidade em telas estreitas. '.repeat(4);
+const NAV_VIEW = Object.freeze({
+  'Início': 'home',
+  'Verificar': 'inspect',
+  'Documentos': 'docs',
+  'Dados': 'settings',
+  'Dados e backup': 'settings'
+});
 
 test.setTimeout(120_000);
 
@@ -94,7 +101,9 @@ async function openInspectionActions(page) {
 }
 
 async function clickVisibleNav(page, label) {
-  const button = page.locator('button:visible').filter({ hasText: new RegExp(`^${label}$`) }).first();
+  const view = NAV_VIEW[label];
+  expect(view, `Navegação sem contrato para ${label}`).toBeTruthy();
+  const button = page.locator(`[data-nav="${view}"]:visible`).first();
   await expect(button).toBeVisible();
   await button.click();
 }
@@ -129,6 +138,21 @@ test('layout global contém textos extremos sem clipping ou overflow em breakpoi
     await clickVisibleNav(page, 'Verificar');
     await expect(page.locator('.global-verify-layout')).toBeVisible();
     await expectContained(page, `Verificar ${viewport.width}px`);
+
+    const search = page.locator('#pw-search');
+    await search.fill(LONG_TOKEN);
+    const suggestion = page.locator('.search-suggestion').first();
+    await expect(suggestion).toBeVisible();
+    await expect(suggestion.locator('.search-suggestion-code')).toContainText(LONG_TOKEN);
+    await expectContained(page, `Sugestões ${viewport.width}px`);
+    const suggestionList = page.locator('.search-suggestion-list');
+    const suggestionOverflow = await suggestionList.evaluate(element => ({
+      x: getComputedStyle(element).overflowX,
+      y: getComputedStyle(element).overflowY
+    }));
+    expect(suggestionOverflow.x).toBe('hidden');
+    expect(['auto', 'scroll']).toContain(suggestionOverflow.y);
+    await search.fill('');
 
     const trackerButton = page.locator('[data-engineering-launcher]:visible').first();
     await trackerButton.click();

@@ -21,15 +21,20 @@
 .document-origin-strip > *,
 .document-summary-strip > *,
 .detail-grid > *,
+.search-suggestion,
+.search-suggestion > *,
 .engineering-item,
 .engineering-item-head,
 .engineering-item-copy,
 .engineering-fields > *,
+.auth-account-card,
+.auth-account-copy,
 .user-admin-member,
 .user-admin-member-copy,
 .user-admin-access-request,
 .user-admin-access-request-copy,
-.user-admin-access-head {
+.user-admin-access-head,
+.user-admin-request-code > div {
   min-width: 0;
 }
 
@@ -49,10 +54,18 @@
 .toast,
 .field-help,
 .subtitle,
+.inspection-system-title,
+.inspection-list-name,
+.inspection-summary .subtitle,
+.search-suggestion-code,
+.search-suggestion-description,
+.search-suggestion-origin,
+.search-suggestion-meta,
 .engineering-item-copy > *,
 .engineering-status-copy,
 .engineering-audit-list li > *,
 .user-admin-access-request-copy > *,
+.user-admin-request-code strong,
 .user-admin-message,
 .auth-message {
   overflow-wrap: anywhere;
@@ -65,6 +78,25 @@
   max-width: 100%;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+/* Badges e chips podem receber valores externos; devem crescer em altura, não estourar a largura. */
+.pill,
+.revision-chip,
+.evidence-sync-badge,
+.engineering-marking {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Listas de sugestão podem crescer, mas a caixa deve conservar seus limites e rolar internamente. */
+.search-suggestion-list {
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* 40% + 60% + gap excedia 100% da largura. Frações repartem somente o espaço restante. */
@@ -102,10 +134,6 @@
 }
 
 /* Conteúdo da Engenharia pode receber PW, descrições e notas externas muito extensas. */
-.engineering-marking {
-  max-width: 100%;
-  white-space: normal;
-}
 .engineering-item-copy > span,
 .engineering-item-copy > small,
 .engineering-status-copy,
@@ -118,7 +146,10 @@
 .user-admin-access-head { flex-wrap: wrap; }
 .user-admin-member-copy strong,
 .user-admin-member-copy span,
-.user-admin-member-copy small {
+.user-admin-member-copy small,
+.auth-account-copy strong,
+.auth-account-copy span,
+.auth-account-copy small {
   overflow: visible;
   text-overflow: clip;
   white-space: normal;

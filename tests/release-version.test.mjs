@@ -9,6 +9,6 @@ const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 assert.equal(packageJson.version, '0.10.0', 'package.json deve declarar a versão do release');
 assert.match(app, /const APP_VERSION = '0\.10\.0';/, 'versão exibida e registrada nos backups deve corresponder ao release');
 assert.match(changelog, /^## v0\.10\.0 —/m, 'CHANGELOG deve documentar o release v0.10.0');
-assert.match(sw, /const VERSION = '0\.9\.47';/, 'identidade técnica do cache deve avançar quando o app shell pós-release muda');
+assert.match(sw, /const VERSION = '0\.9\.48';/, 'identidade técnica do cache deve avançar quando o app shell pós-release muda');
 
 console.log('Release version consistency checks passed.');

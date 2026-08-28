@@ -33,13 +33,14 @@ async function seedInspections(page) {
 
 test('Auth gate exige sessão antes de carregar o aplicativo', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('#auth-gate')).toBeVisible();
-  await expect(page.locator('#app')).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Entrar no DocInspector' })).toBeVisible();
+  await expect(page.locator('#auth-form')).toBeVisible();
+  await expect(page.locator('.app-shell')).toHaveCount(0);
 });
 
 test('Verificar alterna entre busca global e uma lista específica', async ({ page }) => {
   await seedInspections(page);
-  await page.locator('[data-nav="verify"]:visible').first().click();
+  await page.locator('[data-nav="inspect"]:visible').first().click();
   await expect(page.locator('.topbar h1')).toHaveText('Verificar');
 
   const scope = page.locator('#verification-scope');
@@ -59,7 +60,7 @@ test('Verificar alterna entre busca global e uma lista específica', async ({ pa
 
 test('Mais detalhes navega para anterior e próximo dentro da inspeção', async ({ page }) => {
   await seedInspections(page);
-  await page.locator('[data-nav="documents"]:visible').first().click();
+  await page.locator('[data-nav="docs"]:visible').first().click();
   await expect(page.locator('.topbar h1')).toHaveText('Documentos');
 
   await page.locator('.documents-table [data-open-document="inspection-beta:PW-B-001"]').click();

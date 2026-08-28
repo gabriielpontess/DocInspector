@@ -6,6 +6,7 @@ const engineering = fs.readFileSync(new URL('../engineering-tracker.css', import
 const verify = fs.readFileSync(new URL('../visual-verify.css', import.meta.url), 'utf8');
 const responsive = fs.readFileSync(new URL('../visual-responsive.css', import.meta.url), 'utf8');
 const refinement = fs.readFileSync(new URL('../visual-refinement.css', import.meta.url), 'utf8');
+const auth = fs.readFileSync(new URL('../auth.css', import.meta.url), 'utf8');
 const index = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 
@@ -24,6 +25,18 @@ assert.match(hardening, /\.compact-doc-table \.code-cell strong[\s\S]*white-spac
 assert.match(responsive, /\.compact-doc-table \.code-cell strong[\s\S]*text-overflow:\s*ellipsis[\s\S]*white-space:\s*nowrap/,
   'o teste deve detectar a regra legada sobrescrita pela camada de hardening');
 
+assert.match(hardening, /\.search-suggestion-list[\s\S]*overflow-x:\s*hidden;[\s\S]*overflow-y:\s*auto;/,
+  'lista de sugestões deve rolar dentro da própria caixa sem gerar overflow lateral');
+assert.match(verify, /\.search-suggestion-list[\s\S]*max-height:\s*340px/,
+  'o contrato deve continuar cobrindo o componente cuja altura limitada exige rolagem interna');
+assert.match(hardening, /\.search-suggestion-code,[\s\S]*\.search-suggestion-meta,[\s\S]*overflow-wrap:\s*anywhere/,
+  'Código PW, origem e metadados de sugestões devem aceitar tokens longos');
+assert.match(hardening, /\.inspection-system-title,[\s\S]*\.inspection-list-name,[\s\S]*overflow-wrap:\s*anywhere/,
+  'identificadores da inspeção na Home devem quebrar tokens longos');
+
+assert.match(hardening, /\.pill,[\s\S]*\.revision-chip,[\s\S]*\.evidence-sync-badge,[\s\S]*white-space:\s*normal/,
+  'chips e badges operacionais devem crescer verticalmente em vez de ultrapassar o container');
+
 assert.match(hardening, /\.modal:has\(#save-copy-edit\),[\s\S]*\.modal:has\(#generate-pdf\)[\s\S]*overflow-y:\s*auto !important/,
   'modais com conteúdo dinâmico devem rolar verticalmente em vez de cortar conteúdo');
 assert.match(refinement, /\.modal:has\(#save-copy-edit\)[\s\S]*overflow:\s*hidden/,
@@ -40,12 +53,16 @@ assert.match(hardening, /\.toast,[\s\S]*overflow-wrap:\s*anywhere/,
   'mensagens longas devem quebrar linha');
 assert.match(hardening, /\.user-admin-access-head\s*\{\s*flex-wrap:\s*wrap;/,
   'cabeçalho administrativo deve poder quebrar linha');
+assert.match(auth, /\.auth-account-copy span, \.auth-account-copy strong, \.auth-account-copy small\s*\{\s*overflow:\s*hidden;\s*text-overflow:\s*ellipsis;\s*white-space:\s*nowrap;/,
+  'o teste deve manter registrada a regra antiga que truncava a identidade da conta');
+assert.match(hardening, /\.auth-account-copy strong,[\s\S]*\.auth-account-copy small[\s\S]*text-overflow:\s*clip;[\s\S]*white-space:\s*normal/,
+  'nome/e-mail da conta devem permanecer legíveis sem ellipsis');
 assert.match(hardening, /\.auth-password-dialog[\s\S]*max-height:\s*calc\(100dvh - 24px\)[\s\S]*overflow-y:\s*auto/,
   'diálogo de senha deve continuar utilizável em telas de baixa altura');
 assert.match(hardening, /font-size:\s*clamp\(10px,\s*2\.8vw,\s*11px\) !important/,
   'item Engenharia não deve cair abaixo do piso legível no mobile');
 
-assert.match(sw, /const VERSION = '0\.9\.47';/,
+assert.match(sw, /const VERSION = '0\.9\.48';/,
   'alteração de asset do app shell deve avançar a identidade do cache');
 
 console.log('Visual layout hardening contracts passed.');
