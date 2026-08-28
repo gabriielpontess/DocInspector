@@ -97,6 +97,7 @@ test('acompanha Amarelo/Vermelho, persiste auditoria e atualiza indicadores sem 
   await expect(dialog.locator('[data-engineering-summary-red]')).toHaveText('1');
   await expect(dialog.locator('[data-engineering-summary-yellow]')).toHaveText('1');
   await expect(dialog.locator('[data-engineering-summary-awaiting]')).toHaveText('0');
+  await expect(dialog.locator('[data-close-engineering]')).toBeVisible();
 
   await dialog.locator('[data-engineering-search]').fill('YELLOW');
   await expect(dialog.locator('[data-engineering-visible-count]')).toHaveText('1 documento(s) exibido(s)');
@@ -133,7 +134,7 @@ test('acompanha Amarelo/Vermelho, persiste auditoria e atualiza indicadores sem 
   expect(persistedFirstSave[0].documentId).toBe('engineering-red');
   expect(persistedFirstSave[0].changes.note).toBe('Enviado para análise estrutural');
 
-  await page.keyboard.press('Escape');
+  await dialog.locator('[data-close-engineering]').click();
   await expect(dialog).toHaveCount(0);
   dialog = await openTracker(page);
   const reopenedRed = rowFor(dialog, 'PW-ENG-RED');
@@ -207,7 +208,7 @@ test('acompanhamento salvo continua disponível ao reabrir o PWA offline', async
   await red.locator('[data-engineering-note]').fill('Aguardando retorno offline');
   await red.locator('[data-save-engineering]').click();
   await expect(red.locator('[data-engineering-status-copy]')).toContainText('Na Engenharia');
-  await page.keyboard.press('Escape');
+  await dialog.locator('[data-close-engineering]').click();
 
   await page.evaluate(async () => {
     if (!('serviceWorker' in navigator)) throw new Error('Service Worker indisponível no navegador de teste.');
