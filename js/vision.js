@@ -364,9 +364,10 @@ function cropCanvas(source, { x = 0, y = 0, width = 1, height = 1, scale = 1.8, 
 
   for (let i = 0; i < data.length; i += 4) {
     const gray = Math.round(data[i] * .299 + data[i + 1] * .587 + data[i + 2] * .114);
-    let value = Math.max(0, Math.min(255, ((gray - min) * 255) / range));
-    value = Math.max(0, Math.min(255, (value - 128) * 1.24 + 128));
-    if (threshold) value = value < normalizedThreshold ? 0 : 255;
+    const normalized = Math.max(0, Math.min(255, ((gray - min) * 255) / range));
+    const value = threshold
+      ? (normalized <= normalizedThreshold ? 0 : 255)
+      : Math.max(0, Math.min(255, (normalized - 128) * 1.24 + 128));
     data[i] = data[i + 1] = data[i + 2] = value;
     data[i + 3] = 255;
   }
