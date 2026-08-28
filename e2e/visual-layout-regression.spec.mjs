@@ -130,6 +130,21 @@ test('layout global contém textos extremos sem clipping ou overflow em breakpoi
     await expect(page.locator('.global-verify-layout')).toBeVisible();
     await expectContained(page, `Verificar ${viewport.width}px`);
 
+    const search = page.locator('#pw-search');
+    await search.fill(LONG_TOKEN);
+    const suggestion = page.locator('.search-suggestion').first();
+    await expect(suggestion).toBeVisible();
+    await expect(suggestion.locator('.search-suggestion-code')).toContainText(LONG_TOKEN);
+    await expectContained(page, `Sugestões ${viewport.width}px`);
+    const suggestionList = page.locator('.search-suggestion-list');
+    const suggestionOverflow = await suggestionList.evaluate(element => ({
+      x: getComputedStyle(element).overflowX,
+      y: getComputedStyle(element).overflowY
+    }));
+    expect(suggestionOverflow.x).toBe('hidden');
+    expect(['auto', 'scroll']).toContain(suggestionOverflow.y);
+    await search.fill('');
+
     const trackerButton = page.locator('[data-engineering-launcher]:visible').first();
     await trackerButton.click();
     const tracker = page.getByRole('dialog', { name: 'Acompanhamento de Engenharia' });
