@@ -32,6 +32,17 @@ assert.deepEqual(suggestMapping(['Código PW', 'Descrição', 'Status', 'Revisã
   status: 'Status',
   expectedRevision: 'Revisão'
 });
+assert.deepEqual(suggestMapping(['SISTEMA', 'CÓDIGO PW METRÔ', 'DESCRIÇÃO', 'STATUS', 'REVISÃO']), {
+  code: 'CÓDIGO PW METRÔ',
+  description: 'DESCRIÇÃO',
+  status: 'STATUS',
+  expectedRevision: 'REVISÃO'
+});
+
+const offsetMatrix = [
+  ['SISTEMA', 'CÓDIGO PW METRÔ', 'DESCRIÇÃO', 'STATUS', 'REVISÃO'],
+  ['AMV', 'PW-001', 'Documento teste', 'Ativo', 'A']
+];
 
 const originalWindow = globalThis.window;
 const originalFile = globalThis.File;
@@ -40,19 +51,27 @@ globalThis.File = NodeFile;
 globalThis.window = {
   XLSX: {
     read() {
-      return { SheetNames: ['Lista'], Sheets: { Lista: {} } };
+      return { SheetNames: ['Lista'], Sheets: { Lista: { '!ref': 'B2:F3' } } };
     },
     utils: {
+      decode_range(ref) {
+        assert.equal(ref, 'B2:F3');
+        return { s: { r: 1, c: 1 }, e: { r: 2, c: 5 } };
+      },
+      encode_range(range) {
+        assert.deepEqual(range, { s: { r: 1, c: 1 }, e: { r: 2, c: 5 } });
+        return 'B2:F3';
+      },
       sheet_to_json(_sheet, options) {
         calls.push(options);
-        if (options.header === 1) return titledMatrix;
-        assert.equal(options.range, 2, 'segunda leitura deve iniciar exatamente na linha de cabeçalho detectada');
+        if (options.header === 1) return offsetMatrix;
+        assert.equal(options.range, 'B2:F3', 'segunda leitura deve preservar a origem física B2 do worksheet');
         return [{
-          __EMPTY: '',
-          'Código PW': 'PW-001',
-          'Descrição': 'Documento teste',
-          'Status': 'Ativo',
-          'Revisão': 'A'
+          SISTEMA: 'AMV',
+          'CÓDIGO PW METRÔ': 'PW-001',
+          'DESCRIÇÃO': 'Documento teste',
+          'STATUS': 'Ativo',
+          'REVISÃO': 'A'
         }];
       }
     }
@@ -61,11 +80,11 @@ globalThis.window = {
 
 try {
   const parsed = await readWorkbook(new NodeFile([new Uint8Array([1])], 'lista.xlsx'));
-  assert.equal(parsed.headerRowIndex, 2);
-  assert.deepEqual(parsed.headers, ['Código PW', 'Descrição', 'Status', 'Revisão']);
+  assert.equal(parsed.headerRowIndex, 0, 'índice detectado permanece relativo ao !ref');
+  assert.deepEqual(parsed.headers, ['SISTEMA', 'CÓDIGO PW METRÔ', 'DESCRIÇÃO', 'STATUS', 'REVISÃO']);
   assert.equal(calls[0].header, 1, 'primeira leitura deve ser matriz para detectar a linha real');
   assert.equal(calls[0].blankrows, true, 'linhas físicas vazias devem ser preservadas para o range permanecer correto');
-  assert.equal(calls[1].range, 2);
+  assert.equal(calls[1].range, 'B2:F3', 'range final deve começar no cabeçalho real sem voltar para A1');
   assert.equal(parsed.headers.some(header => /^__EMPTY/i.test(header)), false, 'placeholders internos do SheetJS nunca devem aparecer no seletor');
 } finally {
   if (originalWindow === undefined) delete globalThis.window;
