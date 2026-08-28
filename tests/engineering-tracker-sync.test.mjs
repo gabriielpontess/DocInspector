@@ -7,6 +7,10 @@ function createBase() {
   const document = makeDocument({ code: 'PW-ENG-001', description: 'Documento Engenharia', status: 'Emitido', expectedRevision: 'A' });
   document.id = 'engineering-doc';
   addFieldCopy(document, { id: 'engineering-copy', foundRevision: 'A', markings: ['Vermelho'] });
+  document.createdAt = '2026-08-20T10:00:00.000Z';
+  document.updatedAt = '2026-08-20T10:00:00.000Z';
+  document.fieldCopies[0].capturedAt = '2026-08-20T10:00:00.000Z';
+  document.fieldCopies[0].updatedAt = '2026-08-20T10:00:00.000Z';
   return {
     id: 'engineering-inspection', name: 'Engenharia', project: 'Linha 17', system: 'SYS', responsible: 'Equipe', location: '',
     createdAt: '2026-08-01T00:00:00.000Z', updatedAt: '2026-08-20T10:00:00.000Z',
