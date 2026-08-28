@@ -1,3 +1,5 @@
+@import url('./visual-hardening.css');
+
 .engineering-tracker-modal {
   width: min(1180px, calc(100vw - 32px));
   max-height: min(92dvh, 920px);

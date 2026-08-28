@@ -1,0 +1,154 @@
+/* DocInspector — invariantes de legibilidade e contenção visual.
+   Esta camada existe para que novas telas herdem um comportamento seguro por padrão. */
+
+/* Itens de flex/grid devem poder encolher sem empurrar a viewport. */
+.main,
+.topbar,
+.topbar > *,
+.section-title,
+.card,
+.modal,
+.modal-head,
+.modal-header,
+.form-grid,
+.form-grid > *,
+.actions,
+.metric,
+.inspection-item,
+.inspection-summary,
+.doc-detail,
+.document-page,
+.document-origin-strip > *,
+.document-summary-strip > *,
+.detail-grid > *,
+.engineering-item,
+.engineering-item-head,
+.engineering-item-copy,
+.engineering-fields > *,
+.user-admin-member,
+.user-admin-member-copy,
+.user-admin-access-request,
+.user-admin-access-request-copy,
+.user-admin-access-head {
+  min-width: 0;
+}
+
+/* Conteúdo operacional nunca deve sair de sua caixa por ser uma palavra/token longo. */
+.card h1,
+.card h2,
+.card h3,
+.card p,
+.card strong,
+.card small,
+.modal h1,
+.modal h2,
+.modal h3,
+.modal p,
+.modal strong,
+.modal small,
+.toast,
+.field-help,
+.subtitle,
+.engineering-item-copy > *,
+.engineering-status-copy,
+.engineering-audit-list li > *,
+.user-admin-access-request-copy > *,
+.user-admin-message,
+.auth-message {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Botões podem crescer verticalmente, mas nunca horizontalmente para fora do container. */
+.btn {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* 40% + 60% + gap excedia 100% da largura. Frações repartem somente o espaço restante. */
+@media (min-width: 1024px) {
+  .global-verify-layout {
+    grid-template-columns: minmax(320px, 2fr) minmax(0, 3fr) !important;
+  }
+}
+
+/* Código PW é identidade operacional: não pode ser truncado com reticências. */
+.compact-doc-table .code-cell strong {
+  max-width: 100%;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Modal alto deve continuar acessível; conteúdo dinâmico não pode ser cortado. */
+@media (min-width: 768px) {
+  .modal:has(#save-copy-edit),
+  .modal:has(#generate-pdf) {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    scrollbar-gutter: stable;
+  }
+
+  .modal:has(#generate-pdf) .export-report-preview > div:first-child small {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Conteúdo da Engenharia pode receber PW, descrições e notas externas muito extensas. */
+.engineering-marking {
+  max-width: 100%;
+  white-space: normal;
+}
+.engineering-item-copy > span,
+.engineering-item-copy > small,
+.engineering-status-copy,
+.engineering-audit-list li > * {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Administração: e-mail/nome não deve desaparecer em ellipsis quando houver espaço vertical. */
+.user-admin-access-head { flex-wrap: wrap; }
+.user-admin-member-copy strong,
+.user-admin-member-copy span,
+.user-admin-member-copy small {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.auth-password-dialog {
+  max-height: calc(100dvh - 24px);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Inspeção ativa no menu lateral deve continuar identificável com nomes extensos. */
+.current-inspection strong,
+.current-inspection small {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@media (max-width: 767px) {
+  /* Cinco itens na barra móvel continuam legíveis sem reduzir texto abaixo de 10 px. */
+  .mobile-nav [data-engineering-launcher] {
+    min-width: 0;
+    font-size: clamp(10px, 2.8vw, 11px) !important;
+    line-height: 1.12;
+    overflow-wrap: anywhere;
+  }
+
+  .user-admin-access-head { align-items: flex-start; }
+}

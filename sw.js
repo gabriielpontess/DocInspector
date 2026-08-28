@@ -1,4 +1,4 @@
-const VERSION = '0.9.46';
+const VERSION = '0.9.47';
 const CORE_CACHE = `docinspector-core-${VERSION}`;
 const RUNTIME_CACHE = `docinspector-runtime-${VERSION}`;
 const XLSX_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
@@ -22,7 +22,7 @@ function isConfidentialCiphertextRequest(url) {
 }
 
 const APP_SHELL = [
-  './', './index.html', './styles.css', './visual-system.css', './visual-verify.css', './visual-documents.css', './visual-overlays.css', './visual-responsive.css', './visual-refinement.css', './auth.css', './engineering-tracker.css',
+  './', './index.html', './styles.css', './visual-system.css', './visual-verify.css', './visual-documents.css', './visual-overlays.css', './visual-responsive.css', './visual-refinement.css', './auth.css', './engineering-tracker.css', './visual-hardening.css',
   './manifest.webmanifest', './assets/icon.svg', './assets/icon-180.png', './assets/icon-192.png', './assets/icon-512.png',
   './assets/icon-maskable-192.png', './assets/icon-maskable-512.png', './js/app.js', './js/db.js', './js/domain.js', './js/document-lifecycle.js', './js/document-management-ui.js',
   './js/auth-config.js', './js/inspection-creation-guard.js', './js/auth.js', './js/auth-context.js', './js/auth-entry.js', './js/access-request.js', './js/access-request-admin-ui.js', './js/permissions.js', './js/permission-ui.js', './js/user-admin-ui.js', './js/sync-auth.js', './js/sync-delete-queue.js',
