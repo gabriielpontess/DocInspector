@@ -24,6 +24,14 @@ assert.equal(separatorsLost.exact, true);
 const noisyLabeled = analyzeDocumentFromText('CODIGO: DE 17 02 02 00 6P5 1302 DESENHO GERAL', docs);
 assert.equal(noisyLabeled.document?.code, docs[0].code, 'prefixos rotulados devem permitir separar o código de texto posterior sem alterar caracteres');
 
+const precedingGenericCodeWord = analyzeDocumentFromText(
+  'quadro sem código\ntexto parcial\nobservações gerais\nCODIGO: DE 17 02 02 00 6P5 1302\nREV: C',
+  docs
+);
+assert.equal(precedingGenericCodeWord.document?.code, docs[0].code, 'uma palavra código genérica em linha anterior não pode engolir o rótulo CODIGO real');
+assert.equal(precedingGenericCodeWord.exact, true);
+assert.equal(detectRevisionFromText('quadro sem código\nCODIGO: DE 17 02 02 00 6P5 1302\nREV: C'), 'C', 'a revisão deve respeitar os limites de linha do OCR');
+
 const noFuzzySubstitution = analyzeDocumentFromText('CODIGO: DE 17 O2 02 00 6P5 1302', docs);
 assert.equal(noFuzzySubstitution.document, null, 'OCR não pode converter O em 0 para encaixar na lista');
 
