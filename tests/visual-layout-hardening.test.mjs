@@ -62,7 +62,7 @@ assert.match(hardening, /\.auth-password-dialog[\s\S]*max-height:\s*calc\(100dvh
 assert.match(hardening, /font-size:\s*clamp\(10px,\s*2\.8vw,\s*11px\) !important/,
   'item Engenharia não deve cair abaixo do piso legível no mobile');
 
-assert.match(sw, /const VERSION = '0\.9\.47';/,
+assert.match(sw, /const VERSION = '0\.9\.48';/,
   'alteração de asset do app shell deve avançar a identidade do cache');
 
 console.log('Visual layout hardening contracts passed.');
