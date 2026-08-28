@@ -74,6 +74,20 @@ function collectImportHeaders(rows) {
     .filter(header => String(header).trim() && !isSyntheticHeader(header));
 }
 
+function resolveImportRange(sheet, headerRowIndex, XLSX) {
+  const worksheetRef = String(sheet?.['!ref'] || '').trim();
+  if (!worksheetRef) return headerRowIndex;
+
+  const sourceRange = XLSX.utils.decode_range(worksheetRef);
+  const absoluteHeaderRow = sourceRange.s.r + headerRowIndex;
+  if (absoluteHeaderRow < sourceRange.s.r || absoluteHeaderRow > sourceRange.e.r) return headerRowIndex;
+
+  return XLSX.utils.encode_range({
+    s: { r: absoluteHeaderRow, c: sourceRange.s.c },
+    e: sourceRange.e
+  });
+}
+
 export async function readWorkbook(file) {
   const XLSX = ensureXLSX();
   if (!(file instanceof File)) throw new Error('Selecione uma planilha válida.');
@@ -100,8 +114,9 @@ export async function readWorkbook(file) {
   const headerRowIndex = detectHeaderRowIndex(matrix);
   if (headerRowIndex < 0) throw new Error('Não foi possível identificar os cabeçalhos da planilha.');
 
+  const importRange = resolveImportRange(sheet, headerRowIndex, XLSX);
   const rows = XLSX.utils.sheet_to_json(sheet, {
-    range: headerRowIndex,
+    range: importRange,
     defval: '',
     raw: false,
     blankrows: false
