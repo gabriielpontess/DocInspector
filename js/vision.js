@@ -117,6 +117,14 @@ function cleanDetectedCode(value) {
     .replace(/\s+/g, ' ');
 }
 
+function normalizeOcrLines(value) {
+  return String(value ?? '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map(line => normalizeCode(line))
+    .join('\n');
+}
+
 function candidateScore(value, labeled = false) {
   const compact = compactCode(value);
   const separators = (value.match(/[.\-\/]/g) || []).length;
@@ -145,7 +153,7 @@ function labeledTokenCandidates(value) {
  * e nunca altera caracteres para aproximar o código de um documento existente.
  */
 export function extractCodeCandidates(text) {
-  const normalized = normalizeCode(text)
+  const normalized = normalizeOcrLines(text)
     .replace(/[“”"'`]/g, ' ')
     .replace(/[–—−]/g, '-')
     .replace(/\\/g, '/')
@@ -257,7 +265,7 @@ function isPlausibleRevision(value) {
 }
 
 export function detectRevisionFromText(text, _expectedRevision = '') {
-  const normalized = normalizeCode(text)
+  const normalized = normalizeOcrLines(text)
     .replace(/REVISÃO/g, 'REVISAO')
     .replace(/[“”"'`]/g, ' ')
     .replace(/[ \t]+/g, ' ');
