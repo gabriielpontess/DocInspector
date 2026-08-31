@@ -106,9 +106,13 @@
   }
 }
 
-/* WebKit pode usar o texto interno de <option> no cálculo de largura do controle nativo,
-   mesmo quando o select já está em uma track minmax(0, 1fr). O filtro deve ficar contido;
-   a identificação completa continua visível nos títulos e nas linhas de documentos. */
+/* WebKit inclui a área anônima das opções nativas no overflow propagado do grid,
+   mesmo quando os selects e todas as tracks cabem visualmente. A toolbar é a fronteira
+   correta para clipar apenas essa área fantasma; popups nativos continuam fora desse box. */
+.documents-toolbar {
+  overflow-x: clip;
+}
+
 .documents-toolbar select {
   width: 100%;
   min-width: 0;
