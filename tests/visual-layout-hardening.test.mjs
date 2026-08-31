@@ -48,6 +48,8 @@ assert.match(refinement, /@media \(max-width: 1199px\) and \(min-width: 768px\)[
   'toolbar de Documentos em tablet deve permitir encolhimento real e manter a busca em linha inteira');
 assert.doesNotMatch(refinement, /@media \(max-width: 1199px\) and \(min-width: 768px\)[\s\S]*minmax\(240px,\s*1\.35fr\)[\s\S]*minmax\(150px,\s*1fr\)/,
   'breakpoint de tablet não pode reintroduzir mínimos rígidos que ultrapassem a largura útil do card');
+assert.match(engineering, /@media \(max-width: 900px\), \(max-width: 1024px\) and \(any-pointer: coarse\)[\s\S]*\.mobile-nav:has\(\[data-engineering-launcher\]\)[\s\S]*grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/,
+  'barra inferior com Engenharia deve permanecer em uma linha no mesmo breakpoint tablet/coarse-pointer que ativa a mobile-nav');
 
 assert.match(responsive, /\.home-summary\s*\{\s*margin-inline:\s*calc\(var\(--space-3\) \* -1\)/,
   'a antiga sangria mobile deve continuar coberta explicitamente como causa de overflow');
@@ -67,7 +69,7 @@ assert.match(hardening, /\.auth-password-dialog[\s\S]*max-height:\s*calc\(100dvh
 assert.match(hardening, /font-size:\s*clamp\(10px,\s*2\.8vw,\s*11px\) !important/,
   'item Engenharia não deve cair abaixo do piso legível no mobile');
 
-assert.match(sw, /const VERSION = '0\.9\.49';/,
+assert.match(sw, /const VERSION = '0\.9\.50';/,
   'alteração de asset do app shell deve avançar a identidade do cache');
 
 console.log('Visual layout hardening contracts passed.');
