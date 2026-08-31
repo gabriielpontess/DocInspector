@@ -10,7 +10,7 @@ const NAV_VIEW = Object.freeze({
   'Dados e backup': 'settings'
 });
 
-test.setTimeout(120_000);
+test.setTimeout(180_000);
 
 async function seedStressInspection(page) {
   await page.goto('/?e2e-auth-bypass=1');
@@ -104,11 +104,119 @@ async function visualOverflowReport(page) {
   });
 }
 
+async function interactiveTypographyReport(page) {
+  return page.evaluate(() => {
+    const dynamicTextSelector = [
+      '.search-suggestion-code',
+      '.code-cell',
+      '.inspection-system-title',
+      '.inspection-list-name',
+      '.current-inspection',
+      '.user-admin-request-code strong'
+    ].join(',');
+
+    const isVisible = element => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== 'none' &&
+        style.visibility !== 'hidden' &&
+        Number(style.opacity) !== 0 &&
+        style.pointerEvents !== 'none' &&
+        rect.width > 4 &&
+        rect.height > 4;
+    };
+
+    const uniqueTops = rects => {
+      const tops = [];
+      rects.forEach(rect => {
+        if (rect.width <= .5 || rect.height <= .5) return;
+        const top = Math.round(rect.top * 2) / 2;
+        if (!tops.some(value => Math.abs(value - top) <= 1)) tops.push(top);
+      });
+      return tops;
+    };
+
+    const describe = element => {
+      const rect = element.getBoundingClientRect();
+      return {
+        tag: element.tagName.toLowerCase(),
+        id: String(element.id || '').slice(0, 80),
+        className: String(element.className || '').slice(0, 120),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        text: String(element.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 120)
+      };
+    };
+
+    const controls = [...document.querySelectorAll('button,[role="button"],[role="menuitem"],summary')]
+      .filter(isVisible);
+    const fragmentedWords = [];
+    const excessiveLines = [];
+
+    controls.forEach(control => {
+      const walker = document.createTreeWalker(control, NodeFilter.SHOW_TEXT);
+      const lineRects = [];
+      let node = walker.nextNode();
+
+      while (node) {
+        const text = node.nodeValue || '';
+        const parent = node.parentElement;
+        if (parent && !parent.closest(dynamicTextSelector)) {
+          const rangeAll = document.createRange();
+          rangeAll.selectNodeContents(node);
+          lineRects.push(...rangeAll.getClientRects());
+
+          const wordPattern = /[\p{L}\p{N}]{4,}/gu;
+          let match;
+          while ((match = wordPattern.exec(text))) {
+            const range = document.createRange();
+            range.setStart(node, match.index);
+            range.setEnd(node, match.index + match[0].length);
+            const tops = uniqueTops([...range.getClientRects()]);
+            if (tops.length > 1) {
+              fragmentedWords.push({ ...describe(control), word: match[0].slice(0, 60), lines: tops.length });
+              break;
+            }
+          }
+        }
+        node = walker.nextNode();
+      }
+
+      const normalizedText = String(control.textContent || '').trim().replace(/\s+/g, ' ');
+      if (
+        control.matches('button,[role="button"],[role="menuitem"]') &&
+        normalizedText &&
+        normalizedText.length <= 48 &&
+        !control.querySelector(dynamicTextSelector)
+      ) {
+        const lines = uniqueTops(lineRects).length;
+        if (lines > 3) excessiveLines.push({ ...describe(control), lines });
+      }
+    });
+
+    return {
+      fragmentedWords: fragmentedWords.slice(0, 16),
+      excessiveLines: excessiveLines.slice(0, 16)
+    };
+  });
+}
+
 async function expectContained(page, label) {
   const report = await visualOverflowReport(page);
   expect(report.offenders, `${label}: elementos fora da viewport ${JSON.stringify(report.offenders)}`).toEqual([]);
   expect(report.htmlScrollWidth, `${label}: documentElement criou overflow horizontal`).toBeLessThanOrEqual(report.viewport + 1);
   expect(report.bodyScrollWidth, `${label}: body criou overflow horizontal ${JSON.stringify(report)}`).toBeLessThanOrEqual(report.viewport + 1);
+}
+
+async function expectReadableControls(page, label) {
+  const report = await interactiveTypographyReport(page);
+  expect(report.fragmentedWords, `${label}: controles fragmentaram palavras ${JSON.stringify(report.fragmentedWords)}`).toEqual([]);
+  expect(report.excessiveLines, `${label}: controles ficaram comprimidos em linhas demais ${JSON.stringify(report.excessiveLines)}`).toEqual([]);
+}
+
+async function expectVisualHealth(page, label) {
+  await expectContained(page, label);
+  await expectReadableControls(page, label);
 }
 
 async function clickClearOfMobileNav(page, locator, label) {
@@ -172,7 +280,28 @@ async function clickVisibleNav(page, label) {
   await button.click();
 }
 
-test('layout global contém textos extremos sem clipping ou overflow em breakpoints críticos', async ({ page }) => {
+async function inspectDocumentManagementDialogs(page, viewportWidth) {
+  const row = page.locator('tr[data-doc-row]').first();
+  const editButton = row.locator('[data-edit-document]').first();
+  if (await editButton.isVisible()) {
+    await editButton.click();
+    const editor = page.getByRole('dialog', { name: new RegExp(`Editar documento`) });
+    await expect(editor).toBeVisible();
+    await expectVisualHealth(page, `Editar documento ${viewportWidth}px`);
+    await closeDialog(editor);
+  }
+
+  const deleteButton = row.locator('[data-delete-document]').first();
+  if (await deleteButton.isVisible()) {
+    await deleteButton.click();
+    const deletion = page.getByRole('dialog', { name: new RegExp(`Excluir documento`) });
+    await expect(deletion).toBeVisible();
+    await expectVisualHealth(page, `Excluir documento ${viewportWidth}px`);
+    await closeDialog(deletion);
+  }
+}
+
+test('layout global contém textos extremos sem clipping, palavras fragmentadas ou overflow em breakpoints críticos', async ({ page }) => {
   const viewports = [
     { width: 320, height: 720 },
     { width: 390, height: 844 },
@@ -184,12 +313,12 @@ test('layout global contém textos extremos sem clipping ou overflow em breakpoi
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);
     await seedStressInspection(page);
-    await expectContained(page, `Início ${viewport.width}px`);
+    await expectVisualHealth(page, `Início ${viewport.width}px`);
 
     const primaryAction = page.locator('.inspection-item .inspection-primary-action').first();
     await clickClearOfMobileNav(page, primaryAction, `Ver documentos ${viewport.width}px`);
     await expect(page.locator('.topbar h1')).toContainText('Documentos');
-    await expectContained(page, `Documentos ${viewport.width}px`);
+    await expectVisualHealth(page, `Documentos ${viewport.width}px`);
 
     const code = page.locator('.compact-doc-table .code-cell strong').first();
     await expect(code).toContainText(LONG_TOKEN);
@@ -200,16 +329,18 @@ test('layout global contém textos extremos sem clipping ou overflow em breakpoi
     expect(codeStyle.whiteSpace).not.toBe('nowrap');
     expect(codeStyle.textOverflow).not.toBe('ellipsis');
 
+    await inspectDocumentManagementDialogs(page, viewport.width);
+
     await clickVisibleNav(page, 'Verificar');
     await expect(page.locator('.global-verify-layout')).toBeVisible();
-    await expectContained(page, `Verificar ${viewport.width}px`);
+    await expectVisualHealth(page, `Verificar ${viewport.width}px`);
 
     const search = page.locator('#pw-search');
     await search.fill(LONG_TOKEN);
     const suggestion = page.locator('.search-suggestion').first();
     await expect(suggestion).toBeVisible();
     await expect(suggestion.locator('.search-suggestion-code')).toContainText(LONG_TOKEN);
-    await expectContained(page, `Sugestões ${viewport.width}px`);
+    await expectVisualHealth(page, `Sugestões ${viewport.width}px`);
     const suggestionList = page.locator('.search-suggestion-list');
     const suggestionOverflow = await suggestionList.evaluate(element => ({
       x: getComputedStyle(element).overflowX,
@@ -223,19 +354,23 @@ test('layout global contém textos extremos sem clipping ou overflow em breakpoi
     await trackerButton.click();
     const tracker = page.getByRole('dialog', { name: 'Acompanhamento de Engenharia' });
     await expect(tracker).toBeVisible();
-    await expectContained(page, `Engenharia ${viewport.width}px`);
+    await expectVisualHealth(page, `Engenharia ${viewport.width}px`);
     await tracker.locator('[data-close-engineering]').click();
     await expect(tracker).toHaveCount(0);
+
+    await clickVisibleNav(page, 'Dados');
+    await expect(page.locator('.settings-grid')).toBeVisible();
+    await expectVisualHealth(page, `Dados e backup ${viewport.width}px`);
 
     await clickVisibleNav(page, 'Início');
     await expect(page.locator('.topbar h1')).toHaveText('Início');
 
     const sheet = await openInspectionActions(page);
-    await expectContained(page, `Ações ${viewport.width}px`);
+    await expectVisualHealth(page, `Ações ${viewport.width}px`);
     await sheet.getByRole('menuitem', { name: 'Exportar' }).click();
     const exportDialog = page.getByRole('dialog', { name: 'Exportar relatório da inspeção' });
     await expect(exportDialog).toBeVisible();
-    await expectContained(page, `Exportar ${viewport.width}px`);
+    await expectVisualHealth(page, `Exportar ${viewport.width}px`);
     const overflow = await exportDialog.evaluate(element => ({
       clientWidth: element.clientWidth,
       scrollWidth: element.scrollWidth,
