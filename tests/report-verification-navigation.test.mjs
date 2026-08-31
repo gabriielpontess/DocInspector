@@ -42,7 +42,7 @@ assert.match(refinement, /includeCopies: checked\('exp-pdf-copies'\)/);
 assert.match(refinement, /buildInspectionExportData\(inspection, options\)/);
 assert.match(authEntry, /import\('\.\/export-pdf-options-ui\.js'\)/, 'bootstrap autenticado deve carregar o montador da opção do PDF');
 assert.match(serviceWorker, /\.\/js\/export-pdf-options-ui\.js/);
-assert.match(serviceWorker, /const VERSION = '0\.9\.50'/, 'app shell pós-release deve avançar a identidade técnica do cache');
+assert.match(serviceWorker, /const VERSION = '0\.9\.51'/, 'app shell pós-release deve avançar a identidade técnica do cache');
 assert.match(exportPdfOptionsUi, /id="exp-pdf-copies"/);
 assert.doesNotMatch(exportPdfOptionsUi, /id="exp-pdf-copies"[^>]*checked/);
 assert.doesNotMatch(exportPdfOptionsUi, /Opcional\. Acrescenta revisão encontrada/);

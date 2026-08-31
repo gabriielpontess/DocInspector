@@ -53,27 +53,53 @@ async function visualOverflowReport(page) {
       const scroller = element.closest('.home-summary, .compact-doc-table, .sync-setup-tabs');
       return scroller && scroller !== element;
     };
-    const offenders = [...document.querySelectorAll('body *')].flatMap(element => {
+    const describe = element => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return {
+        tag: element.tagName.toLowerCase(),
+        id: String(element.id || '').slice(0, 80),
+        className: String(element.className || '').slice(0, 120),
+        left: Math.round(rect.left),
+        right: Math.round(rect.right),
+        width: Math.round(rect.width),
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        overflowX: style.overflowX,
+        minWidth: style.minWidth,
+        maxWidth: style.maxWidth,
+        text: String(element.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 80)
+      };
+    };
+    const elements = [...document.querySelectorAll('body *')];
+    const offenders = elements.flatMap(element => {
       const style = getComputedStyle(element);
       const rect = element.getBoundingClientRect();
       if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return [];
       if (!rect.width || !rect.height || (rect.width <= 2 && rect.height <= 2)) return [];
       if (intentionalHorizontalScroller(element)) return [];
       if (rect.right <= viewport + 1 && rect.left >= -1) return [];
-      return [{
-        tag: element.tagName.toLowerCase(),
-        className: String(element.className || '').slice(0, 120),
-        left: Math.round(rect.left),
-        right: Math.round(rect.right),
-        width: Math.round(rect.width),
-        text: String(element.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 80)
-      }];
+      return [describe(element)];
     }).slice(0, 12);
+    const internalOverflows = elements.flatMap(element => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      if (style.display === 'none' || style.visibility === 'hidden' || !rect.width || !rect.height) return [];
+      if (element.scrollWidth <= element.clientWidth + 1) return [];
+      return [describe(element)];
+    }).sort((a, b) => (b.scrollWidth - b.clientWidth) - (a.scrollWidth - a.clientWidth)).slice(0, 16);
+    const probes = ['.app-shell', '.main', '.documents-dashboard', '.documents-dashboard .grid.cards', '.documents-catalog', '.documents-toolbar', '#filter-text', '#filter-system', '#filter-result', '#filter-status', '.compact-doc-table', '.compact-doc-table table']
+      .flatMap(selector => {
+        const element = document.querySelector(selector);
+        return element ? [{ selector, ...describe(element) }] : [];
+      });
     return {
       viewport,
       htmlScrollWidth: document.documentElement.scrollWidth,
       bodyScrollWidth: document.body.scrollWidth,
-      offenders
+      offenders,
+      internalOverflows,
+      probes
     };
   });
 }
@@ -82,7 +108,7 @@ async function expectContained(page, label) {
   const report = await visualOverflowReport(page);
   expect(report.offenders, `${label}: elementos fora da viewport ${JSON.stringify(report.offenders)}`).toEqual([]);
   expect(report.htmlScrollWidth, `${label}: documentElement criou overflow horizontal`).toBeLessThanOrEqual(report.viewport + 1);
-  expect(report.bodyScrollWidth, `${label}: body criou overflow horizontal`).toBeLessThanOrEqual(report.viewport + 1);
+  expect(report.bodyScrollWidth, `${label}: body criou overflow horizontal ${JSON.stringify(report)}`).toBeLessThanOrEqual(report.viewport + 1);
 }
 
 async function clickClearOfMobileNav(page, locator, label) {
