@@ -89,17 +89,38 @@ async function clickClearOfMobileNav(page, locator, label) {
   await expect(locator).toBeVisible();
   await locator.evaluate(element => element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' }));
 
-  await expect.poll(async () => locator.evaluate(element => {
-    const target = element.getBoundingClientRect();
+  const clickPosition = await locator.evaluate(element => {
+    const rect = element.getBoundingClientRect();
     const nav = document.querySelector('.mobile-nav');
-    if (!nav) return false;
-    const style = getComputedStyle(nav);
-    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return false;
-    const navRect = nav.getBoundingClientRect();
-    return target.bottom > navRect.top && target.top < navRect.bottom;
-  }), { message: `${label}: ação não pode permanecer atrás da navegação móvel fixa` }).toBe(false);
+    let maxViewportY = Math.min(window.innerHeight - 2, rect.bottom - 2);
 
-  await locator.click();
+    if (nav) {
+      const style = getComputedStyle(nav);
+      const navRect = nav.getBoundingClientRect();
+      const navVisible = style.display !== 'none' &&
+        style.visibility !== 'hidden' &&
+        Number(style.opacity) !== 0 &&
+        navRect.width > 0 &&
+        navRect.height > 0;
+      if (navVisible) maxViewportY = Math.min(maxViewportY, navRect.top - 2);
+    }
+
+    const minViewportY = Math.max(2, rect.top + 2);
+    if (maxViewportY < minViewportY) return null;
+
+    const viewportY = Math.max(minViewportY, Math.min(rect.top + (rect.height / 2), maxViewportY));
+    const viewportX = rect.left + (rect.width / 2);
+    const hit = document.elementFromPoint(viewportX, viewportY);
+    if (!hit || (hit !== element && !element.contains(hit))) return null;
+
+    return {
+      x: viewportX - rect.left,
+      y: viewportY - rect.top
+    };
+  });
+
+  expect(clickPosition, `${label}: ação precisa manter um ponto realmente clicável fora da navegação móvel fixa`).not.toBeNull();
+  await locator.click({ position: clickPosition });
 }
 
 async function closeDialog(dialog) {
