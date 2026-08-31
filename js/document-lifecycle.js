@@ -83,23 +83,28 @@ export function updateDocumentMetadata(inspection, documentId, patch = {}, { act
   return document;
 }
 
-export function deleteDocumentLogically(inspection, documentId, { actor = null, reason = '', at = null } = {}) {
-  if (!inspection || !Array.isArray(inspection.documents)) throw new Error('Inspeção inválida.');
-  const index = inspection.documents.findIndex(item => item.id === documentId);
-  if (index < 0) throw new Error('Documento não encontrado.');
-  if (inspection.documents.length <= 1) throw new Error('A inspeção precisa manter pelo menos um documento ativo.');
-
+/**
+ * Arquiva um snapshot completo sem depender da forma como a exclusão foi disparada.
+ * A função é compartilhada pela exclusão manual e pela substituição autoritativa
+ * da lista para que ambos os caminhos produzam os mesmos tombstones e histórico.
+ */
+export function archiveDocumentDeletion(inspection, document, {
+  actor = null,
+  reason = '',
+  at = null,
+  source = 'manual'
+} = {}) {
+  if (!inspection || !Array.isArray(inspection.documents) || !document?.id) throw new Error('Documento inválido para arquivamento.');
   const deletedAt = nowIso(at);
-  const document = clone(inspection.documents[index]);
-  inspection.documents.splice(index, 1);
-  inspection.deletedDocumentIds = [...new Set([...(inspection.deletedDocumentIds || []), document.id])]
+  const snapshot = clone(document);
+  inspection.deletedDocumentIds = [...new Set([...(inspection.deletedDocumentIds || []), snapshot.id])]
     .filter(Boolean)
     .slice(-MAX_DELETED_DOCUMENTS);
 
   const previousArchive = Array.isArray(inspection.deletedDocuments) ? inspection.deletedDocuments : [];
-  const archive = previousArchive.filter(item => item?.document?.id !== document.id);
+  const archive = previousArchive.filter(item => item?.document?.id !== snapshot.id);
   archive.push({
-    document,
+    document: snapshot,
     deletedAt,
     deletedBy: normalize(actor) || null,
     reason: normalize(reason) || null
@@ -109,17 +114,29 @@ export function deleteDocumentLogically(inspection, documentId, { actor = null, 
   audit(inspection, {
     id: crypto.randomUUID(),
     action: 'document.deleted',
-    documentId: document.id,
+    documentId: snapshot.id,
     at: deletedAt,
     actor: normalize(actor) || null,
     changes: {
-      code: document.code,
-      description: document.description,
-      reason: normalize(reason) || null
+      code: snapshot.code,
+      description: snapshot.description,
+      reason: normalize(reason) || null,
+      source: normalize(source) || 'manual'
     }
   });
 
-  return document;
+  return snapshot;
+}
+
+export function deleteDocumentLogically(inspection, documentId, { actor = null, reason = '', at = null } = {}) {
+  if (!inspection || !Array.isArray(inspection.documents)) throw new Error('Inspeção inválida.');
+  const index = inspection.documents.findIndex(item => item.id === documentId);
+  if (index < 0) throw new Error('Documento não encontrado.');
+  if (inspection.documents.length <= 1) throw new Error('A inspeção precisa manter pelo menos um documento ativo.');
+
+  const document = clone(inspection.documents[index]);
+  inspection.documents.splice(index, 1);
+  return archiveDocumentDeletion(inspection, document, { actor, reason, at, source: 'manual' });
 }
 
 export function deletedDocumentIdentities(inspection) {

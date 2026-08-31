@@ -1,5 +1,5 @@
 import { codeIdentity, normalizeCode, recalculateDocument, RESULT } from './domain.js';
-import { deletedDocumentIdentities } from './document-lifecycle.js';
+import { archiveDocumentDeletion } from './document-lifecycle.js';
 
 function clone(value) {
   return structuredClone(value);
@@ -45,52 +45,44 @@ function findExistingDocument(incoming, index, consumedIds) {
   return candidates.length === 1 ? candidates[0] : null;
 }
 
-function manualFieldsForDocument(inspection, documentId) {
-  const fields = new Set();
-  for (const event of inspection.documentAudit || []) {
-    if (event?.action !== 'document.updated' || event.documentId !== documentId) continue;
-    for (const key of Object.keys(event.changes || {})) fields.add(key);
-  }
-  return fields;
-}
-
-function mergeCatalogFields(existing, incoming, manualFields) {
+function mergeAuthoritativeCatalog(existing, incoming) {
   const merged = clone(existing);
-  const next = {
-    code: manualFields.has('code') ? existing.code : incoming.code,
-    description: manualFields.has('description') ? existing.description : incoming.description,
-    status: manualFields.has('status') ? existing.status : incoming.status,
-    expectedRevision: manualFields.has('expectedRevision') ? existing.expectedRevision : incoming.expectedRevision
-  };
-  const changed = normalizeCode(existing.code) !== normalizeCode(next.code)
-    || String(existing.description || '') !== String(next.description || '')
-    || String(existing.status || '') !== String(next.status || '')
-    || String(existing.expectedRevision || '') !== String(next.expectedRevision || '');
+  const changed = normalizeCode(existing.code) !== normalizeCode(incoming.code)
+    || String(existing.description || '') !== String(incoming.description || '')
+    || String(existing.status || '') !== String(incoming.status || '')
+    || String(existing.expectedRevision || '') !== String(incoming.expectedRevision || '');
 
-  merged.code = next.code;
-  merged.description = next.description;
-  merged.status = next.status;
-  merged.expectedRevision = next.expectedRevision;
-  merged.sourceCode = manualFields.has('code')
-    ? (normalizeCode(existing.sourceCode) || normalizeCode(incoming.code))
-    : normalizeCode(incoming.code);
+  // A planilha substituta é a fonte autoritativa para os campos de catálogo.
+  // O conteúdo operacional continua vindo do documento existente: UUID, cópias,
+  // evidências, comentários, resultado, auditoria e demais dados de campo.
+  merged.code = incoming.code;
+  merged.description = incoming.description;
+  merged.status = incoming.status;
+  merged.expectedRevision = incoming.expectedRevision;
+  merged.sourceCode = normalizeCode(incoming.code);
   if (changed) merged.updatedAt = new Date().toISOString();
   return recalculateDocument(merged);
 }
 
 /**
- * Rebuild an inspection from a newly imported catalog without destroying field work.
+ * Substitui o catálogo ativo pela nova planilha sem destruir o trabalho de campo.
  *
- * Rules:
- * - Same/source PW: preserve the existing document id, copies, evidence, comments and timestamps;
- * - manually edited catalog fields remain authoritative across a spreadsheet refresh;
- * - manually deleted documents are skipped when the spreadsheet contains the same PW again;
- * - new PW: add it as pending using the freshly imported document;
- * - PW removed from the new list: remove it only when it is still pending/unreviewed;
- * - reviewed PW removed from the new list: retain it conservatively so field evidence is never discarded;
- * - keep the inspection updatedAt token unchanged. saveInspection owns the optimistic-concurrency token.
+ * Regras:
+ * - a nova lista é autoritativa, independentemente de conter mais ou menos PWs;
+ * - PW correspondente: mantém UUID, cópias, fotos, comentários e histórico, mas
+ *   Código/descrição/status/revisão esperada passam a refletir a nova lista;
+ * - PW novo: entra como novo documento pendente;
+ * - PW ausente da nova lista: sai do catálogo ativo e é arquivado com tombstone,
+ *   inclusive quando já foi revisado, permitindo auditoria e restauração posterior;
+ * - um PW anteriormente excluído pode voltar se reaparecer numa lista futura,
+ *   como nova geração/UUID, sem remover o tombstone histórico anterior;
+ * - updatedAt da inspeção não é forçado aqui; saveInspection controla o token de
+ *   concorrência no momento da persistência.
  */
-export function buildInspectionListUpdate(existingInspection, incomingDocuments) {
+export function buildInspectionListUpdate(existingInspection, incomingDocuments, {
+  actor = null,
+  at = null
+} = {}) {
   if (!existingInspection || !Array.isArray(existingInspection.documents)) {
     throw new Error('A inspeção atual é inválida.');
   }
@@ -98,9 +90,9 @@ export function buildInspectionListUpdate(existingInspection, incomingDocuments)
     throw new Error('A nova lista não possui documentos válidos.');
   }
 
-  const existingDocuments = existingInspection.documents;
+  const inspection = clone(existingInspection);
+  const existingDocuments = inspection.documents;
   const index = indexExistingDocuments(existingDocuments);
-  const deletedIdentities = deletedDocumentIdentities(existingInspection);
   const consumedIds = new Set();
   const nextDocuments = [];
   const summary = {
@@ -110,19 +102,14 @@ export function buildInspectionListUpdate(existingInspection, incomingDocuments)
     catalogChanged: 0,
     reviewedPreserved: 0,
     added: 0,
-    tombstonedSkipped: 0,
+    removed: 0,
     pendingRemoved: 0,
-    reviewedRetained: 0
+    reviewedRemoved: 0
   };
 
   for (const incoming of incomingDocuments) {
     const existing = findExistingDocument(incoming, index, consumedIds);
     if (!existing) {
-      const incomingIdentity = codeIdentity(incoming.code);
-      if (incomingIdentity && deletedIdentities.has(incomingIdentity)) {
-        summary.tombstonedSkipped += 1;
-        continue;
-      }
       nextDocuments.push(clone(incoming));
       summary.added += 1;
       continue;
@@ -132,8 +119,7 @@ export function buildInspectionListUpdate(existingInspection, incomingDocuments)
     summary.matched += 1;
     if (isReviewed(existing)) summary.reviewedPreserved += 1;
 
-    const manualFields = manualFieldsForDocument(existingInspection, existing.id);
-    const merged = mergeCatalogFields(existing, incoming, manualFields);
+    const merged = mergeAuthoritativeCatalog(existing, incoming);
     const changed = normalizeCode(existing.code) !== normalizeCode(merged.code)
       || String(existing.description || '') !== String(merged.description || '')
       || String(existing.status || '') !== String(merged.status || '')
@@ -145,18 +131,18 @@ export function buildInspectionListUpdate(existingInspection, incomingDocuments)
 
   for (const existing of existingDocuments) {
     if (consumedIds.has(existing.id)) continue;
-    if (isReviewed(existing)) {
-      nextDocuments.push(clone(existing));
-      summary.reviewedRetained += 1;
-    } else {
-      summary.pendingRemoved += 1;
-    }
+    archiveDocumentDeletion(inspection, existing, {
+      actor,
+      at,
+      source: 'inspection-list-replacement',
+      reason: 'Removido pela substituição da lista de inspeção.'
+    });
+    summary.removed += 1;
+    if (isReviewed(existing)) summary.reviewedRemoved += 1;
+    else summary.pendingRemoved += 1;
   }
 
-  const inspection = {
-    ...clone(existingInspection),
-    documents: nextDocuments
-  };
+  inspection.documents = nextDocuments;
 
   return {
     inspection,
@@ -168,5 +154,5 @@ export function buildInspectionListUpdate(existingInspection, incomingDocuments)
 }
 
 export function inspectionUpdateHasRisk(summary) {
-  return Boolean(summary?.reviewedRetained || summary?.catalogChanged || summary?.tombstonedSkipped);
+  return Boolean(summary?.removed || summary?.catalogChanged);
 }
