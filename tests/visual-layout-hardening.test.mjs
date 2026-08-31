@@ -20,6 +20,16 @@ assert.match(hardening, /grid-template-columns:\s*minmax\(320px,\s*2fr\)\s*minma
 assert.match(verify, /grid-template-columns:\s*minmax\(320px,40%\)\s*minmax\(0,60%\)/,
   'o teste deve continuar cobrindo a regra legada que motivou a proteção final');
 
+assert.match(hardening, /button,[\s\S]*\[role="button"\],[\s\S]*\[role="menuitem"\],[\s\S]*summary[\s\S]*overflow-wrap:\s*normal;[\s\S]*word-break:\s*normal;/,
+  'rótulos interativos não podem quebrar no meio das palavras');
+assert.match(hardening, /\.btn\s*\{[\s\S]*white-space:\s*normal;[\s\S]*overflow-wrap:\s*normal;[\s\S]*word-break:\s*normal;/,
+  'botões podem quebrar entre palavras, mas nunca fragmentar palavras');
+assert.doesNotMatch(hardening, /\.btn\s*\{[\s\S]{0,220}overflow-wrap:\s*anywhere/,
+  'a regra global de botão não pode reintroduzir quebra arbitrária de palavras');
+
+assert.match(hardening, /@media \(min-width: 768px\) and \(min-height: 521px\)[\s\S]*\.compact-doc-table td\.details-cell[\s\S]*width:\s*196px;[\s\S]*\.document-management-row-actions[\s\S]*display:\s*grid;/,
+  'coluna de ações desktop deve reservar espaço suficiente e empilhar ações de forma previsível');
+
 assert.match(hardening, /\.compact-doc-table \.code-cell strong[\s\S]*white-space:\s*normal !important/,
   'Código PW não pode ser truncado em uma linha');
 assert.match(responsive, /\.compact-doc-table \.code-cell strong[\s\S]*text-overflow:\s*ellipsis[\s\S]*white-space:\s*nowrap/,
@@ -54,6 +64,8 @@ assert.match(hardening, /\.documents-toolbar select\s*\{[\s\S]*overflow:\s*hidde
   'selects nativos de Documentos devem conter opções longas sem ampliar o body no WebKit');
 assert.match(engineering, /@media \(max-width: 900px\), \(max-width: 1024px\) and \(any-pointer: coarse\)[\s\S]*\.mobile-nav:has\(\[data-engineering-launcher\]\)[\s\S]*grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/,
   'barra inferior com Engenharia deve permanecer em uma linha no mesmo breakpoint tablet/coarse-pointer que ativa a mobile-nav');
+assert.match(hardening, /\.mobile-nav \[data-engineering-launcher\][\s\S]*overflow-wrap:\s*normal;[\s\S]*word-break:\s*normal;/,
+  'Engenharia na navegação móvel não pode quebrar no meio da palavra');
 
 assert.match(responsive, /\.home-summary\s*\{\s*margin-inline:\s*calc\(var\(--space-3\) \* -1\)/,
   'a antiga sangria mobile deve continuar coberta explicitamente como causa de overflow');
@@ -73,7 +85,7 @@ assert.match(hardening, /\.auth-password-dialog[\s\S]*max-height:\s*calc\(100dvh
 assert.match(hardening, /font-size:\s*clamp\(10px,\s*2\.8vw,\s*11px\) !important/,
   'item Engenharia não deve cair abaixo do piso legível no mobile');
 
-assert.match(sw, /const VERSION = '0\.9\.51';/,
+assert.match(sw, /const VERSION = '0\.9\.52';/,
   'alteração de asset do app shell deve avançar a identidade do cache');
 
 console.log('Visual layout hardening contracts passed.');
