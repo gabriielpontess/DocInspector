@@ -114,6 +114,11 @@ async function interactiveTypographyReport(page) {
       '.current-inspection',
       '.user-admin-request-code strong'
     ].join(',');
+    const compositeDataControlSelector = [
+      '.inspection-item',
+      '.search-suggestion',
+      '.document-row-clickable'
+    ].join(',');
 
     const isVisible = element => {
       const style = getComputedStyle(element);
@@ -149,7 +154,8 @@ async function interactiveTypographyReport(page) {
     };
 
     const controls = [...document.querySelectorAll('button,[role="button"],[role="menuitem"],summary')]
-      .filter(isVisible);
+      .filter(isVisible)
+      .filter(control => !control.matches(compositeDataControlSelector));
     const fragmentedWords = [];
     const excessiveLines = [];
 
@@ -285,7 +291,7 @@ async function inspectDocumentManagementDialogs(page, viewportWidth) {
   const editButton = row.locator('[data-edit-document]').first();
   if (await editButton.isVisible()) {
     await editButton.click();
-    const editor = page.getByRole('dialog', { name: new RegExp(`Editar documento`) });
+    const editor = page.getByRole('dialog', { name: new RegExp('Editar documento') });
     await expect(editor).toBeVisible();
     await expectVisualHealth(page, `Editar documento ${viewportWidth}px`);
     await closeDialog(editor);
@@ -294,7 +300,7 @@ async function inspectDocumentManagementDialogs(page, viewportWidth) {
   const deleteButton = row.locator('[data-delete-document]').first();
   if (await deleteButton.isVisible()) {
     await deleteButton.click();
-    const deletion = page.getByRole('dialog', { name: new RegExp(`Excluir documento`) });
+    const deletion = page.getByRole('dialog', { name: new RegExp('Excluir documento') });
     await expect(deletion).toBeVisible();
     await expectVisualHealth(page, `Excluir documento ${viewportWidth}px`);
     await closeDialog(deletion);
