@@ -85,6 +85,23 @@ async function expectContained(page, label) {
   expect(report.bodyScrollWidth, `${label}: body criou overflow horizontal`).toBeLessThanOrEqual(report.viewport + 1);
 }
 
+async function clickClearOfMobileNav(page, locator, label) {
+  await expect(locator).toBeVisible();
+  await locator.evaluate(element => element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' }));
+
+  await expect.poll(async () => locator.evaluate(element => {
+    const target = element.getBoundingClientRect();
+    const nav = document.querySelector('.mobile-nav');
+    if (!nav) return false;
+    const style = getComputedStyle(nav);
+    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return false;
+    const navRect = nav.getBoundingClientRect();
+    return target.bottom > navRect.top && target.top < navRect.bottom;
+  }), { message: `${label}: ação não pode permanecer atrás da navegação móvel fixa` }).toBe(false);
+
+  await locator.click();
+}
+
 async function closeDialog(dialog) {
   const close = dialog.getByRole('button', { name: 'Fechar' });
   if (await close.count()) await close.click();
@@ -94,7 +111,7 @@ async function closeDialog(dialog) {
 
 async function openInspectionActions(page) {
   const card = page.locator('.inspection-item').first();
-  await card.locator('button.inspection-more-button').click();
+  await clickClearOfMobileNav(page, card.locator('button.inspection-more-button'), 'Mais opções da inspeção');
   const sheet = page.getByRole('dialog', { name: 'Ações da inspeção' });
   await expect(sheet).toBeVisible();
   return sheet;
@@ -122,7 +139,8 @@ test('layout global contém textos extremos sem clipping ou overflow em breakpoi
     await seedStressInspection(page);
     await expectContained(page, `Início ${viewport.width}px`);
 
-    await page.locator('.inspection-item .inspection-primary-action').click();
+    const primaryAction = page.locator('.inspection-item .inspection-primary-action').first();
+    await clickClearOfMobileNav(page, primaryAction, `Ver documentos ${viewport.width}px`);
     await expect(page.locator('.topbar h1')).toContainText('Documentos');
     await expectContained(page, `Documentos ${viewport.width}px`);
 
