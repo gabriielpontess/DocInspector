@@ -172,10 +172,11 @@ test('layout global contém textos extremos sem clipping ou overflow em breakpoi
     await expect(exportDialog).toBeVisible();
     await expectContained(page, `Exportar ${viewport.width}px`);
     const overflow = await exportDialog.evaluate(element => ({
-      x: getComputedStyle(element).overflowX,
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
       y: getComputedStyle(element).overflowY
     }));
-    expect(overflow.x).toBe('hidden');
+    expect(overflow.scrollWidth, `Exportar ${viewport.width}px: modal criou overflow horizontal interno`).toBeLessThanOrEqual(overflow.clientWidth + 1);
     expect(['auto', 'scroll']).toContain(overflow.y);
     await closeDialog(exportDialog);
   }

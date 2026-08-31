@@ -41,7 +41,7 @@ test('Auth gate exige sessão antes de carregar o aplicativo', async ({ page }) 
 test('Verificar alterna entre busca global e uma lista específica', async ({ page }) => {
   await seedInspections(page);
   await page.locator('[data-nav="inspect"]:visible').first().click();
-  await expect(page.locator('.topbar h1')).toHaveText('Verificar');
+  await expect(page.locator('.topbar h1')).toHaveText('Verificação em campo');
 
   const scope = page.locator('#verification-scope');
   await expect(scope).toHaveValue('global');
@@ -63,7 +63,9 @@ test('Mais detalhes navega para anterior e próximo dentro da inspeção', async
   await page.locator('[data-nav="docs"]:visible').first().click();
   await expect(page.locator('.topbar h1')).toHaveText('Documentos');
 
-  await page.locator('.documents-table [data-open-document="inspection-beta:PW-B-001"]').click();
+  const betaOneRow = page.locator('.documents-table tr[data-inspection-row="inspection-beta"]').filter({ hasText: 'PW-B-001' });
+  await expect(betaOneRow).toHaveCount(1);
+  await betaOneRow.locator('[data-doc-details]').click();
   await expect(page.locator('.document-page .doc-heading h2')).toHaveText('PW-B-001');
 
   const previous = page.locator('#detail-previous-document');
