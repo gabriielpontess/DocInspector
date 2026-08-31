@@ -126,7 +126,10 @@ test('gerenciamento de documento edita metadados e exclui com tombstone sem perd
 
   const deleteDialog = page.getByRole('dialog', { name: 'Excluir documento PW-E2E-001-A' });
   await expect(deleteDialog).toBeVisible();
-  await deleteDialog.locator('#delete-document-reason').fill('Removido pelo smoke E2E');
+  const deleteReason = deleteDialog.locator('#delete-document-reason');
+  await deleteReason.click();
+  await deleteReason.pressSequentially('Removido pelo smoke E2E', { delay: 5 });
+  await expect(deleteReason).toHaveValue('Removido pelo smoke E2E');
   await deleteDialog.locator('#confirm-document-delete').click();
   await expect(deleteDialog).toHaveCount(0);
 
