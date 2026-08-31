@@ -48,6 +48,8 @@ assert.match(refinement, /@media \(max-width: 1199px\) and \(min-width: 768px\)[
   'toolbar de Documentos em tablet deve permitir encolhimento real e manter a busca em linha inteira');
 assert.doesNotMatch(refinement, /@media \(max-width: 1199px\) and \(min-width: 768px\)[\s\S]*minmax\(240px,\s*1\.35fr\)[\s\S]*minmax\(150px,\s*1fr\)/,
   'breakpoint de tablet não pode reintroduzir mínimos rígidos que ultrapassem a largura útil do card');
+assert.match(hardening, /\.documents-toolbar\s*\{[\s\S]*overflow-x:\s*clip;/,
+  'toolbar de Documentos deve impedir que a área anônima de options nativos propague overflow no WebKit');
 assert.match(hardening, /\.documents-toolbar select\s*\{[\s\S]*overflow:\s*hidden;[\s\S]*text-overflow:\s*ellipsis;[\s\S]*white-space:\s*nowrap;/,
   'selects nativos de Documentos devem conter opções longas sem ampliar o body no WebKit');
 assert.match(engineering, /@media \(max-width: 900px\), \(max-width: 1024px\) and \(any-pointer: coarse\)[\s\S]*\.mobile-nav:has\(\[data-engineering-launcher\]\)[\s\S]*grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/,
