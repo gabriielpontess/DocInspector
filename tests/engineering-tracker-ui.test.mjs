@@ -9,9 +9,10 @@ const css = fs.readFileSync(new URL('../engineering-tracker.css', import.meta.ur
 assert.match(index, /href="engineering-tracker\.css"/);
 assert.match(index, /src="js\/engineering-tracker-ui\.js"/);
 assert.match(sw, /\.\/engineering-tracker\.css/);
+assert.match(sw, /\.\/visual-hardening\.css/);
 assert.match(sw, /\.\/js\/engineering-tracker-core\.js/);
 assert.match(sw, /\.\/js\/engineering-tracker-ui\.js/);
-assert.match(sw, /const VERSION = '0\.9\.45';/);
+assert.match(sw, /const VERSION = '0\.9\.52';/);
 
 assert.match(ui, /modal\.querySelector\('\.modal'\)\?\.classList\.add\('engineering-tracker-modal'\)/,
   'dimensionamento deve ser aplicado ao painel do diálogo, nunca ao backdrop');
@@ -26,10 +27,11 @@ assert.match(ui, /data-engineering-summary-oldest/);
 assert.match(ui, /data-engineering-elapsed/);
 assert.match(ui, /CONCURRENT_MODIFICATION/);
 
+assert.match(css, /^@import url\('\.\/visual-hardening\.css'\);/);
 assert.match(css, /\.engineering-tracker-modal\s*\{/);
-assert.match(css, /@media \(max-width: 767px\)[\s\S]*repeat\(5, minmax\(0, 1fr\)\)/,
-  'navegação móvel deve reservar uma coluna real para Engenharia');
-assert.match(css, /\.engineering-toolbar,[\s\S]*\.engineering-fields \{ grid-template-columns: 1fr; \}/,
+assert.match(css, /@media \(max-width: 900px\), \(max-width: 1024px\) and \(any-pointer: coarse\)[\s\S]*\.mobile-nav:has\(\[data-engineering-launcher\]\)[\s\S]*repeat\(5, minmax\(0, 1fr\)\)/,
+  'navegação inferior de tablet/coarse-pointer deve reservar cinco colunas em uma única linha');
+assert.match(css, /@media \(max-width: 767px\)[\s\S]*\.engineering-toolbar,[\s\S]*\.engineering-fields \{ grid-template-columns: 1fr; \}/,
   'campos da Engenharia devem empilhar em celular');
 
 console.log('engineering-tracker-ui.test.mjs: OK');
