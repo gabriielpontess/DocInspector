@@ -79,7 +79,7 @@ assert.match(css, /user-admin-access-request/);
 assert.match(css, /auth-honeypot/);
 assert.match(css, /@media \(max-width: 600px\)/);
 
-assert.match(sw, /const VERSION = '0\.9\.51';/);
+assert.match(sw, /const VERSION = '0\.9\.52';/);
 assert.match(sw, /\.\/js\/access-request\.js/);
 assert.match(sw, /\.\/js\/access-request-admin-ui\.js/);
 
