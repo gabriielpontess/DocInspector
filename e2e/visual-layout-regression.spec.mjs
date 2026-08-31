@@ -16,7 +16,7 @@ async function seedStressInspection(page) {
   await page.goto('/?e2e-auth-bypass=1');
   await expect(page.locator('.topbar h1')).toHaveText('Início');
   await page.evaluate(async ({ code, text }) => {
-    const [{ createInspection, makeDocument, addFieldCopy }, { saveInspection }] = await Promise.all([
+    const [{ createInspection, makeDocument, addFieldCopy }, { replaceAllInspections }] = await Promise.all([
       import('/js/domain.js'), import('/js/db.js')
     ]);
     const inspection = createInspection({
@@ -40,7 +40,7 @@ async function seedStressInspection(page) {
       comment: `${text}TOKEN-${'N'.repeat(120)}`
     });
     inspection.documents = [document];
-    await saveInspection(inspection);
+    await replaceAllInspections([inspection]);
   }, { code: LONG_TOKEN, text: LONG_TEXT });
   await page.reload();
   await expect(page.locator('.inspection-item')).toHaveCount(1);
