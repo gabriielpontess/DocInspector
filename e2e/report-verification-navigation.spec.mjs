@@ -6,7 +6,7 @@ async function seedInspections(page) {
   await page.goto(E2E_URL);
   await expect(page.locator('.topbar h1')).toHaveText('Início');
   await page.evaluate(async () => {
-    const [{ createInspection, makeDocument, addFieldCopy }, { saveInspection }] = await Promise.all([
+    const [{ createInspection, makeDocument, addFieldCopy }, { replaceAllInspections }] = await Promise.all([
       import('/js/domain.js'),
       import('/js/db.js')
     ]);
@@ -24,8 +24,7 @@ async function seedInspections(page) {
     addFieldCopy(betaTwo, { foundRevision: 'C', markings: ['Vermelho'], comment: 'Cópia B2' });
     beta.documents = [betaOne, betaTwo];
 
-    await saveInspection(alpha);
-    await saveInspection(beta);
+    await replaceAllInspections([alpha, beta]);
   });
   await page.reload();
   await expect(page.locator('.inspection-item')).toHaveCount(2);
@@ -44,18 +43,21 @@ test('Verificar alterna entre busca global e uma lista específica', async ({ pa
   await expect(page.locator('.topbar h1')).toHaveText('Verificação em campo');
 
   const scope = page.locator('#verification-scope');
-  await expect(scope).toHaveValue('global');
-  await expect(page.locator('.verification-scope-note')).toContainText('todas as listas');
+  await expect(scope).toHaveAttribute('data-loaded', '1');
+  await expect(scope).toHaveValue('');
+  await expect(scope.locator('option:checked')).toHaveText('Todas as inspeções (global)');
+  await expect(page.locator('.locate-card .section-kicker')).toHaveText('BUSCA GLOBAL');
 
   await scope.selectOption('inspection-beta');
-  await expect(page.locator('.verification-scope-note')).toContainText('Lista Beta');
+  await expect(scope.locator('option:checked')).toContainText('BETA · Lista Beta');
+  await expect(page.locator('.locate-card .section-kicker')).toHaveText('BUSCA POR LISTA');
   await page.locator('#pw-search').fill('PW-B-001');
   await page.locator('#pw-search').press('Enter');
   await expect(page.locator('.doc-detail')).toContainText('PW-B-001');
 
   await scope.selectOption('inspection-alpha');
   await expect(page.locator('#pw-search')).toHaveValue('');
-  await expect(page.locator('.verification-scope-note')).toContainText('Lista Alfa');
+  await expect(scope.locator('option:checked')).toContainText('ALFA · Lista Alfa');
 });
 
 test('Mais detalhes navega para anterior e próximo dentro da inspeção', async ({ page }) => {
@@ -63,8 +65,9 @@ test('Mais detalhes navega para anterior e próximo dentro da inspeção', async
   await page.locator('[data-nav="docs"]:visible').first().click();
   await expect(page.locator('.topbar h1')).toHaveText('Documentos');
 
-  const betaOneRow = page.locator('.documents-table tr[data-inspection-row="inspection-beta"]').filter({ hasText: 'PW-B-001' });
+  const betaOneRow = page.locator('#docs-body tr.document-row-clickable').filter({ hasText: 'PW-B-001' });
   await expect(betaOneRow).toHaveCount(1);
+  await expect(betaOneRow).toContainText('BETA');
   await betaOneRow.locator('[data-doc-details]').click();
   await expect(page.locator('.document-page .doc-heading h2')).toHaveText('PW-B-001');
 
