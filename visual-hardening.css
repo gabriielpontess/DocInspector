@@ -72,12 +72,23 @@
   word-break: break-word;
 }
 
+/* Rótulos de controles são linguagem de interface, não dados arbitrários.
+   Eles podem quebrar entre palavras, mas nunca no meio de uma palavra. */
+button,
+[role="button"],
+[role="menuitem"],
+summary {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
 /* Botões podem crescer verticalmente, mas nunca horizontalmente para fora do container. */
 .btn {
   min-width: 0;
   max-width: 100%;
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 /* Badges e chips podem receber valores externos; devem crescer em altura, não estourar a largura. */
@@ -120,6 +131,32 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* A coluna de ações desktop precisa acomodar rótulos operacionais sem comprimir palavras.
+   Em mobile/landscape a tabela usa o layout próprio de cards e não recebe esta largura. */
+@media (min-width: 768px) and (min-height: 521px) {
+  .compact-doc-table th:last-child,
+  .compact-doc-table td.details-cell {
+    width: 196px;
+    min-width: 196px;
+  }
+
+  .compact-doc-table td.details-cell > .btn,
+  .compact-doc-table .document-management-row-actions,
+  .compact-doc-table .document-management-row-actions .btn {
+    width: 100%;
+  }
+
+  .compact-doc-table .document-management-row-actions {
+    display: grid;
+    gap: var(--space-1);
+    margin-top: var(--space-1);
+  }
+
+  .compact-doc-table .document-management-row-actions .btn {
+    padding-inline: var(--space-2);
+  }
 }
 
 /* Código PW é identidade operacional: não pode ser truncado com reticências. */
@@ -194,7 +231,8 @@
     min-width: 0;
     font-size: clamp(10px, 2.8vw, 11px) !important;
     line-height: 1.12;
-    overflow-wrap: anywhere;
+    overflow-wrap: normal;
+    word-break: normal;
   }
 
   .user-admin-access-head { align-items: flex-start; }
