@@ -1,7 +1,10 @@
 import { codeIdentity, normalizeCode, normalizeRevision } from './domain.js';
 
-const MAX_IMAGE_DIMENSION = 1800;
-const JPEG_QUALITY = 0.84;
+// Fotos de desenhos técnicos têm caracteres pequenos no carimbo. 1800 px no
+// maior lado descartava detalhe útil cedo demais, principalmente em câmeras de
+// celular. 2400 ainda limita memória, mas conserva mais traço para o OCR.
+const MAX_IMAGE_DIMENSION = 2400;
+const JPEG_QUALITY = 0.88;
 
 function loadImage(file) {
   return new Promise((resolve, reject) => {
@@ -114,6 +117,14 @@ function cleanDetectedCode(value) {
     .replace(/\s+/g, ' ');
 }
 
+function normalizeOcrLines(value) {
+  return String(value ?? '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map(line => normalizeCode(line))
+    .join('\n');
+}
+
 function candidateScore(value, labeled = false) {
   const compact = compactCode(value);
   const separators = (value.match(/[.\-\/]/g) || []).length;
@@ -122,12 +133,27 @@ function candidateScore(value, labeled = false) {
   return (labeled ? 100 : 0) + Math.min(40, compact.length) + separators * 5 + Math.min(12, digits) + Math.min(5, letters);
 }
 
+function labeledTokenCandidates(value) {
+  const tokens = normalizeCode(value)
+    .split(/\s+/)
+    .map(token => token.replace(/^[^A-Z0-9]+|[^A-Z0-9]+$/g, ''))
+    .filter(token => /^[A-Z0-9]{1,12}$/.test(token));
+  const candidates = [];
+  // Gera prefixos somente após rótulo explícito Código/PW. Assim cobrimos OCR
+  // que transformou todos os separadores em espaços sem fazer substituições de
+  // caracteres. analyzeDocumentFromText continua exigindo identidade exata.
+  for (let length = Math.min(10, tokens.length); length >= 4; length -= 1) {
+    candidates.push(tokens.slice(0, length).join(' '));
+  }
+  return candidates;
+}
+
 /**
  * Extrai o que o OCR realmente leu. Esta função não consulta a lista importada
  * e nunca altera caracteres para aproximar o código de um documento existente.
  */
 export function extractCodeCandidates(text) {
-  const normalized = normalizeCode(text)
+  const normalized = normalizeOcrLines(text)
     .replace(/[“”"'`]/g, ' ')
     .replace(/[–—−]/g, '-')
     .replace(/\\/g, '/')
@@ -155,11 +181,9 @@ export function extractCodeCandidates(text) {
     if (label?.[1]) {
       const matches = label[1].match(codePattern) || [];
       matches.forEach(value => add(value, true));
-      // Alguns OCRs removem pontuação do código. Aceitamos o token contínuo
-      // somente quando ele está explicitamente após o rótulo Código/PW; a
-      // validação contra a lista continua sendo estritamente alfanumérica.
       const compactLabel = label[1].match(/[A-Z0-9][A-Z0-9.\/-]{7,}/g) || [];
       compactLabel.forEach(value => add(value, true));
+      labeledTokenCandidates(label[1]).forEach(value => add(value, true));
     }
   }
 
@@ -217,7 +241,6 @@ export function analyzeDocumentFromText(text, documents = []) {
   };
 }
 
-// Compatibilidade interna: somente retorna resultado quando a correspondência é exata.
 export function identifyDocumentFromText(text, documents = []) {
   const analysis = analyzeDocumentFromText(text, documents);
   return analysis.document ? analysis : null;
@@ -242,7 +265,7 @@ function isPlausibleRevision(value) {
 }
 
 export function detectRevisionFromText(text, _expectedRevision = '') {
-  const normalized = normalizeCode(text)
+  const normalized = normalizeOcrLines(text)
     .replace(/REVISÃO/g, 'REVISAO')
     .replace(/[“”"'`]/g, ' ')
     .replace(/[ \t]+/g, ' ');
@@ -261,8 +284,6 @@ export function detectRevisionFromText(text, _expectedRevision = '') {
       .map(revisionToken)
       .filter(Boolean);
 
-    // Em carimbos técnicos estreitos, o OCR pode separar “Rev.” e o valor
-    // em linhas consecutivas. Só consulta a linha imediatamente seguinte.
     if (!tokens.length && lines[lineIndex + 1]) {
       tokens = lines[lineIndex + 1]
         .split(/\s+/)
@@ -281,9 +302,35 @@ export function detectRevisionFromText(text, _expectedRevision = '') {
     if (isPlausibleRevision(candidate)) return candidate;
   }
 
-  // Nunca usamos a revisão esperada para completar ou corrigir o OCR. Isso
-  // evita enviesar a inspeção para “Conforme”. Sem leitura segura, fica vazio.
   return '';
+}
+
+export function otsuThreshold(histogram, total) {
+  const count = Number(total) || histogram.reduce((sum, value) => sum + Number(value || 0), 0);
+  if (!count) return 174;
+  let sum = 0;
+  for (let index = 0; index < 256; index += 1) sum += index * Number(histogram[index] || 0);
+
+  let backgroundWeight = 0;
+  let backgroundSum = 0;
+  let bestThreshold = 174;
+  let bestVariance = -1;
+  for (let threshold = 0; threshold < 256; threshold += 1) {
+    const bucket = Number(histogram[threshold] || 0);
+    backgroundWeight += bucket;
+    if (!backgroundWeight) continue;
+    const foregroundWeight = count - backgroundWeight;
+    if (!foregroundWeight) break;
+    backgroundSum += threshold * bucket;
+    const backgroundMean = backgroundSum / backgroundWeight;
+    const foregroundMean = (sum - backgroundSum) / foregroundWeight;
+    const variance = backgroundWeight * foregroundWeight * ((backgroundMean - foregroundMean) ** 2);
+    if (variance > bestVariance) {
+      bestVariance = variance;
+      bestThreshold = threshold;
+    }
+  }
+  return bestThreshold;
 }
 
 function cropCanvas(source, { x = 0, y = 0, width = 1, height = 1, scale = 1.8, threshold = false } = {}) {
@@ -291,7 +338,7 @@ function cropCanvas(source, { x = 0, y = 0, width = 1, height = 1, scale = 1.8, 
   const sy = Math.max(0, Math.floor(source.height * y));
   const sw = Math.max(1, Math.min(source.width - sx, Math.floor(source.width * width)));
   const sh = Math.max(1, Math.min(source.height - sy, Math.floor(source.height * height)));
-  const maxSide = 2400;
+  const maxSide = 3000;
   const requested = Math.max(1, scale);
   const applied = Math.min(requested, maxSide / Math.max(sw, sh));
   const canvas = document.createElement('canvas');
@@ -308,17 +355,27 @@ function cropCanvas(source, { x = 0, y = 0, width = 1, height = 1, scale = 1.8, 
   const data = image.data;
   let min = 255;
   let max = 0;
-  for (let i = 0; i < data.length; i += 16) {
-    const gray = Math.round(data[i] * .299 + data[i + 1] * .587 + data[i + 2] * .114);
-    min = Math.min(min, gray);
-    max = Math.max(max, gray);
-  }
-  const range = Math.max(32, max - min);
+  const histogram = new Uint32Array(256);
   for (let i = 0; i < data.length; i += 4) {
     const gray = Math.round(data[i] * .299 + data[i + 1] * .587 + data[i + 2] * .114);
-    let value = Math.max(0, Math.min(255, ((gray - min) * 255) / range));
-    value = Math.max(0, Math.min(255, (value - 128) * 1.24 + 128));
-    if (threshold) value = value < 174 ? 0 : 255;
+    histogram[gray] += 1;
+    if (i % 16 === 0) {
+      min = Math.min(min, gray);
+      max = Math.max(max, gray);
+    }
+  }
+  const range = Math.max(32, max - min);
+  const rawThreshold = threshold ? otsuThreshold(histogram, data.length / 4) : null;
+  const normalizedThreshold = rawThreshold == null
+    ? null
+    : Math.max(0, Math.min(255, ((rawThreshold - min) * 255) / range));
+
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = Math.round(data[i] * .299 + data[i + 1] * .587 + data[i + 2] * .114);
+    const normalized = Math.max(0, Math.min(255, ((gray - min) * 255) / range));
+    const value = threshold
+      ? (normalized <= normalizedThreshold ? 0 : 255)
+      : Math.max(0, Math.min(255, (normalized - 128) * 1.24 + 128));
     data[i] = data[i + 1] = data[i + 2] = value;
     data[i + 3] = 255;
   }
@@ -340,8 +397,6 @@ async function createOcrWorker(onProgress = null) {
 export async function prepareOcrRuntime(onProgress = null) {
   const worker = await createOcrWorker(onProgress);
   try {
-    // A criação do worker carrega o núcleo e o idioma necessários ao OCR.
-    // Executar esta preparação online reduz dependências descobertas apenas em campo.
     return true;
   } finally {
     await worker.terminate().catch(() => {});
@@ -370,27 +425,25 @@ function mergeOcr(parts) {
   };
 }
 
-/**
- * OCR em múltiplas passagens para desenhos de engenharia. A ordem privilegia a
- * legenda/carimbo inferior, onde Código e Rev. normalmente ficam impressos.
- * A lista importada só é usada para validar correspondência exata; jamais para
- * trocar caracteres lidos pela câmera.
- */
 export async function recognizeEngineeringDrawing(canvas, documents = [], onProgress = null) {
   const worker = await createOcrWorker(onProgress);
   const parts = [];
   try {
+    // Começa pelo canto inferior direito, região mais comum para o carimbo de
+    // desenhos, e só amplia a área se a leitura ainda não for suficiente.
     const regions = [
-      { region: 'legenda-inferior', canvas: cropCanvas(canvas, { x: 0.10, y: 0.58, width: 0.90, height: 0.42, scale: 2.2 }) },
-      { region: 'legenda-inferior-binaria', canvas: cropCanvas(canvas, { x: 0.10, y: 0.58, width: 0.90, height: 0.42, scale: 2.2, threshold: true }) },
-      { region: 'imagem-completa', canvas: cropCanvas(canvas, { x: 0, y: 0, width: 1, height: 1, scale: 1.15 }) }
+      { region: 'carimbo-inferior-direito', canvas: cropCanvas(canvas, { x: 0.50, y: 0.50, width: 0.50, height: 0.50, scale: 2.7 }) },
+      { region: 'carimbo-inferior-direito-binario', canvas: cropCanvas(canvas, { x: 0.50, y: 0.50, width: 0.50, height: 0.50, scale: 2.7, threshold: true }) },
+      { region: 'legenda-inferior', canvas: cropCanvas(canvas, { x: 0.08, y: 0.56, width: 0.92, height: 0.44, scale: 2.15 }) },
+      { region: 'imagem-completa', canvas: cropCanvas(canvas, { x: 0, y: 0, width: 1, height: 1, scale: 1.1 }) }
     ];
 
     for (let index = 0; index < regions.length; index += 1) {
       const region = regions[index];
       if (typeof onProgress === 'function') onProgress({ status: `Analisando ${index + 1}/${regions.length}: ${region.region}`, progress: index / regions.length });
       const result = await recognizeCanvas(worker, region.canvas, {
-        preserve_interword_spaces: '1'
+        preserve_interword_spaces: '1',
+        tessedit_pageseg_mode: '6'
       });
       parts.push({ ...result, region: region.region });
 
@@ -401,30 +454,43 @@ export async function recognizeEngineeringDrawing(canvas, documents = [], onProg
     }
 
     let merged = mergeOcr(parts);
-    let revision = detectRevisionFromText(merged.text);
+    let analysis = analyzeDocumentFromText(merged.text, documents);
 
-    // Se a revisão ainda não estiver segura, executa uma leitura dedicada no
-    // canto inferior direito, ampliada e com alfabeto restrito. O resultado só
-    // é aceito se vier contextualizado por Rev./Revisão na própria leitura.
+    // Fallback dedicado ao código: restringe o alfabeto, mas não corrige letras
+    // ou números. Serve para reduzir ruído do quadro técnico quando a passagem
+    // normal ainda não conseguiu uma identidade exata.
+    if (!analysis.exact) {
+      const codeCanvas = cropCanvas(canvas, { x: 0.42, y: 0.48, width: 0.58, height: 0.52, scale: 3.0, threshold: true });
+      const result = await recognizeCanvas(worker, codeCanvas, {
+        preserve_interword_spaces: '1',
+        tessedit_pageseg_mode: '6',
+        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789./-:# '
+      });
+      parts.push({ ...result, region: 'codigo-dedicado' });
+      merged = mergeOcr(parts);
+      analysis = analyzeDocumentFromText(merged.text, documents);
+    }
+
+    let revision = detectRevisionFromText(merged.text);
     if (!revision) {
-      const revisionCanvas = cropCanvas(canvas, { x: 0.62, y: 0.62, width: 0.38, height: 0.38, scale: 3.2, threshold: true });
+      const revisionCanvas = cropCanvas(canvas, { x: 0.60, y: 0.60, width: 0.40, height: 0.40, scale: 3.2, threshold: true });
       const result = await recognizeCanvas(worker, revisionCanvas, {
         preserve_interword_spaces: '1',
+        tessedit_pageseg_mode: '6',
         tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.:#- '
       });
       parts.push({ ...result, region: 'revisao-dedicada' });
       merged = mergeOcr(parts);
       revision = detectRevisionFromText(merged.text);
+      analysis = analyzeDocumentFromText(merged.text, documents);
     }
 
-    const analysis = analyzeDocumentFromText(merged.text, documents);
     return { ...merged, analysis, revision };
   } finally {
     await worker.terminate().catch(() => {});
   }
 }
 
-// Mantida para compatibilidade e testes unitários simples.
 export async function recognizeText(blob, onProgress = null) {
   const worker = await createOcrWorker(onProgress);
   const url = URL.createObjectURL(blob);
