@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { addFieldCopy, makeDocument, markNotFound, RESULT } from '../js/domain.js';
+import { updateDocumentMetadata } from '../js/document-lifecycle.js';
 import { buildInspectionListUpdate } from '../js/inspection-update.js';
+import { listRestorableDeletedDocuments } from '../js/recovery-core.js';
 
 function inspection(documents) {
   return {
@@ -12,7 +14,10 @@ function inspection(documents) {
     location: 'Campo',
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',
-    documents
+    documents,
+    deletedDocumentIds: [],
+    deletedDocuments: [],
+    documentAudit: []
   };
 }
 
@@ -46,17 +51,21 @@ const incoming = [
   imported('PW-004', 'Documento novo', 'Emitido', 'A')
 ];
 
-const { inspection: updated, summary } = buildInspectionListUpdate(before, incoming);
+const { inspection: updated, summary } = buildInspectionListUpdate(before, incoming, {
+  actor: 'operator@example.com',
+  at: '2026-08-28T12:00:00.000Z'
+});
 
 assert.deepEqual(before, beforeSnapshot, 'a atualização não pode mutar a inspeção original');
 assert.equal(summary.reviewedPreserved, 1);
-assert.equal(summary.reviewedRetained, 1);
+assert.equal(summary.reviewedRemoved, 1);
 assert.equal(summary.pendingRemoved, 1);
+assert.equal(summary.removed, 2);
 assert.equal(summary.added, 1);
-assert.equal(updated.documents.length, 3);
+assert.equal(updated.documents.length, 2, 'a nova planilha deve definir exatamente o catálogo ativo');
 
 const preserved = updated.documents.find(document => document.id === 'reviewed-1');
-assert.ok(preserved, 'o documento revisado deve manter o mesmo id');
+assert.ok(preserved, 'o documento correspondente deve manter o mesmo id');
 assert.equal(preserved.description, 'Descrição atualizada');
 assert.equal(preserved.status, 'Liberado');
 assert.equal(preserved.expectedRevision, 'B');
@@ -67,12 +76,19 @@ assert.equal(preserved.fieldCopies[0].evidenceId, 'evidence-1');
 assert.equal(preserved.fieldCopies[0].evidencePath, 'workspace/evidence-1.jpg');
 assert.equal(preserved.result, RESULT.NONCONFORMING, 'resultado deve refletir a nova revisão esperada sem apagar a revisão encontrada');
 
-const retained = updated.documents.find(document => document.id === 'reviewed-removed');
-assert.ok(retained, 'documento revisado ausente da nova lista deve ser conservado');
-assert.equal(retained.result, RESULT.NOT_FOUND);
-assert.equal(retained.comment, 'Não localizado em campo');
-assert.ok(!updated.documents.some(document => document.id === 'pending-removed'), 'pendente ausente da nova lista pode ser removido');
+assert.ok(!updated.documents.some(document => document.id === 'reviewed-removed'), 'revisado ausente não pode continuar ativo');
+assert.ok(!updated.documents.some(document => document.id === 'pending-removed'), 'pendente ausente não pode continuar ativo');
 assert.ok(updated.documents.some(document => document.code === 'PW-004' && document.result === RESULT.PENDING));
+assert.ok(updated.deletedDocumentIds.includes('reviewed-removed'));
+assert.ok(updated.deletedDocumentIds.includes('pending-removed'));
+assert.equal(updated.deletedDocuments.find(entry => entry.document.id === 'reviewed-removed')?.document.comment, 'Não localizado em campo');
+assert.equal(updated.documentAudit.filter(event => event.action === 'document.deleted').length, 2);
+assert.ok(updated.documentAudit.every(event => event.changes?.source === 'inspection-list-replacement'));
+assert.deepEqual(
+  new Set(listRestorableDeletedDocuments(updated).map(entry => entry.document.id)),
+  new Set(['reviewed-removed', 'pending-removed']),
+  'documentos retirados pela lista devem ficar disponíveis no histórico/restauração'
+);
 
 const punctuationExisting = imported('PW-10.20', 'Original', 'Emitido', 'A');
 punctuationExisting.id = 'punctuation-id';
@@ -82,7 +98,22 @@ const punctuationUpdate = buildInspectionListUpdate(
   [imported('PW1020', 'Mesmo documento com nova grafia', 'Emitido', 'A')]
 ).inspection.documents[0];
 assert.equal(punctuationUpdate.id, 'punctuation-id', 'identidade alfanumérica única deve preservar o documento mesmo com mudança de pontuação');
+assert.equal(punctuationUpdate.code, 'PW1020', 'a grafia da nova lista deve prevalecer');
 assert.equal(punctuationUpdate.fieldCopies[0].id, 'copy-punctuation');
+
+const manuallyEdited = imported('PW-MANUAL', 'Descrição planilha antiga', 'Emitido', 'A');
+manuallyEdited.id = 'manual-id';
+const manualInspection = inspection([manuallyEdited]);
+updateDocumentMetadata(manualInspection, 'manual-id', { description: 'Descrição editada manualmente', expectedRevision: 'Z' }, {
+  actor: 'editor@example.com',
+  at: '2026-08-20T10:00:00.000Z'
+});
+const authoritative = buildInspectionListUpdate(
+  manualInspection,
+  [imported('PW-MANUAL', 'Descrição da planilha nova', 'Liberado', 'C')]
+).inspection.documents[0];
+assert.equal(authoritative.description, 'Descrição da planilha nova', 'a nova lista deve substituir até metadados anteriormente editados manualmente');
+assert.equal(authoritative.expectedRevision, 'C');
 
 const duplicateA = imported('PW-DUP', 'Duplicado A', 'Emitido', 'A');
 duplicateA.id = 'duplicate-a';
@@ -95,9 +126,17 @@ const duplicateResult = buildInspectionListUpdate(
   [imported('PW-DUP', 'Catálogo atualizado', 'Liberado', 'B')]
 );
 assert.equal(duplicateResult.summary.matched, 1, 'um registro de entrada deve consumir apenas um duplicado existente');
-assert.equal(duplicateResult.summary.reviewedRetained, 1, 'o outro duplicado revisado deve ser preservado, nunca sobrescrito pelo índice');
-assert.equal(duplicateResult.inspection.documents.filter(document => document.code === 'PW-DUP').length, 2, 'nenhum duplicado revisado pode desaparecer durante a atualização');
-assert.ok(duplicateResult.inspection.documents.some(document => document.id === 'duplicate-a'), 'primeiro candidato exato deve continuar endereçável');
-assert.ok(duplicateResult.inspection.documents.some(document => document.id === 'duplicate-b'), 'segundo candidato exato deve continuar preservado');
+assert.equal(duplicateResult.summary.reviewedRemoved, 1, 'o duplicado que não existe na nova lista deve ir para o histórico');
+assert.equal(duplicateResult.inspection.documents.filter(document => document.code === 'PW-DUP').length, 1, 'o catálogo ativo deve refletir a cardinalidade da nova lista');
+assert.equal(duplicateResult.inspection.deletedDocuments.length, 1);
+
+const reintroduced = buildInspectionListUpdate(
+  updated,
+  [imported('PW-002', 'PW voltou em revisão futura', 'Emitido', 'D')]
+).inspection;
+const reintroducedActive = reintroduced.documents.find(document => document.code === 'PW-002');
+assert.ok(reintroducedActive, 'PW tombstonado deve poder voltar quando a nova lista autoritativa o contém');
+assert.notEqual(reintroducedActive.id, 'reviewed-removed', 'retorno pela planilha deve criar nova geração e manter o UUID antigo tombstonado');
+assert.ok(reintroduced.deletedDocumentIds.includes('reviewed-removed'));
 
 console.log('inspection-update.test.mjs: OK');

@@ -109,10 +109,24 @@ const incomingDeleted = document({ code: 'PW-002', description: 'Documento B rea
 const incomingNew = document({ code: 'PW-003', description: 'Documento C', status: 'Ativo', expectedRevision: 'A' }, 'incoming-c');
 
 const refreshed = buildInspectionListUpdate(hydrated, [incomingA, incomingDeleted, incomingNew]);
-assert.deepEqual(refreshed.inspection.documents.map(item => item.code).sort(), ['PW-001-REV', 'PW-003']);
-assert.equal(refreshed.inspection.documents.find(item => item.id === 'doc-a').description, 'Documento A corrigido', 'manual metadata overrides must survive catalog refresh');
-assert.equal(refreshed.summary.tombstonedSkipped, 1, 'a manually deleted source PW must not resurrect from spreadsheet refresh');
-assert.equal(refreshed.summary.added, 1);
+assert.deepEqual(refreshed.inspection.documents.map(item => item.code).sort(), ['PW-001', 'PW-002', 'PW-003'], 'a planilha substituta deve definir exatamente o catálogo ativo');
+const refreshedA = refreshed.inspection.documents.find(item => item.id === 'doc-a');
+assert.ok(refreshedA, 'PW correspondente deve preservar o UUID ativo');
+assert.equal(refreshedA.description, 'Descrição da planilha', 'metadados de catálogo devem seguir a nova planilha');
+assert.equal(refreshedA.status, 'Revisado');
+assert.equal(refreshedA.expectedRevision, 'D');
+assert.equal(refreshedA.fieldCopies[0].id, 'copy-a1', 'trabalho de campo deve sobreviver à substituição de catálogo');
+assert.equal(refreshedA.fieldCopies[0].evidenceId, 'evidence-a1');
+assert.equal(refreshedA.fieldCopies[0].comment, 'cópia conferida');
+const reintroducedB = refreshed.inspection.documents.find(item => item.code === 'PW-002');
+assert.equal(reintroducedB.id, 'incoming-b', 'PW tombstonado que reaparece deve voltar como nova geração, não ressuscitar o UUID antigo');
+assert.ok(refreshed.inspection.deletedDocumentIds.includes('doc-b'), 'UUID antigo deve continuar tombstonado');
+assert.equal(refreshed.summary.matched, 1);
+assert.equal(refreshed.summary.catalogChanged, 1);
+assert.equal(refreshed.summary.reviewedPreserved, 1);
+assert.equal(refreshed.summary.added, 2);
+assert.equal(refreshed.summary.removed, 0);
+assert.equal(refreshed.summary.finalTotal, 3);
 
 const staleRemote = createInspection({ project: 'Linha 17', system: 'AMV', responsible: 'Equipe', location: 'Campo' });
 staleRemote.id = inspection.id;

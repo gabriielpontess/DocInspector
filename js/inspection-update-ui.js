@@ -1,3 +1,4 @@
+import { getAuthContext } from './auth-context.js';
 import { getInspection, saveInspection } from './db.js';
 import { buildInspectionListUpdate, inspectionUpdateHasRisk } from './inspection-update.js';
 import { syncNow } from './sync.js';
@@ -10,6 +11,11 @@ function mappingOptions(headers, suggested, key) {
   ).join('')}`;
 }
 
+function actorIdentity() {
+  const context = getAuthContext();
+  return context?.email || context?.displayName || context?.userId || null;
+}
+
 export async function openUpdateListModal(inspectionId) {
   const inspection = await getInspection(inspectionId).catch(() => null);
   if (!inspection) return showToast('Inspeção não encontrada.', 'error');
@@ -17,13 +23,13 @@ export async function openUpdateListModal(inspectionId) {
   const reviewed = (inspection.documents || []).filter(document => document.result !== 'Pendente' || document.verifiedAt || (document.fieldCopies || []).length).length;
   const modal = openModal(`
     <div class="modal-head">
-      <div><span class="section-kicker">ATUALIZAÇÃO SEGURA</span><h2>Atualizar lista da inspeção</h2></div>
+      <div><span class="section-kicker">SUBSTITUIR LISTA</span><h2>Atualizar lista da inspeção</h2></div>
       <button class="icon-button" data-close type="button" aria-label="Fechar">×</button>
     </div>
-    <p class="subtitle">Importe uma nova versão da planilha. O DocInspector compara os Códigos PW e preserva revisões de campo, cópias, comentários e evidências já registradas.</p>
+    <p class="subtitle">Importe a nova versão da planilha. Ela passará a ser a lista ativa desta inspeção. PWs correspondentes preservam todo o trabalho de campo já registrado.</p>
     <div class="alert soft-alert">
-      <strong>${reviewed} documento(s) já revisado(s) estão protegidos.</strong><br>
-      Documentos revisados que não existirem na nova planilha serão mantidos para impedir perda silenciosa de histórico.
+      <strong>${reviewed} documento(s) já possuem revisão ou trabalho de campo.</strong><br>
+      Se algum deles não existir na nova planilha, sairá da lista ativa e será preservado no histórico para auditoria e eventual restauração.
     </div>
     <div class="field full">
       <label for="inspection-update-file">Nova lista de documentos (.xlsx ou .xls)</label>
@@ -57,7 +63,7 @@ function openUpdateMappingModal(inspectionId, parsed) {
   const suggested = suggestMapping(headers);
   const modal = openModal(`
     <div class="modal-head">
-      <div><span class="section-kicker">ATUALIZAÇÃO SEGURA</span><h2>Confirmar colunas da nova lista</h2></div>
+      <div><span class="section-kicker">SUBSTITUIR LISTA</span><h2>Confirmar colunas da nova lista</h2></div>
       <button class="icon-button" data-close type="button" aria-label="Fechar">×</button>
     </div>
     <p class="subtitle">Confirme o mapeamento antes da comparação. Nenhuma alteração é gravada nesta etapa.</p>
@@ -100,27 +106,27 @@ function openUpdateMappingModal(inspectionId, parsed) {
 
 function openUpdatePreviewModal(inspectionId, incomingDocuments, summary) {
   const warning = inspectionUpdateHasRisk(summary)
-    ? `<div class="alert soft-alert"><strong>Revisão necessária antes de aplicar.</strong><br>${summary.catalogChanged} documento(s) existente(s) tiveram dados de catálogo alterados. ${summary.reviewedRetained} documento(s) revisado(s) não aparecem mais na planilha e serão mantidos para proteger o histórico.</div>`
-    : `<div class="alert soft-alert"><strong>Comparação consistente.</strong><br>Nenhum documento revisado seria removido.</div>`;
+    ? `<div class="alert soft-alert"><strong>Confira a substituição antes de aplicar.</strong><br>${summary.catalogChanged} documento(s) correspondente(s) receberão os dados de catálogo da nova planilha. ${summary.removed} documento(s) que não aparecem mais serão retirados da lista ativa e arquivados; ${summary.reviewedRemoved} deles já possuem revisão/trabalho de campo.</div>`
+    : `<div class="alert soft-alert"><strong>Listas equivalentes nos pontos críticos.</strong><br>Nenhum documento ativo será arquivado nesta substituição.</div>`;
 
   const modal = openModal(`
     <div class="modal-head">
-      <div><span class="section-kicker">PRÉVIA DA ATUALIZAÇÃO</span><h2>Confira antes de aplicar</h2></div>
+      <div><span class="section-kicker">PRÉVIA DA SUBSTITUIÇÃO</span><h2>Confira antes de aplicar</h2></div>
       <button class="icon-button" data-close type="button" aria-label="Fechar">×</button>
     </div>
-    <p class="subtitle">A atualização só será gravada após sua confirmação.</p>
+    <p class="subtitle">A nova planilha será a fonte autoritativa da lista ativa. A alteração só será gravada após sua confirmação.</p>
     <div class="grid cards">
       <div class="card metric"><div class="metric-head"><span>Na nova lista</span></div><strong>${summary.incomingTotal}</strong></div>
-      <div class="card metric verified"><div class="metric-head"><span>Revisados preservados</span></div><strong>${summary.reviewedPreserved}</strong></div>
+      <div class="card metric verified"><div class="metric-head"><span>Correspondentes preservados</span></div><strong>${summary.matched}</strong></div>
       <div class="card metric green"><div class="metric-head"><span>Novos</span></div><strong>${summary.added}</strong></div>
-      <div class="card metric pending"><div class="metric-head"><span>Pendentes removidos</span></div><strong>${summary.pendingRemoved}</strong></div>
+      <div class="card metric pending"><div class="metric-head"><span>Movidos ao histórico</span></div><strong>${summary.removed}</strong></div>
     </div>
     <div class="spacer small"></div>
     ${warning}
-    <p class="field-help">Campos vindos da planilha — Código PW, descrição, status e revisão esperada — são atualizados nos documentos correspondentes. Registros de campo, IDs, cópias, fotos, comentários e histórico permanecem preservados.</p>
+    <p class="field-help">Código PW, descrição, status e revisão esperada passam a seguir a nova planilha. Nos PWs correspondentes, UUID, cópias de campo, fotos, comentários, marcações e histórico são preservados. Itens ausentes não permanecem ativos: ficam disponíveis na área de histórico/recuperação.</p>
     <div class="actions">
       <button class="btn" data-close type="button">Cancelar</button>
-      <button class="btn btn-primary" id="apply-inspection-update" type="button">Aplicar atualização</button>
+      <button class="btn btn-primary" id="apply-inspection-update" type="button">Substituir lista ativa</button>
     </div>`, { label: 'Prévia da atualização da inspeção' });
 
   modal.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => modal.closeModal()));
@@ -130,7 +136,8 @@ function openUpdatePreviewModal(inspectionId, incomingDocuments, summary) {
       setButtonBusy(button, true, 'Atualizando…');
       let latest = await getInspection(inspectionId);
       if (!latest) throw new Error('A inspeção não existe mais.');
-      let candidate = buildInspectionListUpdate(latest, incomingDocuments).inspection;
+      const options = { actor: actorIdentity() };
+      let candidate = buildInspectionListUpdate(latest, incomingDocuments, options).inspection;
 
       try {
         await saveInspection(candidate);
@@ -138,13 +145,13 @@ function openUpdatePreviewModal(inspectionId, incomingDocuments, summary) {
         if (error?.code !== 'CONCURRENT_MODIFICATION') throw error;
         latest = await getInspection(inspectionId);
         if (!latest) throw new Error('A inspeção foi removida durante a atualização.');
-        candidate = buildInspectionListUpdate(latest, incomingDocuments).inspection;
+        candidate = buildInspectionListUpdate(latest, incomingDocuments, options).inspection;
         await saveInspection(candidate);
       }
 
       syncNow({ announce: false }).catch(() => {});
       modal.closeModal();
-      showToast('Lista atualizada. Revisões e evidências existentes foram preservadas.');
+      showToast('Lista substituída. Itens ausentes foram movidos para o histórico e o trabalho dos PWs correspondentes foi preservado.', 'success');
       window.setTimeout(() => window.location.reload(), 350);
     } catch (error) {
       showToast(error.message || 'Falha ao atualizar a lista.', 'error');
