@@ -135,10 +135,33 @@
       }
     }
   </script>
-  <script>
+  <script id="pwa-update-handoff">
     if ('serviceWorker' in navigator) {
+      let startupHandoff = false;
+      let reloadingForUpdate = false;
+
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!startupHandoff || reloadingForUpdate) return;
+        reloadingForUpdate = true;
+        window.location.reload();
+      });
+
       navigator.serviceWorker.getRegistration()
-        .then(registration => registration?.update())
+        .then(registration => {
+          if (!registration) return;
+
+          // A worker that was already waiting when this page opened is safe to
+          // promote now: the application modules below have not booted yet.
+          if (registration.waiting && navigator.serviceWorker.controller) {
+            startupHandoff = true;
+            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            return;
+          }
+
+          // Updates discovered after boot remain waiting until the next opening,
+          // avoiding an automatic reload while an inspection may be in progress.
+          registration.update().catch(() => {});
+        })
         .catch(() => {});
     }
   </script>
