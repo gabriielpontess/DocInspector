@@ -19,7 +19,7 @@ assert.match(handoff, /controllerchange[\s\S]*startupHandoff[\s\S]*window\.locat
   'troca promovida no startup deve recarregar uma única vez para usar o shell coerente');
 assert.doesNotMatch(handoff, /updatefound|registration\.installing/,
   'update descoberto durante trabalho ativo não deve provocar promoção/reload automático');
-assert.match(handoff, /registration\.update\(\)\.catch/,
+assert.match(handoff, /registration\?\.update\(\)\.catch/,
   'abertura sem worker aguardando deve continuar procurando atualização');
 
 assert.match(sw, /const VERSION = '0\.9\.52';/);
@@ -27,7 +27,9 @@ assert.match(sw, /const CACHE_REVISION = `\$\{VERSION\}-pwa-upgrade-1`;/,
   'hotfix deve usar namespace de cache novo sem alterar a versão funcional do produto');
 assert.match(sw, /if \(event\.data\?\.type === 'SKIP_WAITING'\) self\.skipWaiting\(\)/,
   'worker em waiting deve aceitar promoção explícita');
-assert.doesNotMatch(sw, /install[\s\S]{0,600}self\.skipWaiting\(\)/,
+const installHandler = sw.match(/self\.addEventListener\('install',[\s\S]*?\n\}\);/)?.[0] || '';
+assert.ok(installHandler, 'Service Worker deve declarar o install handler');
+assert.doesNotMatch(installHandler, /self\.skipWaiting\(\)/,
   'instalação em segundo plano não deve interromper trabalho ativo');
 
 const navigation = sw.match(/if \(request\.mode === 'navigate'\) \{([\s\S]*?)\n  \}\n\n  if \(request\.url === XLSX_URL/)?.[1] || '';
