@@ -160,7 +160,7 @@
 
           // Updates discovered after boot remain waiting until the next opening,
           // avoiding an automatic reload while an inspection may be in progress.
-          registration.update().catch(() => {});
+          registration?.update().catch(() => {});
         })
         .catch(() => {});
     }
