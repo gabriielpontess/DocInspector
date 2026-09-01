@@ -354,7 +354,8 @@
 }
 
 @media (max-width: 1199px) and (min-width: 768px) {
-  .documents-toolbar { grid-template-columns: minmax(240px, 1.35fr) repeat(3, minmax(150px, 1fr)); }
+  .documents-toolbar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .documents-toolbar #filter-text { grid-column: 1 / -1; }
 }
 
 @media (max-width: 900px) {

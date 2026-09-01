@@ -8,14 +8,16 @@ const app = fs.readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
 const pwa = fs.readFileSync(new URL('../js/pwa.js', import.meta.url), 'utf8');
 const script = fs.readFileSync(new URL('../js/ui-refinement.js', import.meta.url), 'utf8');
 const css = fs.readFileSync(new URL('../visual-refinement.css', import.meta.url), 'utf8');
+const hardening = fs.readFileSync(new URL('../visual-hardening.css', import.meta.url), 'utf8');
 
 assert.match(index, /href="visual-refinement\.css"/, 'refinamento visual deve usar a mesma URL pré-cacheada pelo app shell offline');
 assert.match(authEntry, /import\('\.\/ui-refinement\.js'\)/, 'comportamentos de refinamento devem carregar somente após o bootstrap autenticado');
 assert.match(index, /navigator\.serviceWorker\.getRegistration\(\)[\s\S]*registration\?\.update\(\)/, 'bootstrap deve verificar atualização do Service Worker em toda abertura online');
 assert.doesNotMatch(index, /src="js\/inspection-update-ui\.js"/, 'inspection-update-ui deve ser carregado somente pelo app principal');
-assert.match(sw, /const VERSION = '0\.9\.45';/, 'Service Worker deve acompanhar a atualização do app shell pós-release');
+assert.match(sw, /const VERSION = '0\.9\.52';/, 'Service Worker deve acompanhar a atualização do app shell pós-release');
 assert.doesNotMatch(sw, /install[\s\S]{0,500}self\.skipWaiting\(\)/, 'install não deve trocar o worker durante trabalho ativo');
 assert.match(sw, /\.\/visual-refinement\.css/, 'refinamento visual deve continuar no shell offline');
+assert.match(sw, /\.\/visual-hardening\.css/, 'invariantes de layout devem funcionar offline');
 assert.match(sw, /\.\/js\/ui-refinement\.js/, 'navegação refinada deve funcionar offline');
 assert.match(pwa, /updateViaCache: 'none'/, 'registro do PWA deve buscar sw.js sem reutilizar cache HTTP antigo');
 assert.match(pwa, /registration\.update\(\)/, 'PWA deve verificar explicitamente por nova versão');
@@ -47,6 +49,7 @@ assert.match(css, /doc-kicker[\s\S]*font-weight: 600;[\s\S]*letter-spacing: 0;[\
 assert.match(css, /previous-document-button::before[\s\S]*next-document-button::before/, 'navegação anterior e próxima deve usar o mesmo desenho base');
 assert.match(css, /#filter-inspection,[\s\S]*#sort-docs,[\s\S]*#clear-doc-filters \{ display: none !important; \}/, 'toolbar deve manter apenas busca, sistema, resultado e status visíveis');
 assert.match(css, /settings-grid \.settings-wide \{ grid-column: auto; \}/, 'dados e backup devem usar grade consistente sem caixotes arbitrariamente largos');
-assert.match(css, /\.modal:has\(#save-copy-edit\)[\s\S]*overflow: hidden;/, 'edição de cópia deve caber sem scroll interno em desktop normal');
+assert.match(css, /\.modal:has\(#save-copy-edit\)[\s\S]*overflow: hidden;/, 'regra legada continua coberta para que o hardening possa sobrescrevê-la conscientemente');
+assert.match(hardening, /\.modal:has\(#save-copy-edit\),[\s\S]*overflow-y: auto !important;/, 'conteúdo dinâmico da edição deve rolar em vez de ser cortado');
 
 console.log('ui-refinement.test.mjs: OK');
