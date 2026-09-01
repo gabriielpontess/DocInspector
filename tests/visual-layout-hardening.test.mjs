@@ -10,8 +10,15 @@ const auth = fs.readFileSync(new URL('../auth.css', import.meta.url), 'utf8');
 const index = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 
-assert.match(engineering, /^@import url\('\.\/visual-hardening\.css'\);/,
-  'a camada de invariantes visuais deve carregar junto do CSS final da aplicação');
+const hardeningLink = '<link rel="stylesheet" href="visual-hardening.css">';
+assert.match(index, /<link rel="stylesheet" href="visual-hardening\.css">/,
+  'a camada de invariantes visuais deve ser carregada explicitamente pela página');
+assert.ok(index.indexOf(hardeningLink) > index.indexOf('engineering-tracker.css'),
+  'hardening visual deve ficar depois dos estilos de Engenharia na cascata');
+assert.ok(index.indexOf(hardeningLink) > index.lastIndexOf('</style>'),
+  'hardening visual deve ficar depois dos estilos inline do shell');
+assert.doesNotMatch(engineering, /@import\s+url\(['"]\.\/visual-hardening\.css['"]\)/,
+  'Engenharia não deve antecipar a camada final de hardening via @import');
 assert.match(sw, /\.\/visual-hardening\.css/,
   'hardening visual precisa fazer parte do app shell offline');
 
@@ -66,6 +73,15 @@ assert.match(engineering, /@media \(max-width: 900px\), \(max-width: 1024px\) an
   'barra inferior com Engenharia deve permanecer em uma linha no mesmo breakpoint tablet/coarse-pointer que ativa a mobile-nav');
 assert.match(hardening, /\.mobile-nav \[data-engineering-launcher\][\s\S]*overflow-wrap:\s*normal;[\s\S]*word-break:\s*normal;/,
   'Engenharia na navegação móvel não pode quebrar no meio da palavra');
+assert.match(engineering, /@media \(max-width: 350px\)[\s\S]*\.mobile-nav \[data-engineering-launcher\]\s*\{\s*font-size:\s*10px;/,
+  'o menor breakpoint da Engenharia não pode cair abaixo do piso legível');
+
+assert.match(responsive, /\.compact-doc-table \.details-cell > \.btn\[data-doc-details\][\s\S]*font-size:\s*0;/,
+  'somente o botão de detalhes pode virar chevron no card mobile');
+assert.doesNotMatch(responsive, /\.compact-doc-table \.details-cell \.btn\s*\{/,
+  'ações injetadas de Editar/Excluir não podem herdar genericamente o chevron');
+assert.match(responsive, /\.document-management-row-actions[\s\S]*display:\s*flex;[\s\S]*\.document-management-row-actions \.btn[\s\S]*min-width:\s*44px;/,
+  'ações de gerenciamento mobile devem manter grupo e alvo de toque próprios');
 
 assert.match(responsive, /\.home-summary\s*\{\s*margin-inline:\s*calc\(var\(--space-3\) \* -1\)/,
   'a antiga sangria mobile deve continuar coberta explicitamente como causa de overflow');
@@ -86,6 +102,8 @@ assert.match(hardening, /font-size:\s*clamp\(10px,\s*2\.8vw,\s*11px\) !important
   'item Engenharia não deve cair abaixo do piso legível no mobile');
 
 assert.match(sw, /const VERSION = '0\.9\.52';/,
-  'alteração de asset do app shell deve avançar a identidade do cache');
+  'alteração de asset do app shell deve manter a identidade funcional desta release');
+assert.match(sw, /const CACHE_REVISION = `\$\{VERSION\}-pwa-upgrade-2`;/,
+  'alteração visual do app shell deve rotacionar a geração de cache instalada');
 
 console.log('Visual layout hardening contracts passed.');
