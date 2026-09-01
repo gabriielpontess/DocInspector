@@ -7,6 +7,9 @@ const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 const css = fs.readFileSync(new URL('../engineering-tracker.css', import.meta.url), 'utf8');
 
 assert.match(index, /href="engineering-tracker\.css"/);
+assert.match(index, /href="visual-hardening\.css"/);
+assert.ok(index.indexOf('href="visual-hardening.css"') > index.indexOf('href="engineering-tracker.css"'),
+  'hardening visual deve carregar depois da Engenharia');
 assert.match(index, /src="js\/engineering-tracker-ui\.js"/);
 assert.match(sw, /\.\/engineering-tracker\.css/);
 assert.match(sw, /\.\/visual-hardening\.css/);
@@ -27,11 +30,14 @@ assert.match(ui, /data-engineering-summary-oldest/);
 assert.match(ui, /data-engineering-elapsed/);
 assert.match(ui, /CONCURRENT_MODIFICATION/);
 
-assert.match(css, /^@import url\('\.\/visual-hardening\.css'\);/);
+assert.doesNotMatch(css, /^@import url\('\.\/visual-hardening\.css'\);/,
+  'Engenharia não deve antecipar a camada final de hardening');
 assert.match(css, /\.engineering-tracker-modal\s*\{/);
 assert.match(css, /@media \(max-width: 900px\), \(max-width: 1024px\) and \(any-pointer: coarse\)[\s\S]*\.mobile-nav:has\(\[data-engineering-launcher\]\)[\s\S]*repeat\(5, minmax\(0, 1fr\)\)/,
   'navegação inferior de tablet/coarse-pointer deve reservar cinco colunas em uma única linha');
 assert.match(css, /@media \(max-width: 767px\)[\s\S]*\.engineering-toolbar,[\s\S]*\.engineering-fields \{ grid-template-columns: 1fr; \}/,
   'campos da Engenharia devem empilhar em celular');
+assert.match(css, /@media \(max-width: 350px\)[\s\S]*data-engineering-launcher[^\{]*\{ font-size: 10px; \}/,
+  'Engenharia deve manter piso de 10 px no menor breakpoint');
 
 console.log('engineering-tracker-ui.test.mjs: OK');
