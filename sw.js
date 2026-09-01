@@ -1,7 +1,7 @@
 const VERSION = '0.9.52';
 // Keep one cache generation per complete app shell. This hotfix revision
 // intentionally changes the cache namespace without changing the product release.
-const CACHE_REVISION = `${VERSION}-pwa-upgrade-1`;
+const CACHE_REVISION = `${VERSION}-pwa-upgrade-2`;
 const CORE_CACHE = `docinspector-core-${CACHE_REVISION}`;
 const RUNTIME_CACHE = `docinspector-runtime-${CACHE_REVISION}`;
 const XLSX_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
