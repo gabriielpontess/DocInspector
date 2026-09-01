@@ -1,6 +1,9 @@
 const VERSION = '0.9.52';
-const CORE_CACHE = `docinspector-core-${VERSION}`;
-const RUNTIME_CACHE = `docinspector-runtime-${VERSION}`;
+// Keep one cache generation per complete app shell. This hotfix revision
+// intentionally changes the cache namespace without changing the product release.
+const CACHE_REVISION = `${VERSION}-pwa-upgrade-1`;
+const CORE_CACHE = `docinspector-core-${CACHE_REVISION}`;
+const RUNTIME_CACHE = `docinspector-runtime-${CACHE_REVISION}`;
 const XLSX_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
 const EXCELJS_URL = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
 const JSPDF_URL = 'https://cdn.jsdelivr.net/npm/jspdf@4.0.0/dist/jspdf.umd.min.js';
@@ -80,15 +83,18 @@ self.addEventListener('fetch', event => {
 
   if (request.mode === 'navigate') {
     event.respondWith((async () => {
+      // Navigation must come from the same core-cache generation as the JS/CSS
+      // served by this worker. Fetching a newer index with older cached modules
+      // can create a mixed-version boot that is especially fragile on installed iOS PWAs.
+      const cache = await caches.open(CORE_CACHE);
+      const cached = await cache.match('./index.html');
+      if (cached) return cached;
       try {
         const response = await fetch(request);
-        if (response.ok) {
-          const cache = await caches.open(RUNTIME_CACHE);
-          await cache.put('./index.html', response.clone());
-        }
+        if (response.ok) await cache.put('./index.html', response.clone());
         return response;
       } catch {
-        return (await caches.match('./index.html')) || Response.error();
+        return Response.error();
       }
     })());
     return;
