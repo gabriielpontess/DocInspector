@@ -59,8 +59,7 @@ function assertNoActiveCodeConflict(inspection, archivedDocument) {
  * O UUID tombstonado permanece em deletedDocumentIds para que aparelhos antigos
  * não possam ressuscitar/apagar a geração anterior durante o merge. O snapshot
  * arquivado também permanece em deletedDocuments como trilha histórica, mas deixa
- * de ser oferecido como restaurável. O chamador deve relincar referências externas
- * (PDFs confidenciais) do UUID antigo para o novo UUID antes de persistir a inspeção.
+ * de ser oferecido como restaurável.
  */
 export function buildRestoredDocumentGeneration(inspection, archivedDocumentId, {
   newDocumentId = null,
@@ -106,26 +105,4 @@ export function buildRestoredDocumentGeneration(inspection, archivedDocumentId, 
     archivedDocumentId: archivedId,
     restoredAt
   };
-}
-
-export function buildPdfSoftDeletePatch(at = null) {
-  return {
-    status: 'DELETED',
-    deleted_at: nowIso(at)
-  };
-}
-
-export function buildPdfRestorePatch() {
-  return {
-    status: 'ACTIVE',
-    deleted_at: null
-  };
-}
-
-export function splitConfidentialObjectPath(objectPath) {
-  const normalized = String(objectPath || '').trim().replace(/^\/+|\/+$/g, '');
-  const parts = normalized.split('/').filter(Boolean);
-  if (parts.length < 2) throw new Error('Path do PDF confidencial inválido.');
-  const filename = parts.pop();
-  return { folder: parts.join('/'), filename };
 }

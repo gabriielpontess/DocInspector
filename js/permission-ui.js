@@ -1,11 +1,6 @@
-import './confidential-e2ee-ui.js';
-import './confidential-pdf-linking-ui.js';
 import { authRolloutEnabled } from './auth-config.js';
 import { clearAuthContext, getAuthContext } from './auth-context.js';
 import { signOutCurrentSession, updateCurrentPassword } from './auth.js';
-import { clearLocalConfidentialKeys } from './confidential-keyring.js';
-import { clearAllConfidentialCiphertext } from './confidential-offline.js';
-import { clearCachedWorkspaceEnvelopes } from './confidential-offline-key.js';
 import { CAPABILITY, can, roleLabel } from './permissions.js';
 
 if (authRolloutEnabled()) {
@@ -40,8 +35,7 @@ if (authRolloutEnabled()) {
       '#generate-word',
       '#backup'
     ],
-    manageUsers: [],
-    manageProjectFiles: []
+    manageUsers: []
   };
 
   function hideSelector(selector) {
@@ -135,11 +129,6 @@ if (authRolloutEnabled()) {
       const button = card.querySelector('#auth-signout');
       if (button) button.disabled = true;
       await signOutCurrentSession().catch(() => {});
-      await Promise.allSettled([
-        clearLocalConfidentialKeys(),
-        clearAllConfidentialCiphertext(),
-        clearCachedWorkspaceEnvelopes()
-      ]);
       clearAuthContext();
       location.reload();
     });
