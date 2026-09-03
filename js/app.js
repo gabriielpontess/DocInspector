@@ -50,6 +50,7 @@ import {
 const APP_VERSION = '0.10.0';
 const DOCS_PAGE_SIZE = 50;
 const app = document.querySelector('#app');
+let verificationMutationInFlight = false;
 const state = {
   inspections: [],
   current: null,
@@ -309,6 +310,29 @@ function formatInspectionCount(total) {
   return `${total} ${total === 1 ? 'inspeção' : 'inspeções'}`;
 }
 
+function compareAlphabetically(a, b) {
+  return String(a ?? '').localeCompare(String(b ?? ''), 'pt-BR', {
+    numeric: true,
+    sensitivity: 'base'
+  });
+}
+
+function sortedInspections() {
+  return [...state.inspections].sort((a, b) =>
+    compareAlphabetically(a.system, b.system) ||
+    compareAlphabetically(a.name || a.project, b.name || b.project) ||
+    compareAlphabetically(a.id, b.id)
+  );
+}
+
+function sortedInspectionDocuments(inspection) {
+  return [...(inspection?.documents || [])].sort((a, b) =>
+    compareAlphabetically(a.code, b.code) ||
+    compareAlphabetically(a.description, b.description) ||
+    compareAlphabetically(a.id, b.id)
+  );
+}
+
 function allDocumentContexts() {
   return state.inspections.flatMap(inspection =>
     (inspection.documents || []).map(document => ({ inspection, document }))
@@ -395,9 +419,10 @@ function bindViewportAwareness() {
 
 function homeView() {
   const contexts = allDocumentContexts();
-  const systems = [...new Set(state.inspections.map(item => item.system).filter(Boolean))];
+  const homeInspections = sortedInspections();
+  const systems = [...new Set(homeInspections.map(item => item.system).filter(Boolean))];
   const syncStatus = getSyncStatus();
-  const inspectionList = state.inspections.map(inspection => {
+  const inspectionList = homeInspections.map(inspection => {
     const data = metrics(inspection.documents || []);
     return `
       <article class="card inspection-item inspection-item-clickable" data-open-inspection="${escapeHtml(inspection.id)}" role="button" tabindex="0" aria-label="Abrir documentos da inspeção ${escapeHtml(inspection.name || inspection.project)}">
@@ -576,7 +601,7 @@ function documentSearchMatches(query, limit = 10) {
   }
 
   return ranked
-    .sort((a, b) => b.score - a.score || a.context.document.code.localeCompare(b.context.document.code, 'pt-BR'))
+    .sort((a, b) => b.score - a.score || compareAlphabetically(a.context.document.code, b.context.document.code))
     .slice(0, limit)
     .map(item => item.context);
 }
@@ -616,6 +641,8 @@ function selectSearchDocument(documentId, inspectionId) {
 
 function bindSearchSuggestionActions(root = document) {
   root.querySelectorAll('[data-search-doc]').forEach(button => {
+    if (button.dataset.searchBound === '1') return;
+    button.dataset.searchBound = '1';
     button.addEventListener('click', () => selectSearchDocument(button.dataset.searchDoc, button.dataset.searchInspection));
   });
 }
@@ -662,7 +689,9 @@ function documentDetailView() {
   const resultClass = document.result.replaceAll(' ', '-');
   const copyCount = document.fieldCopies?.length || 0;
   const markings = documentMarkings(document);
-  const hasNext = (inspection.documents || []).length > 1;
+  const orderedDocuments = sortedInspectionDocuments(inspection);
+  const orderedIndex = orderedDocuments.findIndex(item => item.id === document.id);
+  const hasNext = orderedIndex >= 0 && orderedIndex < orderedDocuments.length - 1;
   return `
     <div>
       <div class="doc-heading">
@@ -744,11 +773,11 @@ function docsView() {
       <div class="section-title"><div><span class="section-kicker">${selectedInspection ? 'LISTA SELECIONADA' : 'CATÁLOGO GLOBAL'}</span><h2>${selectedInspection ? escapeHtml(selectedInspection.system || 'Sem sistema') : 'Todos os documentos'}</h2></div><span class="subtitle">${selectedInspection ? escapeHtml(selectedInspection.name || selectedInspection.project) : 'Use Sistema ou Lista para visualizar uma área específica.'}</span></div>
       <div class="toolbar documents-toolbar">
         <input id="filter-text" value="${escapeHtml(state.docsFilters.text)}" placeholder="Pesquisar Código PW ou descrição" aria-label="Pesquisar documentos" autocomplete="off">
-        <select id="filter-inspection" aria-label="Filtrar por lista de inspeção"><option value="">Todas as listas</option>${state.inspections.map(item => `<option value="${escapeHtml(item.id)}" ${state.docsFilters.inspectionId === item.id ? 'selected' : ''}>${escapeHtml(item.system || 'Sem sistema')} · ${escapeHtml(item.name || item.project)}</option>`).join('')}</select>
+        <select id="filter-inspection" aria-label="Filtrar por lista de inspeção"><option value="">Todas as listas</option>${sortedInspections().map(item => `<option value="${escapeHtml(item.id)}" ${state.docsFilters.inspectionId === item.id ? 'selected' : ''}>${escapeHtml(item.system || 'Sem sistema')} · ${escapeHtml(item.name || item.project)}</option>`).join('')}</select>
         <select id="filter-system" aria-label="Filtrar por sistema"><option value="">Todos os sistemas</option>${systems.map(value => `<option value="${escapeHtml(value)}" ${state.docsFilters.system === value ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select>
         <select id="filter-result" aria-label="Filtrar por resultado"><option value="">Todos os resultados</option>${Object.values(RESULT).map(value => `<option value="${escapeHtml(value)}" ${state.docsFilters.result === value ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select>
         <select id="filter-status" aria-label="Filtrar por status"><option value="">Todos os status</option>${statuses.map(value => `<option value="${escapeHtml(value)}" ${state.docsFilters.status === value ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select>
-        <select id="sort-docs" aria-label="Ordenar documentos"><option value="code" ${state.docsFilters.sort === 'code' ? 'selected' : ''}>Ordenar por código</option><option value="description" ${state.docsFilters.sort === 'description' ? 'selected' : ''}>Ordenar por descrição</option><option value="system" ${state.docsFilters.sort === 'system' ? 'selected' : ''}>Ordenar por sistema</option></select>
+        <select id="sort-docs" aria-label="Ordenar documentos"><option value="code" ${state.docsFilters.sort === 'code' ? 'selected' : ''}>Código PW · A–Z</option><option value="description" ${state.docsFilters.sort === 'description' ? 'selected' : ''}>Descrição · A–Z</option><option value="system" ${state.docsFilters.sort === 'system' ? 'selected' : ''}>Sistema · A–Z</option></select>
         <button class="btn btn-clear-filters" id="clear-doc-filters" type="button">${icon('close')}<span>Limpar filtros</span></button>
       </div>
       <div class="table-wrap compact-doc-table">
@@ -1158,10 +1187,10 @@ function bindCopyQuantityControls() {
 function goToNextDocument() {
   const context = selectedContext();
   if (!context) return;
-  const documents = context.inspection.documents || [];
-  if (documents.length < 2) return;
+  const documents = sortedInspectionDocuments(context.inspection);
   const index = documents.findIndex(item => item.id === context.document.id);
-  const next = documents[(index + 1 + documents.length) % documents.length];
+  if (index < 0 || index >= documents.length - 1) return;
+  const next = documents[index + 1];
   selectDocumentContext({ inspection: context.inspection, document: next }, { renderView: false });
   state.pwSearchQuery = next.code;
   render();
@@ -1544,6 +1573,8 @@ function openScanConfirmation(scan) {
 }
 
 async function saveVerification(event) {
+  if (verificationMutationInFlight) return;
+  verificationMutationInFlight = true;
   const button = event?.currentTarget;
   const snapshot = state.selectedDoc ? structuredClone(state.selectedDoc) : null;
   try {
@@ -1564,17 +1595,24 @@ async function saveVerification(event) {
     await saveFieldChangeResilient(state.current, state.selectedDoc.id);
     await refreshInspectionList({ required: false });
     syncNow({ announce: true }).catch(() => {});
-    showToast(`${quantity} ${quantity === 1 ? 'cópia registrada' : 'cópias registradas'}: ${state.selectedDoc.result}.`);
-    returnToSearch();
+    const savedInspectionId = context.inspection.id;
+    const savedDocumentId = context.document.id;
+    const refreshed = documentContext(savedInspectionId, savedDocumentId);
+    const result = refreshed?.document?.result || state.selectedDoc.result;
+    showToast(`${quantity} ${quantity === 1 ? 'cópia registrada' : 'cópias registradas'}: ${result}.`);
+    keepVerificationSelection(savedInspectionId, savedDocumentId);
   } catch (error) {
     if (snapshot) restoreDocumentSnapshot(snapshot);
     showToast(error.message || 'Falha ao salvar a verificação.', 'error');
   } finally {
+    verificationMutationInFlight = false;
     if (button?.isConnected) setButtonBusy(button, false);
   }
 }
 
 async function saveNotFound(event) {
+  if (verificationMutationInFlight) return;
+  verificationMutationInFlight = true;
   const button = event?.currentTarget;
   const snapshot = state.selectedDoc ? structuredClone(state.selectedDoc) : null;
   try {
@@ -1588,14 +1626,29 @@ async function saveNotFound(event) {
     await saveFieldChangeResilient(state.current, state.selectedDoc.id);
     await refreshInspectionList({ required: false });
     syncNow({ announce: true }).catch(() => {});
+    const savedInspectionId = context.inspection.id;
+    const savedDocumentId = context.document.id;
     showToast('Documento marcado como não encontrado.');
-    returnToSearch();
+    keepVerificationSelection(savedInspectionId, savedDocumentId);
   } catch (error) {
     if (snapshot) restoreDocumentSnapshot(snapshot);
     showToast(error.message || 'Falha ao salvar o registro.', 'error');
   } finally {
+    verificationMutationInFlight = false;
     if (button?.isConnected) setButtonBusy(button, false);
   }
+}
+
+function keepVerificationSelection(inspectionId, documentId) {
+  const context = documentContext(inspectionId, documentId);
+  if (!context) {
+    returnToSearch();
+    return false;
+  }
+  selectDocumentContext(context, { renderView: false });
+  state.pwSearchQuery = context.document.code;
+  render();
+  return true;
 }
 
 function returnToSearch() {
@@ -1743,7 +1796,7 @@ function getFilteredDocuments({ fromState = false } = {}) {
     .sort((a, b) => {
       const av = sortBy === 'system' ? a.inspection.system : a.document[sortBy];
       const bv = sortBy === 'system' ? b.inspection.system : b.document[sortBy];
-      return String(av ?? '').localeCompare(String(bv ?? ''), 'pt-BR', { numeric: true });
+      return compareAlphabetically(av, bv) || compareAlphabetically(a.document.code, b.document.code);
     });
 }
 
@@ -1795,7 +1848,7 @@ function refreshDocumentFilterOptions() {
   const listSelect = document.querySelector('#filter-inspection');
   if (listSelect) {
     const currentList = state.docsFilters.inspectionId;
-    listSelect.innerHTML = `<option value="">Todas as listas</option>${state.inspections.map(item => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.system || 'Sem sistema')} · ${escapeHtml(item.name || item.project)}</option>`).join('')}`;
+    listSelect.innerHTML = `<option value="">Todas as listas</option>${sortedInspections().map(item => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.system || 'Sem sistema')} · ${escapeHtml(item.name || item.project)}</option>`).join('')}`;
     listSelect.value = state.inspections.some(item => item.id === currentList) ? currentList : '';
     if (!state.inspections.some(item => item.id === currentList)) state.docsFilters.inspectionId = '';
   }

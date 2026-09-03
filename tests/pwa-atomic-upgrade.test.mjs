@@ -23,7 +23,7 @@ assert.match(handoff, /registration\?\.update\(\)\.catch/,
   'abertura sem worker aguardando deve continuar procurando atualização');
 
 assert.match(sw, /const VERSION = '0\.9\.52';/);
-assert.match(sw, /const CACHE_REVISION = `\$\{VERSION\}-pdf-retirement-1`;/,
+assert.match(sw, /const CACHE_REVISION = `\$\{VERSION\}-workflow-refinements-1`;/,
   'retirada do subsistema confidencial deve usar nova geração para expulsar assets antigos do cache');
 assert.match(sw, /if \(event\.data\?\.type === 'SKIP_WAITING'\) self\.skipWaiting\(\)/,
   'worker em waiting deve aceitar promoção explícita');
