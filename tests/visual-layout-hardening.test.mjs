@@ -103,7 +103,7 @@ assert.match(hardening, /font-size:\s*clamp\(10px,\s*2\.8vw,\s*11px\) !important
 
 assert.match(sw, /const VERSION = '0\.9\.52';/,
   'alteração de asset do app shell deve manter a identidade funcional desta release');
-assert.match(sw, /const CACHE_REVISION = `\$\{VERSION\}-workflow-refinements-1`;/,
+assert.match(sw, /const CACHE_REVISION = `\$\{VERSION\}-settings-admin-1`;/,
   'alteração visual do app shell deve rotacionar a geração de cache instalada');
 
 console.log('Visual layout hardening contracts passed.');
