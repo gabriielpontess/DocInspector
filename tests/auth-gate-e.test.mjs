@@ -12,14 +12,17 @@ const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 
 assert.match(edge, /SUPABASE_SERVICE_ROLE_KEY/);
 assert.match(edge, /admin\.auth\.getUser\(token\)/);
-assert.match(edge, /callerMembership\.role !== 'ADMIN'/);
+assert.match(edge, /const ADMIN_ROLE = 'ADMIN'/);
+assert.match(edge, /callerMembership\.role !== ADMIN_ROLE/);
 assert.match(edge, /inviteUserByEmail/);
 assert.match(edge, /docinspector_workspace_members/);
-assert.match(edge, /O último Administrador ativo não pode ser desativado ou rebaixado/);
+assert.match(edge, /O último Administrador ativo não pode ser desativado\./);
 assert.doesNotMatch(ui, /SUPABASE_SERVICE_ROLE_KEY|service_role|sb_secret_/i);
 assert.match(ui, /functions\.invoke\('docinspector-user-admin'/);
 assert.match(ui, /CAPABILITY\.MANAGE_USERS/);
-assert.match(permissions, /capability !== CAPABILITY\.MANAGE_USERS/);
+assert.match(permissions, /ADMIN:\s*'ADMIN'/);
+assert.match(permissions, /const ADMIN_ACCESS = Object\.freeze\(Object\.values\(CAPABILITY\)\)/);
+assert.doesNotMatch(permissions, /INSPECTOR|SUPERVISOR|FOREMAN/);
 assert.match(entry, /import\('\.\/user-admin-ui\.js'\)/);
 assert.match(auth, /updateCurrentPassword/);
 assert.match(auth, /auth\.updateUser\(\{ password \}\)/);
@@ -42,4 +45,4 @@ assert.match(context, /readLegacyWorkspaceId/);
 assert.match(sw, /\.\/js\/user-admin-ui\.js/);
 assert.match(sw, /const VERSION = '0\.9\.52';/);
 
-console.log('Auth/RBAC Gate E administration checks passed.');
+console.log('Auth/RBAC Gate E administrator-only checks passed.');
