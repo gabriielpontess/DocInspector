@@ -21,6 +21,6 @@ assert.doesNotMatch(recovery, /Documento restaurado[\s\S]{0,220}modal\.closeModa
 assert.match(ui, /data-modal-label/, 'modais duplicados com o mesmo rótulo devem ser reutilizados');
 assert.match(ui, /let closed = false/, 'fechamento de modal deve ser idempotente');
 assert.match(ui, /busyDepth/, 'estado busy deve tolerar handlers concorrentes sem reabilitar cedo');
-assert.match(sw, /workflow-refinements-1/, 'PWA deve rotacionar o app shell para entregar as correções');
+assert.match(sw, /settings-admin-1/, 'a geração atual do PWA deve continuar carregando todas as correções anteriores junto ao novo shell');
 
 console.log('Workflow refinements regression contracts passed.');
