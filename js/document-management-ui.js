@@ -111,7 +111,7 @@ async function deleteDocument(inspectionId, documentId) {
   const copyCount = document.fieldCopies?.length || 0;
   const modal = openModal(`
     <div class="modal-header">
-      <div><span class="section-kicker">EXCLUSÃO LÓGICA DO DOCUMENTO</span><h2>Excluir documento ${escapeHtml(document.code)}?</h2><p class="subtitle">Esta ação remove o documento da lista ativa. PDFs vinculados não são excluídos por esta ação, e o histórico do documento permanece preservado para recuperação, sincronização e auditoria.</p></div>
+      <div><span class="section-kicker">EXCLUSÃO LÓGICA DO DOCUMENTO</span><h2>Excluir documento ${escapeHtml(document.code)}?</h2><p class="subtitle">Esta ação remove o documento da lista ativa. O histórico do documento permanece preservado para recuperação, sincronização e auditoria.</p></div>
       <button class="icon-button" data-close-document-delete type="button" aria-label="Fechar">${icon('close')}</button>
     </div>
     <div class="alert">${copyCount ? `Este documento possui ${copyCount} ${copyCount === 1 ? 'cópia de campo registrada' : 'cópias de campo registradas'}. Esses dados e as evidências não serão apagados.` : 'O documento será tombstonado para não reaparecer automaticamente em uma atualização da planilha.'}</div>
@@ -142,7 +142,7 @@ async function deleteDocument(inspectionId, documentId) {
 
 function actionButtons(inspectionId, documentId, { compact = false } = {}) {
   const compactClass = compact ? ' btn-compact' : '';
-  return `<button class="btn${compactClass}" data-edit-document="${escapeHtml(documentId)}" data-document-inspection="${escapeHtml(inspectionId)}" type="button">${icon('edit')}<span>Editar</span></button><button class="btn btn-danger${compactClass}" data-delete-document="${escapeHtml(documentId)}" data-document-inspection="${escapeHtml(inspectionId)}" type="button" title="Excluir o documento da inspeção (não exclui apenas o PDF)">${icon('trash')}<span>Excluir documento</span></button>`;
+  return `<button class="btn${compactClass}" data-edit-document="${escapeHtml(documentId)}" data-document-inspection="${escapeHtml(inspectionId)}" type="button">${icon('edit')}<span>Editar</span></button><button class="btn btn-danger${compactClass}" data-delete-document="${escapeHtml(documentId)}" data-document-inspection="${escapeHtml(inspectionId)}" type="button" title="Excluir o documento da inspeção">${icon('trash')}<span>Excluir documento</span></button>`;
 }
 
 function bindManagementButton(button) {

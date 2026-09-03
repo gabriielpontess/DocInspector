@@ -1,11 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
-  buildPdfRestorePatch,
-  buildPdfSoftDeletePatch,
   buildRestoredDocumentGeneration,
-  listRestorableDeletedDocuments,
-  splitConfidentialObjectPath
+  listRestorableDeletedDocuments
 } from '../js/recovery-core.js';
 
 const archivedId = '11111111-1111-4111-8111-111111111111';
@@ -71,30 +68,17 @@ assert.deepEqual(
   'arquivo antigo reintroduzido por merge não pode reaparecer na lixeira após a nova geração ativa'
 );
 
-const deletePatch = buildPdfSoftDeletePatch('2026-08-24T12:00:00.000Z');
-assert.deepEqual(deletePatch, { status: 'DELETED', deleted_at: '2026-08-24T12:00:00.000Z' });
-assert.deepEqual(buildPdfRestorePatch(), { status: 'ACTIVE', deleted_at: null });
-assert.deepEqual(splitConfidentialObjectPath('workspace/inspection/file.dipdf'), { folder: 'workspace/inspection', filename: 'file.dipdf' });
-
 const ui = fs.readFileSync(new URL('../js/recovery-ui.js', import.meta.url), 'utf8');
+const core = fs.readFileSync(new URL('../js/recovery-core.js', import.meta.url), 'utf8');
 const index = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
-assert.match(ui, /stopImmediatePropagation\(\)/, 'exclusão de PDF deve bloquear o handler legado destrutivo em capture phase');
-assert.match(ui, /addEventListener\('click',[\s\S]*true\);/, 'interceptador de PDF deve operar em capture phase');
-assert.match(ui, /Mover somente este PDF para a lixeira/, 'confirmação deve distinguir PDF de documento da inspeção');
-assert.match(ui, /Excluir documento/, 'ação destrutiva do documento deve ter rótulo inequívoco');
-assert.match(ui, /Lixeira de PDFs/, 'interface deve oferecer recuperação de PDFs');
-assert.match(ui, /Lixeira de documentos/, 'interface deve oferecer recuperação de documentos');
-assert.doesNotMatch(ui, /storage\.from\(CONFIDENTIAL_BUCKET\)\.remove/, 'exclusão comum não deve remover ciphertext remoto');
-assert.doesNotMatch(ui, /^import .*confidential-e2ee-ui/m, 'UI confidencial pesada não deve virar dependência estática do boot offline');
-assert.doesNotMatch(ui, /^import .*confidential-pdf-linking-ui/m, 'linking UI não deve virar dependência estática do boot offline');
-assert.match(ui, /import\('\.\/confidential-e2ee-ui\.js'\)/, 'refresh online pode carregar a UI confidencial dinamicamente');
-assert.match(ui, /import\('\.\/confidential-pdf-linking-ui\.js'\)/, 'refresh online pode carregar linking dinamicamente');
-assert.match(ui, /label && label\.textContent !== 'Excluir documento'/, 'observer não deve reescrever o mesmo rótulo de documento e gerar feedback loop');
-assert.match(ui, /button\.textContent !== 'Excluir PDF'/, 'observer não deve reescrever o mesmo rótulo de PDF e gerar feedback loop');
-assert.match(ui, /button\.title !== title/, 'atributos de refinamento devem ser atualizados somente quando mudarem');
-assert.match(index, /src="js\/recovery-ui\.js"/, 'recovery UI deve carregar no app');
-assert.match(sw, /\.\/js\/recovery-core\.js/, 'core de recuperação deve estar no app shell');
-assert.match(sw, /\.\/js\/recovery-ui\.js/, 'UI de recuperação deve estar no app shell');
+assert.match(ui, /Lixeira de documentos/, 'interface deve continuar oferecendo recuperação de documentos');
+assert.match(ui, /contextOrThrow\(CAPABILITY\.MANAGE_DOCUMENTS\)/, 'restauração deve exigir apenas gestão de documentos');
+assert.match(ui, /await syncNow\(\{ announce: false \}\)/, 'restauração deve sincronizar antes de criar nova geração');
+assert.doesNotMatch(ui, /confidential|docinspector_project_documents|MANAGE_PROJECT_FILES|\bPDFs?\b/i, 'recuperação de documentos não deve depender do subsistema de PDF confidencial');
+assert.doesNotMatch(core, /buildPdf|splitConfidential|\bPDFs? confidenciais\b/i, 'core de recuperação não deve carregar helpers do subsistema retirado');
+assert.match(index, /src="js\/recovery-ui\.js"/, 'recovery UI deve continuar carregando no app');
+assert.match(sw, /\.\/js\/recovery-core\.js/, 'core de recuperação deve permanecer no app shell');
+assert.match(sw, /\.\/js\/recovery-ui\.js/, 'UI de recuperação deve permanecer no app shell');
 
-console.log('Document/PDF recovery regression checks passed.');
+console.log('Document recovery regression checks passed.');

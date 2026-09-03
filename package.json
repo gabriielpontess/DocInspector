@@ -4,19 +4,14 @@
   "private": true,
   "description": "DocInspector PWA - authenticated field-ready release",
   "scripts": {
-    "build:pdfjs": "node scripts/vendor-pdfjs.mjs",
-    "build": "npm run build:pdfjs",
+    "build": "node -e \"console.log('Static app: no build step required.')\"",
     "test": "node scripts/run-tests.mjs",
-    "pretest:e2e": "npm run build:pdfjs",
     "test:e2e": "playwright test",
     "check:syntax": "node scripts/check-syntax.mjs",
     "check:sql": "node scripts/check-sql.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
     "check:automation": "node scripts/check-automation-contracts.mjs",
     "check": "npm run check:syntax && npm run check:sql && npm run check:secrets && npm run check:automation && npm test"
-  },
-  "dependencies": {
-    "pdfjs-dist": "6.2.108"
   },
   "devDependencies": {
     "@playwright/test": "1.62.0"

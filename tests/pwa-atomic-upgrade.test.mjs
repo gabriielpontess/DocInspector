@@ -23,8 +23,8 @@ assert.match(handoff, /registration\?\.update\(\)\.catch/,
   'abertura sem worker aguardando deve continuar procurando atualização');
 
 assert.match(sw, /const VERSION = '0\.9\.52';/);
-assert.match(sw, /const CACHE_REVISION = `\$\{VERSION\}-pwa-upgrade-2`;/,
-  'hotfix visual deve usar nova geração de cache sem alterar a versão funcional do produto');
+assert.match(sw, /const CACHE_REVISION = `\$\{VERSION\}-pdf-retirement-1`;/,
+  'retirada do subsistema confidencial deve usar nova geração para expulsar assets antigos do cache');
 assert.match(sw, /if \(event\.data\?\.type === 'SKIP_WAITING'\) self\.skipWaiting\(\)/,
   'worker em waiting deve aceitar promoção explícita');
 const installHandler = sw.match(/self\.addEventListener\('install',[\s\S]*?\n\}\);/)?.[0] || '';
