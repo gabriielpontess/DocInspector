@@ -1,5 +1,5 @@
 import { getAuthContext } from './auth-context.js';
-import { CAPABILITY, ROLE, ROLE_LABEL, can } from './permissions.js';
+import { CAPABILITY, ROLE, can } from './permissions.js';
 import { invokeAdmin } from './user-admin-ui.js';
 
 let observer = null;
@@ -12,12 +12,6 @@ function esc(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
-}
-
-function roleOptions(selected = ROLE.INSPECTOR) {
-  return Object.values(ROLE).map(role =>
-    `<option value="${role}" ${role === selected ? 'selected' : ''}>${esc(ROLE_LABEL[role])}</option>`
-  ).join('');
 }
 
 function formatRequestedAt(value) {
@@ -36,7 +30,7 @@ function panelHtml() {
         </div>
         <button class="btn" id="user-admin-access-refresh" type="button">Atualizar</button>
       </div>
-      <p class="subtitle">Compartilhe o código abaixo com quem precisa pedir acesso. A solicitação não cria conta nem permissão até sua aprovação.</p>
+      <p class="subtitle">Compartilhe o código abaixo com quem precisa pedir acesso. A solicitação só cria acesso após sua aprovação e todo acesso aprovado será Administrador.</p>
       <div id="user-admin-request-code" class="user-admin-request-code"><span>Carregando código…</span></div>
       <div id="user-admin-access-message" class="user-admin-message" hidden></div>
       <div id="user-admin-access-requests" class="user-admin-access-requests" aria-live="polite"><div class="subtitle">Carregando solicitações…</div></div>
@@ -53,10 +47,7 @@ function requestHtml(request) {
         ${request.message ? `<p>${esc(request.message)}</p>` : ''}
       </div>
       <div class="user-admin-access-request-actions">
-        <label>Perfil
-          <select data-request-role>${roleOptions(ROLE.INSPECTOR)}</select>
-        </label>
-        <button class="btn btn-primary" data-request-approve type="button">Aprovar e convidar</button>
+        <button class="btn btn-primary" data-request-approve type="button">Aprovar como Administrador</button>
         <button class="btn" data-request-reject type="button">Rejeitar</button>
       </div>
     </article>`;
@@ -116,15 +107,14 @@ async function copyCode(code) {
 async function resolveRequest(row, decision) {
   const requestId = row?.dataset.accessRequestId || '';
   if (!requestId || busyRequestId) return;
-  const role = row.querySelector('[data-request-role]')?.value || ROLE.INSPECTOR;
   const buttons = [...row.querySelectorAll('button')];
   try {
     busyRequestId = requestId;
     buttons.forEach(button => { button.disabled = true; });
     setMessage('');
-    const result = await invokeAdmin({ action: 'resolve-access-request', requestId, decision, role });
+    const result = await invokeAdmin({ action: 'resolve-access-request', requestId, decision, role: ROLE.ADMIN });
     if (decision === 'APPROVE') {
-      setMessage(result.invited ? 'Solicitação aprovada e convite enviado.' : 'Solicitação aprovada e usuário vinculado.', 'success');
+      setMessage(result.invited ? 'Solicitação aprovada e convite de Administrador enviado.' : 'Solicitação aprovada e usuário vinculado como Administrador.', 'success');
       window.dispatchEvent(new CustomEvent('docinspector:user-admin-refresh'));
     } else {
       setMessage('Solicitação rejeitada.', 'success');

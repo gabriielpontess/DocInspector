@@ -1,15 +1,9 @@
 export const ROLE = Object.freeze({
-  ADMIN: 'ADMIN',
-  INSPECTOR: 'INSPECTOR',
-  SUPERVISOR: 'SUPERVISOR',
-  FOREMAN: 'FOREMAN'
+  ADMIN: 'ADMIN'
 });
 
 export const ROLE_LABEL = Object.freeze({
-  [ROLE.ADMIN]: 'Administrador',
-  [ROLE.INSPECTOR]: 'Inspetor',
-  [ROLE.SUPERVISOR]: 'Supervisor',
-  [ROLE.FOREMAN]: 'Encarregado'
+  [ROLE.ADMIN]: 'Administrador'
 });
 
 export const CAPABILITY = Object.freeze({
@@ -24,24 +18,13 @@ export const CAPABILITY = Object.freeze({
 });
 
 const ADMIN_ACCESS = Object.freeze(Object.values(CAPABILITY));
-const INSPECTOR_ACCESS = Object.freeze(
-  Object.values(CAPABILITY).filter(capability => capability !== CAPABILITY.MANAGE_USERS)
-);
-const READ_AND_COMMENT = Object.freeze([
-  CAPABILITY.VIEW_DOCUMENTS,
-  CAPABILITY.COMMENT_DOCUMENTS
-]);
-
 const ROLE_CAPABILITIES = Object.freeze({
-  [ROLE.ADMIN]: ADMIN_ACCESS,
-  [ROLE.INSPECTOR]: INSPECTOR_ACCESS,
-  [ROLE.SUPERVISOR]: READ_AND_COMMENT,
-  [ROLE.FOREMAN]: READ_AND_COMMENT
+  [ROLE.ADMIN]: ADMIN_ACCESS
 });
 
 export function normalizeRole(value) {
   const role = String(value ?? '').trim().toUpperCase();
-  return Object.values(ROLE).includes(role) ? role : null;
+  return role === ROLE.ADMIN ? ROLE.ADMIN : null;
 }
 
 export function roleLabel(value) {

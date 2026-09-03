@@ -47,9 +47,11 @@ assert.match(sync, /AUTH_WORKSPACE_BINDING_KEY/);
 assert.match(sync, /AUTH_LOCAL_INSPECTION_QUARANTINE_KEY/);
 assert.match(sync, /allowedInspectionIds/);
 
-// User management is an Admin-only client capability; the server remains authoritative.
-assert.match(permissions, /CAPABILITY\.MANAGE_USERS/);
-assert.match(permissions, /capability !== CAPABILITY\.MANAGE_USERS/);
+// Active workspace authorization exposes only Administrator; server-side checks remain authoritative.
+assert.match(permissions, /ADMIN:\s*'ADMIN'/);
+assert.match(permissions, /MANAGE_USERS:\s*'MANAGE_USERS'/);
+assert.match(permissions, /const ADMIN_ACCESS = Object\.freeze\(Object\.values\(CAPABILITY\)\)/);
+assert.doesNotMatch(permissions, /INSPECTOR|SUPERVISOR|FOREMAN/);
 
 // Trigger helpers must not remain callable by client roles.
 assert.match(migration, /revoke execute on function public\.sky17_touch_updated_at\(\) from public, anon, authenticated;/i);

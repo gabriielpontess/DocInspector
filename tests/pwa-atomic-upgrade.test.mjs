@@ -23,8 +23,10 @@ assert.match(handoff, /registration\?\.update\(\)\.catch/,
   'abertura sem worker aguardando deve continuar procurando atualização');
 
 assert.match(sw, /const VERSION = '0\.9\.52';/);
-assert.match(sw, /const CACHE_REVISION = `\$\{VERSION\}-workflow-refinements-1`;/,
-  'retirada do subsistema confidencial deve usar nova geração para expulsar assets antigos do cache');
+assert.match(sw, /const CACHE_REVISION = `\$\{VERSION\}-settings-admin-1`;/,
+  'refinamento de configurações e acesso deve usar uma nova geração atômica');
+assert.match(sw, /\.\/js\/settings-refinement-ui\.js/,
+  'refinamento das configurações deve fazer parte do app shell offline');
 assert.match(sw, /if \(event\.data\?\.type === 'SKIP_WAITING'\) self\.skipWaiting\(\)/,
   'worker em waiting deve aceitar promoção explícita');
 const installHandler = sw.match(/self\.addEventListener\('install',[\s\S]*?\n\}\);/)?.[0] || '';

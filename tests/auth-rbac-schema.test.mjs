@@ -4,9 +4,11 @@ import { readFile } from 'node:fs/promises';
 const identity = await readFile('supabase/migrations/20260817162807_add_auth_profiles_and_workspace_memberships.sql', 'utf8');
 const discovery = await readFile('supabase/migrations/20260817162939_add_authenticated_workspace_discovery.sql', 'utf8');
 const membershipHardening = await readFile('supabase/migrations/20260817191245_hide_inactive_memberships_from_authenticated_clients.sql', 'utf8');
+const adminOnly = await readFile('supabase/migrations/20260903174000_enforce_admin_only_memberships.sql', 'utf8');
 
+// Historical migration is preserved as provenance of the original RBAC rollout.
 for (const role of ['ADMIN', 'INSPECTOR', 'SUPERVISOR', 'FOREMAN']) {
-  assert.match(identity, new RegExp(`'${role}'`), `role ${role} must be constrained in the database`);
+  assert.match(identity, new RegExp(`'${role}'`), `historical role ${role} must remain documented`);
 }
 
 assert.match(identity, /references auth\.users\(id\) on delete cascade/i);
@@ -29,5 +31,10 @@ assert.match(discovery, /grant execute on function public\.docinspector_my_works
 assert.match(membershipHardening, /drop policy if exists docinspector_workspace_members_select_own/i);
 assert.match(membershipHardening, /docinspector_workspace_members_select_own_active/i);
 assert.match(membershipHardening, /\(select auth\.uid\(\)\) = user_id and active/i);
+
+assert.match(adminOnly, /update public\.docinspector_workspace_members[\s\S]*set role = 'ADMIN'[\s\S]*where role <> 'ADMIN'/i);
+assert.match(adminOnly, /drop constraint if exists docinspector_workspace_members_role_check/i);
+assert.match(adminOnly, /check \(role = 'ADMIN'\)/i);
+assert.doesNotMatch(adminOnly, /'INSPECTOR'|'SUPERVISOR'|'FOREMAN'/i, 'forward contract must accept only ADMIN');
 
 console.log('Auth/RBAC schema migration regression checks passed.');

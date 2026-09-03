@@ -1,6 +1,7 @@
+import './settings-refinement-ui.js';
 import { getAuthClient } from './auth.js';
 import { getAuthContext } from './auth-context.js';
-import { CAPABILITY, ROLE, ROLE_LABEL, can } from './permissions.js';
+import { CAPABILITY, ROLE, can } from './permissions.js';
 
 let observer = null;
 let busy = false;
@@ -12,12 +13,6 @@ function esc(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
-}
-
-function roleOptions(selected) {
-  return Object.values(ROLE).map(role =>
-    `<option value="${role}" ${role === selected ? 'selected' : ''}>${esc(ROLE_LABEL[role])}</option>`
-  ).join('');
 }
 
 async function invokeAdmin(body) {
@@ -43,14 +38,13 @@ function cardHtml(context) {
   return `
     <section class="card settings-user-admin" id="settings-user-admin" aria-labelledby="settings-user-admin-title">
       <div class="section-title">
-        <div><span class="section-kicker">ACESSO E PERFIS</span><h2 id="settings-user-admin-title">Usuários</h2></div>
+        <div><span class="section-kicker">ACESSO</span><h2 id="settings-user-admin-title">Usuários</h2></div>
         <span class="subtitle">${esc(context.workspaceName || 'DocInspector')}</span>
       </div>
-      <p class="subtitle">Convide usuários e defina o perfil de acesso deste workspace. Apenas Administradores podem alterar estas permissões.</p>
+      <p class="subtitle">Convide e gerencie usuários deste workspace. Todos os acessos usam o perfil Administrador.</p>
       <form id="user-admin-invite" class="user-admin-invite">
         <div class="field"><label for="user-admin-name">Nome</label><input id="user-admin-name" maxlength="120" autocomplete="name" placeholder="Nome do usuário"></div>
         <div class="field"><label for="user-admin-email">E-mail</label><input id="user-admin-email" type="email" maxlength="254" autocomplete="email" required placeholder="usuario@empresa.com"></div>
-        <div class="field"><label for="user-admin-role">Perfil</label><select id="user-admin-role">${roleOptions(ROLE.INSPECTOR)}</select></div>
         <button class="btn btn-primary" id="user-admin-invite-button" type="submit">Enviar convite</button>
       </form>
       <div id="user-admin-message" class="user-admin-message" hidden></div>
@@ -62,14 +56,14 @@ function memberHtml(member) {
   const state = member.active ? 'Ativo' : 'Inativo';
   const access = member.confirmedAt ? 'Conta confirmada' : member.invitedAt ? 'Convite enviado' : 'Conta criada';
   return `
-    <article class="user-admin-member ${member.active ? '' : 'inactive'}" data-user-id="${esc(member.userId)}" data-member-role-original="${esc(member.role)}" data-member-active-original="${member.active ? 'true' : 'false'}" data-member-self="${member.self ? 'true' : 'false'}">
+    <article class="user-admin-member ${member.active ? '' : 'inactive'}" data-user-id="${esc(member.userId)}" data-member-active-original="${member.active ? 'true' : 'false'}" data-member-self="${member.self ? 'true' : 'false'}">
       <div class="user-admin-member-copy">
         <strong>${esc(member.displayName || member.email || 'Usuário')}</strong>
         <span>${esc(member.email || 'E-mail indisponível')}</span>
         <small>${esc(access)} · ${esc(state)}${member.self ? ' · Você' : ''}</small>
       </div>
       <div class="user-admin-member-controls">
-        <select data-member-role aria-label="Perfil de ${esc(member.email || member.displayName || 'usuário')}">${roleOptions(member.role)}</select>
+        <span class="admin-role-badge">Administrador</span>
         <label class="user-admin-active"><input data-member-active type="checkbox" ${member.active ? 'checked' : ''}><span>Ativo</span></label>
         <button class="btn" data-save-member type="button">Salvar</button>
       </div>
@@ -102,7 +96,6 @@ async function loadMembers() {
 async function saveMemberChange({ row }) {
   const context = getAuthContext();
   const userId = row.dataset.userId;
-  const role = row.querySelector('[data-member-role]')?.value;
   const activeControl = row.querySelector('[data-member-active]');
   const active = Boolean(activeControl?.checked);
   const wasActive = row.dataset.memberActiveOriginal === 'true';
@@ -118,7 +111,7 @@ async function saveMemberChange({ row }) {
     }
   }
 
-  await invokeAdmin({ action: 'update', userId, role, active });
+  await invokeAdmin({ action: 'update', userId, role: ROLE.ADMIN, active });
   return { changed: true, deactivated: wasActive && !active };
 }
 
@@ -133,16 +126,13 @@ function bindCard() {
     const button = card.querySelector('#user-admin-invite-button');
     const email = card.querySelector('#user-admin-email')?.value || '';
     const displayName = card.querySelector('#user-admin-name')?.value || '';
-    const role = card.querySelector('#user-admin-role')?.value || ROLE.INSPECTOR;
     try {
       busy = true;
       if (button) { button.disabled = true; button.textContent = 'Enviando…'; }
       setMessage('');
-      const result = await invokeAdmin({ action: 'invite', email, displayName, role });
+      const result = await invokeAdmin({ action: 'invite', email, displayName, role: ROLE.ADMIN });
       event.currentTarget.reset();
-      const roleSelect = card.querySelector('#user-admin-role');
-      if (roleSelect) roleSelect.value = ROLE.INSPECTOR;
-      setMessage(result.invited ? 'Convite enviado e acesso configurado.' : 'Usuário existente vinculado ao workspace.', 'success');
+      setMessage(result.invited ? 'Convite enviado e acesso de Administrador configurado.' : 'Usuário existente vinculado como Administrador.', 'success');
       await loadMembers();
     } catch (error) {
       setMessage(error.message || 'Não foi possível enviar o convite.', 'error');
@@ -164,7 +154,7 @@ function bindCard() {
       setMessage('');
       const result = await saveMemberChange({ row });
       if (!result.changed) return;
-      setMessage(result.deactivated ? 'Usuário desativado.' : 'Permissões atualizadas.', 'success');
+      setMessage(result.deactivated ? 'Usuário desativado.' : 'Acesso atualizado.', 'success');
       await loadMembers();
     } catch (error) {
       setMessage(error.message || 'Não foi possível atualizar este usuário.', 'error');

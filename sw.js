@@ -1,7 +1,7 @@
 const VERSION = '0.9.52';
 // Rotate the complete app-shell generation when runtime interaction changes.
-// This revision delivers alphabetical navigation, recovery continuity and action de-duplication atomically.
-const CACHE_REVISION = `${VERSION}-workflow-refinements-1`;
+// This revision delivers the compact settings/admin UI and access-request repair atomically.
+const CACHE_REVISION = `${VERSION}-settings-admin-1`;
 const CORE_CACHE = `docinspector-core-${CACHE_REVISION}`;
 const RUNTIME_CACHE = `docinspector-runtime-${CACHE_REVISION}`;
 const XLSX_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
@@ -22,7 +22,7 @@ const APP_SHELL = [
   './', './index.html', './styles.css', './visual-system.css', './visual-verify.css', './visual-documents.css', './visual-overlays.css', './visual-responsive.css', './visual-refinement.css', './auth.css', './engineering-tracker.css', './visual-hardening.css',
   './manifest.webmanifest', './assets/icon.svg', './assets/icon-180.png', './assets/icon-192.png', './assets/icon-512.png',
   './assets/icon-maskable-192.png', './assets/icon-maskable-512.png', './js/app.js', './js/db.js', './js/domain.js', './js/document-lifecycle.js', './js/document-management-ui.js',
-  './js/auth-config.js', './js/inspection-creation-guard.js', './js/auth.js', './js/auth-context.js', './js/auth-entry.js', './js/access-request.js', './js/access-request-admin-ui.js', './js/permissions.js', './js/permission-ui.js', './js/user-admin-ui.js', './js/sync-auth.js', './js/sync-delete-queue.js',
+  './js/auth-config.js', './js/inspection-creation-guard.js', './js/auth.js', './js/auth-context.js', './js/auth-entry.js', './js/access-request.js', './js/access-request-admin-ui.js', './js/permissions.js', './js/permission-ui.js', './js/user-admin-ui.js', './js/settings-refinement-ui.js', './js/sync-auth.js', './js/sync-delete-queue.js',
   './js/recovery-core.js', './js/recovery-ui.js',
   './js/inspection-update.js', './js/inspection-update-ui.js', './js/field-recovery-ui.js', './js/evidence-health-ui.js', './js/engineering-tracker-core.js', './js/engineering-tracker-ui.js',
   './js/marking-policy-ui.js', './js/copy-evidence-edit-ui.js', './js/ui-refinement.js', './js/export-pdf-options-ui.js', './js/pwa.js', './js/report.js', './js/sync.js', './js/sync.js?legacy=1', './js/ui.js', './js/xlsx.js', './js/vision.js', './js/word.js'

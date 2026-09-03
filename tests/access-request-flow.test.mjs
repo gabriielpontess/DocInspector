@@ -8,7 +8,6 @@ const adminEdge = fs.readFileSync(new URL('../supabase/functions/docinspector-us
 const client = fs.readFileSync(new URL('../js/access-request.js', import.meta.url), 'utf8');
 const entry = fs.readFileSync(new URL('../js/auth-entry.js', import.meta.url), 'utf8');
 const adminUi = fs.readFileSync(new URL('../js/access-request-admin-ui.js', import.meta.url), 'utf8');
-const css = fs.readFileSync(new URL('../auth.css', import.meta.url), 'utf8');
 const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 
 assert.match(migration, /create table public\.docinspector_workspace_access_codes/);
@@ -48,9 +47,11 @@ assert.match(entry, /submitAccessRequest/);
 assert.match(entry, /import\('\.\/access-request-admin-ui\.js'\)/);
 assert.match(entry, /Nenhuma conta ou permissão é criada automaticamente/);
 
-const membershipGuard = adminEdge.indexOf("callerMembership.role !== 'ADMIN'");
+const membershipGuard = adminEdge.indexOf('callerMembership.role !== ADMIN_ROLE');
 const requestActions = adminEdge.indexOf("action === 'access-request-code'");
 assert.ok(membershipGuard >= 0 && requestActions > membershipGuard, 'ações de solicitação devem ficar depois da validação ADMIN');
+assert.match(adminEdge, /const ADMIN_ROLE = 'ADMIN'/);
+assert.doesNotMatch(adminEdge, /INSPECTOR|SUPERVISOR|FOREMAN/);
 assert.match(adminEdge, /action === 'access-requests'/);
 assert.match(adminEdge, /action === 'resolve-access-request'/);
 assert.match(adminEdge, /ensureWorkspaceAccessCode/);
@@ -65,19 +66,15 @@ const resolveAction = adminEdge.indexOf("action === 'resolve-access-request'");
 const claimCall = adminEdge.indexOf('const claim = await claimAccessRequest', resolveAction);
 const provisionCall = adminEdge.indexOf('accessResult = await ensureUserAccess', claimCall);
 const finalizeCall = adminEdge.indexOf('await finalizeAccessRequest', provisionCall);
-assert.ok(
-  resolveAction >= 0 && claimCall > resolveAction && provisionCall > claimCall && finalizeCall > provisionCall,
-  'claim atômico deve ocorrer antes de qualquer provisionamento e finalização'
-);
+assert.ok(resolveAction >= 0 && claimCall > resolveAction && provisionCall > claimCall && finalizeCall > provisionCall,
+  'claim atômico deve ocorrer antes de qualquer provisionamento e finalização');
 assert.match(adminEdge, /refreshedUsers = await listAllUsers/, 'convite concorrente deve revalidar usuário antes de falhar');
 
 assert.match(adminUi, /CAPABILITY\.MANAGE_USERS/);
-assert.match(adminUi, /Aprovar e convidar/);
+assert.match(adminUi, /Aprovar como Administrador/);
 assert.match(adminUi, /data-request-reject/);
 assert.match(adminUi, /data-copy-request-code/);
-assert.match(css, /user-admin-access-request/);
-assert.match(css, /auth-honeypot/);
-assert.match(css, /@media \(max-width: 600px\)/);
+assert.doesNotMatch(adminUi, /data-request-role|roleOptions/);
 
 assert.match(sw, /const VERSION = '0\.9\.52';/);
 assert.match(sw, /\.\/js\/access-request\.js/);
