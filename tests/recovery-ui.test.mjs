@@ -75,6 +75,8 @@ const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 assert.match(ui, /Lixeira de documentos/, 'interface deve continuar oferecendo recuperação de documentos');
 assert.match(ui, /contextOrThrow\(CAPABILITY\.MANAGE_DOCUMENTS\)/, 'restauração deve exigir apenas gestão de documentos');
 assert.match(ui, /await syncNow\(\{ announce: false \}\)/, 'restauração deve sincronizar antes de criar nova geração');
+assert.match(ui, /row\.remove\(\)/, 'lixeira deve permanecer aberta após restaurar e remover apenas a linha recuperada');
+assert.doesNotMatch(ui, /Documento restaurado[\s\S]{0,220}modal\.closeModal\(\)/, 'restauração não deve fechar o modal automaticamente');
 assert.doesNotMatch(ui, /confidential|docinspector_project_documents|MANAGE_PROJECT_FILES|\bPDFs?\b/i, 'recuperação de documentos não deve depender do subsistema de PDF confidencial');
 assert.doesNotMatch(core, /buildPdf|splitConfidential|\bPDFs? confidenciais\b/i, 'core de recuperação não deve carregar helpers do subsistema retirado');
 assert.match(index, /src="js\/recovery-ui\.js"/, 'recovery UI deve continuar carregando no app');

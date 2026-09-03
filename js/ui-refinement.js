@@ -26,6 +26,26 @@ function currentVerificationScope() {
   return document.querySelector('#verification-scope')?.value ?? verificationScopeId;
 }
 
+function compareAlphabetically(a, b) {
+  return String(a ?? '').localeCompare(String(b ?? ''), 'pt-BR', { numeric: true, sensitivity: 'base' });
+}
+
+function sortedDocuments(documents = []) {
+  return [...documents].sort((a, b) =>
+    compareAlphabetically(a.code, b.code) ||
+    compareAlphabetically(a.description, b.description) ||
+    compareAlphabetically(a.id, b.id)
+  );
+}
+
+function sortedInspectionRecords(inspections = []) {
+  return [...inspections].sort((a, b) =>
+    compareAlphabetically(a.system, b.system) ||
+    compareAlphabetically(a.name || a.project, b.name || b.project) ||
+    compareAlphabetically(a.id, b.id)
+  );
+}
+
 function scheduleRefinement() {
   if (scheduled) return;
   scheduled = true;
@@ -360,7 +380,7 @@ async function ensureVerificationScope() {
 
   verificationScopeLoading = true;
   try {
-    const inspections = await listInspections();
+    const inspections = sortedInspectionRecords(await listInspections());
     if (!select.isConnected) return;
     const availableIds = new Set(inspections.map(item => item.id));
     if (verificationScopeId && !availableIds.has(verificationScopeId)) setVerificationScope('');
@@ -532,7 +552,7 @@ async function refineDocumentNavigation() {
 
   const inspection = await getInspection(inspectionId).catch(() => null);
   if (!inspection || !heading.isConnected) return;
-  const documents = inspection.documents || [];
+  const documents = sortedDocuments(inspection.documents || []);
   const index = documents.findIndex(item => String(item.code || '').trim() === code);
   if (index < 0) return;
 
@@ -545,7 +565,7 @@ async function refineDocumentNavigation() {
     previous.addEventListener('click', async () => {
       const latest = await getInspection(inspectionId).catch(() => null);
       const currentCode = document.querySelector('.doc-detail .doc-heading h2')?.textContent?.trim();
-      const list = latest?.documents || [];
+      const list = sortedDocuments(latest?.documents || []);
       const currentIndex = list.findIndex(item => String(item.code || '').trim() === currentCode);
       if (currentIndex <= 0) return;
       openDocumentFromSequence(list[currentIndex - 1], inspectionId);
@@ -580,7 +600,7 @@ async function refineDocumentDetailNavigation() {
 
   const inspection = await getInspection(inspectionId).catch(() => null);
   if (!inspection || !page.isConnected) return;
-  const documents = inspection.documents || [];
+  const documents = sortedDocuments(inspection.documents || []);
   const index = documents.findIndex(item => String(item.code || '').trim() === code);
   if (index < 0) return;
 
@@ -608,7 +628,7 @@ async function refineDocumentDetailNavigation() {
     previous.addEventListener('click', async () => {
       const latest = await getInspection(inspectionId).catch(() => null);
       const currentCode = document.querySelector('.document-page .doc-heading h2')?.textContent?.trim();
-      const list = latest?.documents || [];
+      const list = sortedDocuments(latest?.documents || []);
       const currentIndex = list.findIndex(item => String(item.code || '').trim() === currentCode);
       if (currentIndex <= 0) return;
       openDocumentDetailThroughCatalog(list[currentIndex - 1].id, inspectionId);
@@ -619,7 +639,7 @@ async function refineDocumentDetailNavigation() {
     next.addEventListener('click', async () => {
       const latest = await getInspection(inspectionId).catch(() => null);
       const currentCode = document.querySelector('.document-page .doc-heading h2')?.textContent?.trim();
-      const list = latest?.documents || [];
+      const list = sortedDocuments(latest?.documents || []);
       const currentIndex = list.findIndex(item => String(item.code || '').trim() === currentCode);
       if (currentIndex < 0 || currentIndex >= list.length - 1) return;
       openDocumentDetailThroughCatalog(list[currentIndex + 1].id, inspectionId);

@@ -70,10 +70,18 @@ export function setButtonBusy(button, busy, busyText = 'Processando…') {
   if (!button) return;
 
   if (busy) {
-    button.dataset.originalText = button.innerHTML;
+    const depth = Number(button.dataset.busyDepth || 0);
+    if (depth === 0) button.dataset.originalText = button.innerHTML;
+    button.dataset.busyDepth = String(depth + 1);
     button.disabled = true;
     button.setAttribute('aria-busy', 'true');
     button.textContent = busyText;
+    return;
+  }
+
+  const depth = Math.max(0, Number(button.dataset.busyDepth || 1) - 1);
+  if (depth > 0) {
+    button.dataset.busyDepth = String(depth);
     return;
   }
 
@@ -81,20 +89,34 @@ export function setButtonBusy(button, busy, busyText = 'Processando…') {
   button.disabled = false;
   button.removeAttribute('aria-busy');
   delete button.dataset.originalText;
+  delete button.dataset.busyDepth;
 }
 
 export function openModal(content, { label = 'Janela de diálogo' } = {}) {
+  const modalLabel = String(label || 'Janela de diálogo');
+  const existing = [...document.querySelectorAll('.modal-backdrop[data-modal-label]')]
+    .find(item => item.dataset.modalLabel === modalLabel);
+  if (existing) {
+    const focusable = existing.querySelector('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])');
+    focusable?.focus();
+    return existing;
+  }
+
   const previousFocus = document.activeElement;
   const element = document.createElement('div');
   element.className = 'modal-backdrop';
+  element.dataset.modalLabel = modalLabel;
   element.innerHTML = `
     <div class="modal" role="dialog" aria-modal="true" aria-label="${escapeHtml(label)}">
       ${content}
     </div>`;
 
+  let closed = false;
   function close() {
+    if (closed) return;
+    closed = true;
     element.remove();
-    document.body.classList.remove('modal-open');
+    if (!document.querySelector('.modal-backdrop')) document.body.classList.remove('modal-open');
     if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
   }
 
