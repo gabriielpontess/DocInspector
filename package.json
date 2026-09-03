@@ -14,7 +14,7 @@
     "check": "npm run check:syntax && npm run check:sql && npm run check:secrets && npm run check:automation && npm test"
   },
   "devDependencies": {
-    "@playwright/test": "1.62.0"
+    "@playwright/test": "1.62.1"
   },
   "engines": {
     "node": ">=20"
