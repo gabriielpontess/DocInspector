@@ -12,7 +12,7 @@ const managementUi = fs.readFileSync(new URL('../js/document-management-ui.js', 
 const app = fs.readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
 const report = fs.readFileSync(new URL('../js/report.js', import.meta.url), 'utf8');
 const purgeMigration = fs.readFileSync(
-  new URL('../supabase/migrations/20260903160400_remove_confidential_pdf_database_subsystem.sql', import.meta.url),
+  new URL('../supabase/migrations/20260903161831_remove_confidential_pdf_database_subsystem.sql', import.meta.url),
   'utf8'
 );
 

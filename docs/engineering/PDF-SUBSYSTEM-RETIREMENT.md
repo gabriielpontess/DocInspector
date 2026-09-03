@@ -8,7 +8,7 @@ A exportação do **relatório de inspeção para PDF** permanece. Ela usa jsPDF
 
 ## Expurgo de banco
 
-A etapa de expurgo foi aprovada depois da retirada do runtime. A migração `20260903160400_remove_confidential_pdf_database_subsystem.sql` elimina a superfície de banco específica do recurso retirado: políticas de acesso ao bucket, RPCs de criptografia/rotação, o guard E2EE de desativação de membros, tabelas de PDFs confidenciais, envelopes, backups e chaves.
+A etapa de expurgo foi aprovada depois da retirada do runtime. A migração `20260903161831_remove_confidential_pdf_database_subsystem.sql` elimina a superfície de banco específica do recurso retirado: políticas de acesso ao bucket, RPCs de criptografia/rotação, o guard E2EE de desativação de membros, tabelas de PDFs confidenciais, envelopes, backups e chaves.
 
 As migrações históricas anteriores permanecem no repositório como trilha de migração já aplicada; elas não são reescritas nem apagadas.
 
