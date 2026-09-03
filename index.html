@@ -24,79 +24,32 @@
   <link rel="stylesheet" href="auth.css">
   <link rel="stylesheet" href="engineering-tracker.css">
   <style id="modal-polish">
-    .modal .export-field-evidence-option label {
-      align-items: center;
-      gap: 10px;
-    }
+    .modal .export-field-evidence-option label { align-items: center; gap: 10px; }
     .modal .export-field-evidence-option #exp-pdf-copies {
-      flex: 0 0 18px;
-      width: 18px !important;
-      min-width: 18px !important;
-      height: 18px !important;
-      min-height: 18px !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      accent-color: var(--color-navy-800);
+      flex: 0 0 18px; width: 18px !important; min-width: 18px !important; height: 18px !important; min-height: 18px !important;
+      margin: 0 !important; padding: 0 !important; accent-color: var(--color-navy-800);
     }
-    .modal .export-field-evidence-option strong {
-      margin: 0;
-      font-size: var(--text-sm);
-      line-height: 1.35;
-    }
+    .modal .export-field-evidence-option strong { margin: 0; font-size: var(--text-sm); line-height: 1.35; }
 
     @media (min-width: 768px) {
-      .modal:has(#sync-inline-status) {
-        overflow: hidden;
-        scrollbar-gutter: auto;
-      }
+      .modal:has(#sync-inline-status) { overflow: hidden; scrollbar-gutter: auto; }
       .modal:has(#sync-inline-status) .sync-setup-tabs {
-        max-height: min(680px, calc(90dvh - 150px));
-        overflow-x: hidden;
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        padding-right: 10px;
-        scrollbar-gutter: stable;
-        scrollbar-width: thin;
-        scrollbar-color: rgba(105, 120, 139, .68) transparent;
+        max-height: min(680px, calc(90dvh - 150px)); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+        padding-right: 10px; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: rgba(105, 120, 139, .68) transparent;
       }
       .modal:has(#sync-inline-status) .sync-setup-tabs::-webkit-scrollbar { width: 7px; }
-      .modal:has(#sync-inline-status) .sync-setup-tabs::-webkit-scrollbar-track {
-        margin-block: 10px;
-        background: transparent;
-      }
-      .modal:has(#sync-inline-status) .sync-setup-tabs::-webkit-scrollbar-thumb {
-        border: 2px solid transparent;
-        border-radius: 999px;
-        background: rgba(105, 120, 139, .68);
-        background-clip: content-box;
-      }
+      .modal:has(#sync-inline-status) .sync-setup-tabs::-webkit-scrollbar-track { margin-block: 10px; background: transparent; }
+      .modal:has(#sync-inline-status) .sync-setup-tabs::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 999px; background: rgba(105, 120, 139, .68); background-clip: content-box; }
       .modal:has(#sync-inline-status) .sync-setup-tabs::-webkit-scrollbar-button { display: none; }
       .modal:has(#sync-inline-status) .sync-setup-tabs::-webkit-scrollbar-corner { background: transparent; }
     }
 
     @media (min-width: 768px) and (min-height: 700px) {
-      .modal:has(#generate-pdf) {
-        width: min(980px, calc(100vw - 40px));
-        max-height: calc(100dvh - 28px);
-        overflow: hidden;
-        padding: 14px 16px;
-      }
+      .modal:has(#generate-pdf) { width: min(980px, calc(100vw - 40px)); max-height: calc(100dvh - 28px); overflow: hidden; padding: 14px 16px; }
       .modal:has(#generate-pdf) .modal-head { margin-bottom: 8px; }
       .modal:has(#generate-pdf) .modal-head h2 { font-size: 21px; line-height: 26px; }
-      .modal:has(#generate-pdf) .export-report-preview {
-        display: grid;
-        grid-template-columns: minmax(220px, .72fr) minmax(0, 1.28fr);
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 8px;
-        padding: 10px 12px;
-      }
-      .modal:has(#generate-pdf) .export-report-preview > div:first-child {
-        display: grid;
-        grid-template-columns: auto minmax(0, 1fr);
-        align-items: baseline;
-        gap: 2px 10px;
-      }
+      .modal:has(#generate-pdf) .export-report-preview { display: grid; grid-template-columns: minmax(220px, .72fr) minmax(0, 1.28fr); align-items: center; gap: 12px; margin-bottom: 8px; padding: 10px 12px; }
+      .modal:has(#generate-pdf) .export-report-preview > div:first-child { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 2px 10px; }
       .modal:has(#generate-pdf) .export-report-preview > div:first-child .section-kicker { grid-column: 1 / -1; margin-bottom: 0; }
       .modal:has(#generate-pdf) .export-report-preview > div:first-child strong { font-size: 18px; line-height: 24px; }
       .modal:has(#generate-pdf) .export-report-preview > div:first-child small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -130,11 +83,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/tesseract.min.js" crossorigin="anonymous"></script>
   <script type="importmap">
-    {
-      "imports": {
-        "./js/sync.js": "./js/sync-auth.js"
-      }
-    }
+    { "imports": { "./js/sync.js": "./js/sync-auth.js" } }
   </script>
   <script id="pwa-update-handoff">
     if ('serviceWorker' in navigator) {
@@ -150,22 +99,17 @@
       navigator.serviceWorker.getRegistration()
         .then(registration => {
           if (!registration) return;
-
-          // A worker that was already waiting when this page opened is safe to
-          // promote now: the application modules below have not booted yet.
           if (registration.waiting && navigator.serviceWorker.controller) {
             startupHandoff = true;
             registration.waiting.postMessage({ type: 'SKIP_WAITING' });
             return;
           }
-
-          // Updates discovered after boot remain waiting until the next opening,
-          // avoiding an automatic reload while an inspection may be in progress.
           registration?.update().catch(() => {});
         })
         .catch(() => {});
     }
   </script>
+  <script type="module" src="js/settings-refinement-ui.js"></script>
   <script type="module" src="js/auth-entry.js"></script>
   <script type="module" src="js/recovery-ui.js"></script>
   <script type="module" src="js/engineering-tracker-ui.js"></script>
