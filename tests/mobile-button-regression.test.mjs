@@ -42,7 +42,7 @@ assert.match(responsive, /\.document-management-row-actions \.btn \.icon[\s\S]*w
 assert.match(responsive, /\.document-management-detail-actions\s*\{[\s\S]*display:\s*grid;[\s\S]*width:\s*100%;/,
   'ações na página de detalhes devem ocupar uma coluna estável em mobile');
 
-assert.match(sw, /const CACHE_REVISION = `\$\{VERSION\}-workflow-refinements-1`;/,
+assert.match(sw, /const CACHE_REVISION = `\$\{VERSION\}-settings-admin-1`;/,
   'mudanças no app shell precisam chegar ao PWA instalado em uma nova geração de cache');
 
 console.log('Mobile button regression contracts passed.');
