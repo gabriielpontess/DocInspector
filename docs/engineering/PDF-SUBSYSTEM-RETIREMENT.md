@@ -6,11 +6,17 @@ O subsistema de arquivos PDF confidenciais foi retirado do runtime do DocInspect
 
 A exportação do **relatório de inspeção para PDF** permanece. Ela usa jsPDF e é uma capacidade independente do subsistema retirado.
 
-## Dados legados
+## Expurgo de banco
 
-As migrações históricas do Supabase permanecem no repositório como trilha de migração já aplicada. O banco de produção também mantém, por enquanto, os registros e objetos cifrados criados antes da retirada. O aplicativo não depende deles nem fornece interface para acessá-los.
+A etapa de expurgo foi aprovada depois da retirada do runtime. A migração `20260903160400_remove_confidential_pdf_database_subsystem.sql` elimina a superfície de banco específica do recurso retirado: políticas de acesso ao bucket, RPCs de criptografia/rotação, o guard E2EE de desativação de membros, tabelas de PDFs confidenciais, envelopes, backups e chaves.
 
-A exclusão física de bucket, objetos, tabelas, funções e chaves legadas é uma operação irreversível e deve ser executada somente em uma etapa de expurgo explicitamente aprovada, depois de confirmar que não há necessidade de recuperação desses dados.
+As migrações históricas anteriores permanecem no repositório como trilha de migração já aplicada; elas não são reescritas nem apagadas.
+
+## Storage
+
+Os bytes dos objetos do bucket `docinspector-confidential-pdfs` precisam ser excluídos pela **Storage API** antes de o bucket ser removido. O Supabase orienta explicitamente a não excluir `storage.objects` por SQL, pois isso remove apenas metadados e deixa arquivos órfãos no provedor de armazenamento.
+
+Por isso, a migração de banco não executa `DELETE` em `storage.objects` nem remove o bucket por SQL. Ela remove as políticas de cliente para impedir novo uso do recurso; o esvaziamento e a exclusão física do bucket são uma etapa operacional separada, via Storage API com credencial administrativa.
 
 ## Garantias de regressão
 
@@ -19,4 +25,5 @@ A suíte automatizada verifica que:
 - não existem módulos `confidential-*` nem o shim de upload retirado;
 - `pdfjs-dist` e o processo de vendor do PDF.js não fazem parte do build;
 - Service Worker, autenticação, administração de usuários, lixeira e gestão de documentos não referenciam o subsistema retirado;
+- a migração de expurgo remove a superfície de banco específica do recurso sem manipular `storage.objects` por SQL;
 - a exportação normal do relatório em PDF continua disponível.
