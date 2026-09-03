@@ -1,7 +1,7 @@
 const VERSION = '0.9.52';
-// Rotate the complete app-shell generation when runtime composition changes.
-// This retirement revision evicts assets from the removed document-file subsystem.
-const CACHE_REVISION = `${VERSION}-pdf-retirement-1`;
+// Rotate the complete app-shell generation when runtime interaction changes.
+// This revision delivers alphabetical navigation, recovery continuity and action de-duplication atomically.
+const CACHE_REVISION = `${VERSION}-workflow-refinements-1`;
 const CORE_CACHE = `docinspector-core-${CACHE_REVISION}`;
 const RUNTIME_CACHE = `docinspector-runtime-${CACHE_REVISION}`;
 const XLSX_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';

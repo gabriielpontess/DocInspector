@@ -22,9 +22,9 @@ async function seedInspections(page) {
     const betaTwo = makeDocument({ code: 'PW-B-002', description: 'Documento Beta 2', expectedRevision: 'B', status: 'ATIVO' });
     addFieldCopy(betaOne, { foundRevision: 'A', markings: ['Verde'], comment: 'Cópia B1' });
     addFieldCopy(betaTwo, { foundRevision: 'C', markings: ['Vermelho'], comment: 'Cópia B2' });
-    beta.documents = [betaOne, betaTwo];
+    beta.documents = [betaTwo, betaOne];
 
-    await replaceAllInspections([alpha, beta]);
+    await replaceAllInspections([beta, alpha]);
   });
   await page.reload();
   await expect(page.locator('.inspection-item')).toHaveCount(2);
@@ -143,4 +143,35 @@ test('Sincronização mantém a rolagem afastada da moldura do modal no desktop'
     expect(metrics).not.toBeNull();
     expect(metrics.modalRight - metrics.tabsRight).toBeGreaterThanOrEqual(Math.max(10, metrics.paddingRight - 2));
   }
+});
+
+
+test('Home, Documentos e sequência de campo respeitam A-Z', async ({ page }) => {
+  await seedInspections(page);
+
+  const cards = page.locator('.inspection-item');
+  await expect(cards.nth(0)).toContainText('ALFA');
+  await expect(cards.nth(1)).toContainText('BETA');
+
+  await page.locator('[data-nav="docs"]:visible').first().click();
+  await expect(page.locator('#sort-docs')).toHaveValue('code');
+  await expect(page.locator('#sort-docs option:checked')).toHaveText('Código PW · A–Z');
+  const codes = await page.locator('#docs-body .code-cell strong').allTextContents();
+  expect(codes).toEqual(['PW-A-001', 'PW-B-001', 'PW-B-002']);
+
+  await page.locator('[data-nav="inspect"]:visible').first().click();
+  await page.locator('#verification-scope').selectOption('inspection-beta');
+  await page.locator('#pw-search').fill('PW-B-001');
+  await page.locator('#pw-search').press('Enter');
+  await expect(page.locator('.doc-detail .doc-heading h2')).toHaveText('PW-B-001');
+
+  await page.locator('#found-revision').fill('A');
+  await page.locator('#save-verification').click();
+  await expect(page.locator('.doc-detail .doc-heading h2')).toHaveText('PW-B-001');
+  await expect(page.locator('.copies-history')).toContainText('Cópia 2');
+  await expect(page.locator('#next-document')).toBeEnabled();
+
+  await page.locator('#next-document').click();
+  await expect(page.locator('.doc-detail .doc-heading h2')).toHaveText('PW-B-002');
+  await expect(page.locator('#next-document')).toBeDisabled();
 });

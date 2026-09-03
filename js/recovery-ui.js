@@ -53,7 +53,7 @@ async function openDocumentTrash() {
   const inspections = await listInspections();
   const entries = inspections.flatMap(inspection =>
     listRestorableDeletedDocuments(inspection).map(entry => ({ inspection, entry }))
-  );
+  ).sort((a, b) => String(a.entry.document.code || '').localeCompare(String(b.entry.document.code || ''), 'pt-BR', { numeric: true, sensitivity: 'base' }));
   const online = navigator.onLine !== false;
   const modal = openModal(`
     <div class="modal-head"><div><span class="section-kicker">LIXEIRA DE DOCUMENTOS</span><h2>Documentos excluídos</h2></div></div>
@@ -77,7 +77,11 @@ async function openDocumentTrash() {
         const result = await restoreDeletedDocument(row.dataset.documentTrashInspection, row.dataset.documentTrashId);
         const syncNote = result.syncPending ? ' A alteração ficou salva localmente e a sincronização será repetida.' : '';
         showToast(`Documento restaurado com histórico preservado.${syncNote}`, result.syncPending ? '' : 'success');
-        modal.closeModal();
+        row.remove();
+        const list = modal.querySelector('[data-document-trash-list]');
+        if (list && !list.querySelector('[data-document-trash-id]')) {
+          list.innerHTML = '<div class="card empty"><div><strong>Lixeira vazia.</strong><small>Nenhum documento excluído está aguardando recuperação.</small></div></div>';
+        }
       } catch (error) {
         showToast(error?.message || 'Não foi possível restaurar o documento.', 'error');
       } finally {
